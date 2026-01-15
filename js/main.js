@@ -2946,6 +2946,16 @@ g.showDodgeEffect = (t) => {
       const rankText = board.rank ? `#${board.rank}` : "—";
       const tierColor = (g._combatTierFromScore ? g._combatTierFromScore(run.score).color : "#fff");
 
+      const submitFormHtml = g._scoreSubmitted ? `
+        <div class="submit-status success">分数已提交到全球排行榜!</div>
+      ` : `
+        <div class="submit-score-form">
+          <input type="text" id="submitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" value="${getStoredPlayerName()}" />
+          <button id="submitScoreBtn">提交分数</button>
+          <div id="submitStatus" class="submit-status"></div>
+        </div>
+      `;
+
       gameoverStatsEl.innerHTML = `
         <div style="display:flex; gap:10px; justify-content:center; align-items:baseline; flex-wrap:wrap;">
           <div>战力评分: <b style="color:${tierColor}">${run.score}</b></div>
@@ -2959,10 +2969,75 @@ g.showDodgeEffect = (t) => {
           <div>获得技能: <b>${g.acquiredSkills.length}</b></div>
           <div style="opacity:.9;">平均战力: <b>${run.avg}</b> · 峰值战力: <b>${run.peak}</b></div>
         </div>
+        ${submitFormHtml}
         ${renderLeaderboardTable(board.list, run.id)}
       `;
 
+      if (!g._scoreSubmitted) {
+        const submitBtn = document.getElementById("submitScoreBtn");
+        const submitNameInput = document.getElementById("submitNameInput");
+        const submitStatus = document.getElementById("submitStatus");
+
+        if (submitBtn && submitNameInput) {
+          submitBtn.addEventListener("click", async () => {
+            const playerName = submitNameInput.value.trim();
+            if (!playerName) {
+              submitStatus.textContent = "请输入名字";
+              submitStatus.className = "submit-status error";
+              return;
+            }
+
+            submitBtn.disabled = true;
+            submitStatus.textContent = "提交中...";
+            submitStatus.className = "submit-status";
+
+            storePlayerName(playerName);
+
+            if (window.SupabaseAPI) {
+              const result = await window.SupabaseAPI.submitScore(
+                playerName,
+                run.score,
+                run.level,
+                run.kills,
+                run.time,
+                run.tier
+              );
+
+              if (result.error) {
+                submitStatus.textContent = "提交失败，请重试";
+                submitStatus.className = "submit-status error";
+                submitBtn.disabled = false;
+              } else {
+                submitStatus.textContent = "提交成功!";
+                submitStatus.className = "submit-status success";
+                g._scoreSubmitted = true;
+                submitBtn.style.display = "none";
+                submitNameInput.style.display = "none";
+              }
+            } else {
+              submitStatus.textContent = "Supabase 未初始化";
+              submitStatus.className = "submit-status error";
+              submitBtn.disabled = false;
+            }
+          });
+        }
+      }
+
       restartRow.style.display = "flex";
+    }
+
+    function getStoredPlayerName() {
+      try {
+        return localStorage.getItem("bigear_player_name") || "";
+      } catch {
+        return "";
+      }
+    }
+
+    function storePlayerName(name) {
+      try {
+        localStorage.setItem("bigear_player_name", name);
+      } catch {}
     }
 
     function updateHUD(exp, hp, lv){
@@ -3062,6 +3137,12 @@ g.showDodgeEffect = (t) => {
     }
 
     window.addEventListener("keydown", (e) => {
+      // 如果焦点在输入框中，完全不处理，让浏览器默认行为处理输入
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        return; // 直接返回，不阻止任何默认行为
+      }
+      
       const k = e.key.toLowerCase();
 
       // unlock audio on user gesture (autoplay policies)
@@ -3082,6 +3163,12 @@ g.showDodgeEffect = (t) => {
     }, { passive:false });
 
     window.addEventListener("keyup", (e) => {
+      // 如果焦点在输入框中，完全不处理
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        return; // 直接返回，不阻止任何默认行为
+      }
+      
       const k = e.key.toLowerCase();
       if (["w","a","s","d"].includes(k)) {
         keys.delete(k);
@@ -3407,6 +3494,24 @@ g.showDodgeEffect = (t) => {
       ctx.fillStyle = g.player.color;
       ctx.fillRect(sx(g.player.x) - 15, sy(g.player.y) - 15, 30, 30);
 
+      // remote players (multiplayer)
+      if (typeof remotePlayers !== 'undefined') {
+        for (const id in remotePlayers) {
+          const p = remotePlayers[id];
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(sx(p.x) - 12, sy(p.y) - 12, 24, 24);
+
+          ctx.globalAlpha = 0.8;
+          ctx.font = "bold 12px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(p.playerName, sx(p.x), sy(p.y) - 16);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
       // effects
       for (let i = 0; i < g.effects.length; i++) {
         const ef = g.effects[i];
@@ -3537,10 +3642,364 @@ g.showDodgeEffect = (t) => {
     }
 
     // ============================================================
-    // 9. Boot
+    // 9. Global Leaderboard UI
+    // ============================================================
+    const leaderboardToggle = document.getElementById("leaderboardToggle");
+    const globalLeaderboard = document.getElementById("globalLeaderboard");
+    const globalLeaderboardContent = document.getElementById("globalLeaderboardContent");
+    const closeLeaderboard = document.getElementById("closeLeaderboard");
+
+    async function loadGlobalLeaderboard() {
+      if (!globalLeaderboardContent) return;
+      globalLeaderboardContent.innerHTML = '<div class="lb-loading">加载中...</div>';
+
+      if (!window.SupabaseAPI) {
+        globalLeaderboardContent.innerHTML = '<div class="lb-loading">Supabase 未初始化</div>';
+        return;
+      }
+
+      const result = await window.SupabaseAPI.getLeaderboard(50);
+      if (result.error) {
+        globalLeaderboardContent.innerHTML = '<div class="lb-loading">加载失败</div>';
+        return;
+      }
+
+      if (result.data.length === 0) {
+        globalLeaderboardContent.innerHTML = '<div class="lb-loading">暂无数据</div>';
+        return;
+      }
+
+      const rows = result.data.map((r, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td>${escapeHtml(r.player_name)}</td>
+          <td style="font-weight:900;">${r.score}</td>
+          <td>${r.tier || ""}</td>
+          <td>${formatTime(r.survival_time)}</td>
+          <td>Lv.${r.level}</td>
+          <td>${r.kills}</td>
+        </tr>
+      `).join("");
+
+      globalLeaderboardContent.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>玩家</th>
+              <th>分数</th>
+              <th>段位</th>
+              <th>时间</th>
+              <th>等级</th>
+              <th>击杀</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    if (leaderboardToggle) {
+      leaderboardToggle.addEventListener("click", () => {
+        if (globalLeaderboard) {
+          globalLeaderboard.classList.toggle("hidden");
+          if (!globalLeaderboard.classList.contains("hidden")) {
+            loadGlobalLeaderboard();
+          }
+        }
+      });
+    }
+
+    if (closeLeaderboard) {
+      closeLeaderboard.addEventListener("click", () => {
+        if (globalLeaderboard) {
+          globalLeaderboard.classList.add("hidden");
+        }
+      });
+    }
+
+    // ============================================================
+    // 10. Multiplayer / Realtime
+    // ============================================================
+    const multiplayerToggle = document.getElementById("multiplayerToggle");
+    const multiplayerMenu = document.getElementById("multiplayerMenu");
+    const playerNameInput = document.getElementById("playerNameInput");
+    const roomIdInput = document.getElementById("roomIdInput");
+    const joinRoomBtn = document.getElementById("joinRoomBtn");
+    const roomStatus = document.getElementById("roomStatus");
+    const playerList = document.getElementById("playerList");
+    const leaveRoomBtn = document.getElementById("leaveRoomBtn");
+
+    let currentChannel = null;
+    let currentRoomId = null;
+    let localPlayerId = null;
+    let remotePlayers = {};
+    let lastBroadcastTime = 0;
+    const BROADCAST_INTERVAL = 50;
+
+    function generatePlayerId() {
+      return `player_${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+    }
+
+    function generateRoomId() {
+      return Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+
+    function getPlayerColor() {
+      const colors = ["#00d7ff", "#ff3b30", "#34c759", "#ff9f0a", "#af52de", "#5ac8fa", "#ffcc00", "#ff2d55"];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    if (multiplayerToggle) {
+      multiplayerToggle.addEventListener("click", () => {
+        if (multiplayerMenu) {
+          multiplayerMenu.classList.toggle("hidden");
+        }
+      });
+    }
+
+    async function joinRoom(roomId) {
+      if (!window.SupabaseAPI) {
+        if (roomStatus) {
+          roomStatus.textContent = "Supabase 未初始化";
+          roomStatus.className = "mp-status error";
+        }
+        return;
+      }
+
+      if (currentChannel) {
+        await leaveRoom();
+      }
+
+      localPlayerId = generatePlayerId();
+      currentRoomId = roomId || generateRoomId();
+
+      if (roomStatus) {
+        roomStatus.textContent = `连接中...`;
+        roomStatus.className = "mp-status";
+      }
+
+      currentChannel = window.SupabaseAPI.createRealtimeChannel(currentRoomId);
+
+      if (!currentChannel) {
+        if (roomStatus) {
+          roomStatus.textContent = "创建频道失败";
+          roomStatus.className = "mp-status error";
+        }
+        return;
+      }
+
+      window.SupabaseAPI.subscribeToRoom(
+        currentChannel,
+        (data) => {
+          if (data.playerId !== localPlayerId) {
+            remotePlayers[data.playerId] = {
+              x: data.x,
+              y: data.y,
+              color: data.color || "#ff3b30",
+              playerName: data.playerName || "玩家",
+              lastUpdate: Date.now()
+            };
+            updatePlayerList();
+          }
+        },
+        (data) => {
+          delete remotePlayers[data.playerId];
+          updatePlayerList();
+        },
+        (status) => {
+          if (status === "SUBSCRIBED") {
+            if (roomStatus) {
+              roomStatus.textContent = `已连接到房间: ${currentRoomId}`;
+              roomStatus.className = "mp-status connected";
+            }
+            if (multiplayerToggle) {
+              multiplayerToggle.classList.add("active");
+            }
+            if (leaveRoomBtn) {
+              leaveRoomBtn.classList.remove("hidden");
+            }
+            if (joinRoomBtn) {
+              joinRoomBtn.textContent = "已连接";
+              joinRoomBtn.disabled = true;
+            }
+          } else if (status === "CHANNEL_ERROR") {
+            if (roomStatus) {
+              roomStatus.textContent = "连接失败";
+              roomStatus.className = "mp-status error";
+            }
+          }
+        }
+      );
+    }
+
+    async function leaveRoom() {
+      if (currentChannel) {
+        const playerName = playerNameInput ? playerNameInput.value.trim() : "玩家";
+        window.SupabaseAPI.broadcastPlayerLeft(currentChannel, localPlayerId);
+        window.SupabaseAPI.unsubscribeFromRoom(currentChannel);
+        currentChannel = null;
+      }
+
+      currentRoomId = null;
+      localPlayerId = null;
+      remotePlayers = {};
+
+      if (roomStatus) {
+        roomStatus.textContent = "";
+        roomStatus.className = "mp-status";
+      }
+      if (playerList) {
+        playerList.innerHTML = "";
+      }
+      if (multiplayerToggle) {
+        multiplayerToggle.classList.remove("active");
+      }
+      if (leaveRoomBtn) {
+        leaveRoomBtn.classList.add("hidden");
+      }
+      if (joinRoomBtn) {
+        joinRoomBtn.textContent = "加入/创建房间";
+        joinRoomBtn.disabled = false;
+      }
+    }
+
+    function updatePlayerList() {
+      if (!playerList) return;
+
+      const now = Date.now();
+      for (const id in remotePlayers) {
+        if (now - remotePlayers[id].lastUpdate > 10000) {
+          delete remotePlayers[id];
+        }
+      }
+
+      const playerName = playerNameInput ? playerNameInput.value.trim() : "玩家";
+      const localPlayerColor = game ? game.player.color : "#00d7ff";
+
+      let html = `
+        <div class="mp-player">
+          <div class="mp-player-dot" style="background:${localPlayerColor}"></div>
+          <div class="mp-player-name">${escapeHtml(playerName)} (你)</div>
+        </div>
+      `;
+
+      for (const id in remotePlayers) {
+        const p = remotePlayers[id];
+        html += `
+          <div class="mp-player">
+            <div class="mp-player-dot" style="background:${p.color}"></div>
+            <div class="mp-player-name">${escapeHtml(p.playerName)}</div>
+          </div>
+        `;
+      }
+
+      playerList.innerHTML = html;
+    }
+
+    function broadcastPlayerPosition() {
+      if (!currentChannel || !game || !localPlayerId) return;
+
+      const now = Date.now();
+      if (now - lastBroadcastTime < BROADCAST_INTERVAL) return;
+      lastBroadcastTime = now;
+
+      const playerName = playerNameInput ? playerNameInput.value.trim() : "玩家";
+      window.SupabaseAPI.broadcastPosition(
+        currentChannel,
+        localPlayerId,
+        game.player.x,
+        game.player.y,
+        game.player.color,
+        playerName
+      );
+    }
+
+    if (joinRoomBtn) {
+      joinRoomBtn.addEventListener("click", () => {
+        const roomId = roomIdInput ? roomIdInput.value.trim().toUpperCase() : "";
+        joinRoom(roomId);
+      });
+    }
+
+    if (leaveRoomBtn) {
+      leaveRoomBtn.addEventListener("click", () => {
+        leaveRoom();
+      });
+    }
+
+    if (playerNameInput) {
+      const storedName = getStoredPlayerName();
+      if (storedName) {
+        playerNameInput.value = storedName;
+      }
+    }
+
+    // ============================================================
+    // 11. Render remote players
+    // ============================================================
+    const originalRender = makeGame().render;
+
+    function renderRemotePlayers(ctx, sx, sy) {
+      for (const id in remotePlayers) {
+        const p = remotePlayers[id];
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = p.color;
+        ctx.fillRect(sx(p.x) - 12, sy(p.y) - 12, 24, 24);
+
+        ctx.globalAlpha = 0.8;
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillStyle = "#fff";
+        ctx.fillText(p.playerName, sx(p.x), sy(p.y) - 16);
+        ctx.globalAlpha = 1.0;
+      }
+    }
+
+    // ============================================================
+    // 12. Boot
     // ============================================================
     resize();
     resetGame();
-    requestAnimationFrame(tick);
+
+    const originalTick = tick;
+    function tickWithMultiplayer() {
+      const t = nowSec();
+
+      if (game) {
+        const keyVec = recomputeKeyVector();
+        if (!joyActive) {
+          game.joystickVector = keyVec;
+        }
+
+        game.update(t);
+
+        if (typeof game.directorStep === "function") game.directorStep(t);
+
+        game.render(t);
+
+        if (currentChannel && !game.isGameOver && !game.isPausedGame) {
+          broadcastPlayerPosition();
+        }
+
+        updateHUD(game.currentExp / game.maxExp, game.playerHealth / game.playerMaxHealth, game.level);
+
+        if (game.isGameOver) {
+          game.isPausedGame = true;
+          showGameOverOverlay(game);
+        }
+      }
+
+      requestAnimationFrame(tickWithMultiplayer);
+    }
+
+    requestAnimationFrame(tickWithMultiplayer);
 
   })();
