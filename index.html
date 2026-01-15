@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>bigear - single page</title>
   <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="root">
@@ -39,12 +40,40 @@
 
     <button id="soundToggle" title="声音（点击静音/开声音）" aria-label="sound">🔊</button>
     <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级 · M 静音</div>
+
+    <div id="multiplayerPanel">
+      <button id="multiplayerToggle" title="联机模式">👥</button>
+      <div id="multiplayerMenu" class="hidden">
+        <div class="mp-header">联机模式</div>
+        <div class="mp-section">
+          <input type="text" id="playerNameInput" placeholder="输入你的名字" maxlength="20" />
+        </div>
+        <div class="mp-section">
+          <input type="text" id="roomIdInput" placeholder="房间号（留空创建新房间）" maxlength="10" />
+          <button id="joinRoomBtn">加入/创建房间</button>
+        </div>
+        <div id="roomStatus" class="mp-status"></div>
+        <div id="playerList" class="mp-players"></div>
+        <button id="leaveRoomBtn" class="hidden">离开房间</button>
+      </div>
+    </div>
+
+    <button id="leaderboardToggle" title="全球排行榜">🏆</button>
+    <div id="globalLeaderboard" class="hidden">
+      <div class="lb-header">
+        <span>全球排行榜</span>
+        <button id="closeLeaderboard">×</button>
+      </div>
+      <div id="globalLeaderboardContent"></div>
+    </div>
   </div>
 
   <script src="js/utils.js"></script>
   <script src="js/sfx.js"></script>
   <script src="js/skills.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
