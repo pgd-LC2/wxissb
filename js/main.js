@@ -129,6 +129,7 @@
         knockbackForce: 0,
         spreadAngle: 0.15,
         pickupRange: 100,
+        expMagnetAll: false,  // 自动吸取所有经验球
         critRate: 0.05,
         critDamageMulti: 2.0,
         damageReduction: 0,
@@ -1974,9 +1975,11 @@ g.showDodgeEffect = (t) => {
           const dy = g.player.y - orb.y;
           const dist = hypot(dx, dy);
 
-          if (dist < g.pickupRange) {
-            orb.x += dx * 0.1;
-            orb.y += dy * 0.1;
+          // 如果启用了全局经验吸取，所有经验球都会被吸引
+          if (g.expMagnetAll || dist < g.pickupRange) {
+            const speed = g.expMagnetAll ? 0.15 : 0.1;  // 全局吸取时速度稍快
+            orb.x += dx * speed;
+            orb.y += dy * speed;
           }
 
           // pickup
