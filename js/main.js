@@ -1,0 +1,3928 @@
+  (() => {
+    "use strict";
+
+    // ============================================================
+    // 0. DOM
+    // ============================================================
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d", { alpha: false });
+
+    const levelBadge = document.getElementById("levelBadge");
+    const hpFill = document.getElementById("hpFill");
+    const expFill = document.getElementById("expFill");
+    const skillCountEl = document.getElementById("skillCount");
+    const powerBadgeEl = document.getElementById("powerBadge");
+
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlayTitle");
+    const overlaySubtitle = document.getElementById("overlaySubtitle");
+    const choicesEl = document.getElementById("choices");
+    const gameoverStatsEl = document.getElementById("gameoverStats");
+    const restartRow = document.getElementById("restartRow");
+    const restartBtn = document.getElementById("restartBtn");
+
+    const joystickEl = document.getElementById("joystick");
+    const joyKnob = document.getElementById("joyKnob");
+    const soundToggle = document.getElementById("soundToggle");
+
+    // ============================================================
+    // 1. Utils
+    // ============================================================
+    const TAU = Math.PI * 2;
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const rand = (a, b) => a + (b - a) * Math.random();
+    const nowSec = () => performance.now() / 1000;
+    const hypot = (dx, dy) => Math.sqrt(dx*dx + dy*dy);
+
+    function colorWithAlpha(hex, a){
+      // hex like "#rrggbb"
+      const r = parseInt(hex.slice(1,3),16);
+      const g = parseInt(hex.slice(3,5),16);
+      const b = parseInt(hex.slice(5,7),16);
+      return `rgba(${r},${g},${b},${a})`;
+    }
+
+    
+    // ============================================================
+    // 1.5 SFX (WebAudio synth, no external assets)
+    // ============================================================
+    const SFX = (() => {
+      let ctx = null;
+      let master = null;
+      let muted = false;
+
+      const last = { shoot: 0, hit: 0, blade: 0, pick: 0, kill: 0 };
+
+      function ensure() {
+        if (muted) return null;
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        if (!ctx) {
+          ctx = new AC();
+          master = ctx.createGain();
+          master.gain.value = 0.35; // global volume
+          master.connect(ctx.destination);
+        }
+        return ctx;
+      }
+
+      async function unlock() {
+        const c = ensure();
+        if (!c) return;
+        try { if (c.state === "suspended") await c.resume(); } catch {}
+      }
+
+      function setMuted(v) {
+        muted = !!v;
+        if (master) master.gain.value = muted ? 0 : 0.35;
+      }
+
+      function isMuted() { return muted; }
+
+      function throttle(name, minIntervalSec, t) {
+        const lt = last[name] || 0;
+        if ((t - lt) < minIntervalSec) return false;
+        last[name] = t;
+        return true;
+      }
+
+      function envGain(dur, peak) {
+        const c = ensure();
+        if (!c || !master || muted) return null;
+        const g = c.createGain();
+        const t0 = c.currentTime;
+
+        // punchy envelope
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + Math.max(0.02, dur));
+        g.connect(master);
+        return g;
+      }
+
+      function tone({ type = "square", freq = 440, dur = 0.06, gain = 0.12, slide = 0, slideTime = 0.05 }) {
+        const c = ensure();
+        if (!c || muted) return;
+
+        const g = envGain(dur, gain);
+        if (!g) return;
+
+        const o = c.createOscillator();
+        o.type = type;
+        o.frequency.setValueAtTime(Math.max(40, freq), c.currentTime);
+        if (slide !== 0) {
+          o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), c.currentTime + slideTime);
+        }
+        o.connect(g);
+        o.start();
+        o.stop(c.currentTime + dur + 0.02);
+      }
+
+      function noise({ dur = 0.08, gain = 0.10, filterFreq = 900, type = "bandpass" }) {
+        const c = ensure();
+        if (!c || muted) return;
+
+        const g = envGain(dur, gain);
+        if (!g) return;
+
+        const buf = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1);
+
+        const src = c.createBufferSource();
+        src.buffer = buf;
+
+        const f = c.createBiquadFilter();
+        f.type = type;
+        f.frequency.value = filterFreq;
+
+        src.connect(f);
+        f.connect(g);
+        src.start();
+        src.stop(c.currentTime + dur + 0.02);
+      }
+
+      function shoot(t) {
+        if (!throttle("shoot", 0.035, t)) return;
+        tone({ type: "square", freq: 420 + Math.random() * 70, dur: 0.05, gain: 0.10, slide: -160, slideTime: 0.05 });
+        noise({ dur: 0.03, gain: 0.05, filterFreq: 2200, type: "highpass" });
+      }
+
+      function hit(t, crit = false) {
+        if (!throttle("hit", crit ? 0.03 : 0.02, t)) return;
+        noise({ dur: crit ? 0.09 : 0.06, gain: crit ? 0.15 : 0.10, filterFreq: crit ? 700 : 1100, type: "bandpass" });
+        tone({ type: "triangle", freq: crit ? 220 : 280, dur: crit ? 0.09 : 0.06, gain: crit ? 0.10 : 0.06, slide: crit ? -120 : -80, slideTime: 0.07 });
+      }
+
+      function blade(t) {
+        if (!throttle("blade", 0.045, t)) return;
+        tone({ type: "sawtooth", freq: 560 + Math.random() * 140, dur: 0.06, gain: 0.07, slide: -280, slideTime: 0.05 });
+        noise({ dur: 0.03, gain: 0.04, filterFreq: 3200, type: "highpass" });
+      }
+
+      function kill(t, big = false) {
+        if (!throttle("kill", big ? 0.07 : 0.05, t)) return;
+        noise({ dur: big ? 0.18 : 0.12, gain: big ? 0.22 : 0.15, filterFreq: big ? 360 : 520, type: "lowpass" });
+        tone({ type: "square", freq: big ? 110 : 140, dur: big ? 0.18 : 0.12, gain: big ? 0.12 : 0.08, slide: -40, slideTime: 0.12 });
+      }
+
+      function pickup(t) {
+        if (!throttle("pick", 0.03, t)) return;
+        tone({ type: "sine", freq: 880 + Math.random() * 140, dur: 0.05, gain: 0.05, slide: 180, slideTime: 0.04 });
+      }
+
+      function levelup(t) {
+        // tiny arpeggio
+        tone({ type: "triangle", freq: 440, dur: 0.08, gain: 0.11, slide: 220, slideTime: 0.08 });
+        setTimeout(() => tone({ type: "triangle", freq: 660, dur: 0.10, gain: 0.12, slide: 260, slideTime: 0.10 }), 40);
+        setTimeout(() => tone({ type: "triangle", freq: 880, dur: 0.12, gain: 0.14, slide: 320, slideTime: 0.12 }), 90);
+      }
+
+      return { unlock, setMuted, isMuted, shoot, hit, blade, kill, pickup, levelup };
+    })();
+
+// ============================================================
+    // 2. Config (mirrors Swift)
+    // ============================================================
+    const GameConfig = {
+      basePlayerSpeed: 200,
+      baseBulletSpeed: 600,
+      baseEnemySpeed: 80,
+      mapSize: 3000,
+      difficultyScaling: 0.15
+    };
+
+    // ============================================================
+    // 3. Skill system (ported from Swift, plus extra blade upgrades)
+    // ============================================================
+    function tierName(tier){
+      return tier === 2 ? "稀有" : (tier === 3 ? "传说" : "普通");
+    }
+    function tierClass(tier){
+      return tier === 2 ? "tier2" : (tier === 3 ? "tier3" : "tier1");
+    }
+    function iconFallback(iconStr){
+      // SF Symbols -> fallback letters (kept simple)
+      const map = {
+        "bolt.fill": "⚡",
+        "timer": "⏱",
+        "hare.fill": "🐇",
+        "circle.fill": "●",
+        "heart.fill": "❤",
+        "arrow.up.right": "↗",
+        "scope": "⌖",
+        "target": "◎",
+        "exclamationmark.triangle.fill": "!",
+        "magnet": "🧲",
+        "shield.fill": "🛡",
+        "book.fill": "📘",
+        "star.fill": "★",
+        "wind": "〰",
+        "cross.fill": "✚",
+        "arrow.branch": "⎇",
+        "arrow.right.to.line": "⇥",
+        "arrow.triangle.branch": "⎇",
+        "location.north.fill": "📍",
+        "arrow.uturn.right": "↩",
+        "snowflake": "❄",
+        "flame.fill": "🔥",
+        "leaf.fill": "☘",
+        "bolt.horizontal.fill": "↯",
+        "burst.fill": "💥",
+        "sun.max.fill": "☀",
+        "tornado": "🌀",
+        "shield.lefthalf.filled": "🛡",
+        "allergens": "✳",
+        "figure.dodge": "🌀",
+        "clock.badge.checkmark": "⏱",
+        "drop.fill": "🩸",
+        "bandage.fill": "🩹",
+        "bird.fill": "🕊",
+        "hand.raised.fill": "✋",
+        "airplane": "✈",
+        "fan.fill": "🗡",
+        "moon.fill": "☾",
+        "flame": "🔥",
+        "globe.americas.fill": "☄",
+        "sparkles": "✨",
+        "person.2.fill": "👥",
+        "gearshape.fill": "⚙",
+        "figure.run": "🏃",
+        "repeat.circle.fill": "⟲",
+        "waveform": "〰",
+        "circle.and.line.horizontal.fill": "⦿",
+        "dice.fill": "🎲",
+        "crown.fill": "👑",
+      };
+      return map[iconStr] || "✦";
+    }
+
+    function generateAllSkills(baseBladeSkills = []) {
+      const skills = [];
+
+      // ------------------------------
+      // 🎯 基础属性类 (1-15)
+      // ------------------------------
+      skills.push({ name:"强力子弹", description:"伤害 +15%", tier:1, icon:"bolt.fill", effect:(s)=>{ s.bulletDamage *= 1.15; }});
+      skills.push({ name:"极速射击", description:"射速 +12%", tier:1, icon:"timer", effect:(s)=>{ s.shootInterval *= 0.88; }});
+      skills.push({ name:"疾风步", description:"移动速度 +15%", tier:1, icon:"hare.fill", effect:(s)=>{ s.playerSpeedMulti *= 1.15; }});
+      skills.push({ name:"大弹仓", description:"子弹体积 +25%", tier:1, icon:"circle.fill", effect:(s)=>{ s.bulletScale *= 1.25; }});
+      skills.push({ name:"生命强化", description:"最大生命 +30", tier:1, icon:"heart.fill", effect:(s)=>{ s.playerMaxHealth += 30; s.playerHealth += 30; s.updateHealthUI(); }});
+      skills.push({ name:"弹道加速", description:"子弹飞行速度 +20%", tier:1, icon:"arrow.up.right", effect:(s)=>{ s.bulletSpeedMulti *= 1.2; }});
+      skills.push({ name:"远程打击", description:"子弹存活时间 +0.5秒", tier:1, icon:"scope", effect:(s)=>{ s.bulletLifetime += 0.5; }});
+      skills.push({ name:"精准射手", description:"暴击率 +8%", tier:1, icon:"target", effect:(s)=>{ s.critRate += 0.08; }});
+      skills.push({ name:"暴击大师", description:"暴击伤害 +30%", tier:1, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.critDamageMulti += 0.3; }});
+      skills.push({ name:"磁铁体质", description:"拾取范围 +40%", tier:1, icon:"magnet", effect:(s)=>{ s.pickupRange *= 1.4; }});
+      skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
+      skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
+      skills.push({ name:"幸运星", description:"稀有掉落率 +10%", tier:1, icon:"star.fill", effect:(s)=>{ s.luckBonus += 0.1; }});
+      skills.push({ name:"轻量化", description:"移动时不降低射速", tier:1, icon:"wind", effect:(s)=>{ s.moveShootPenalty = false; }});
+      skills.push({ name:"快速恢复", description:"每秒恢复 0.5 生命", tier:1, icon:"cross.fill", effect:(s)=>{ s.regenRate += 0.5; }});
+
+      // ------------------------------
+      // 🔫 子弹变体类 (16-35)
+      // ------------------------------
+      skills.push({ name:"多重射击", description:"子弹数量 +1", tier:2, icon:"arrow.up.forward.and.arrow.down.backward", effect:(s)=>{ s.bulletCount += 1; }});
+      skills.push({ name:"散弹枪", description:"+3 子弹，散布角度增大", tier:2, icon:"arrow.branch", effect:(s)=>{ s.bulletCount += 3; s.spreadAngle += 0.25; }});
+      skills.push({ name:"穿透弹", description:"子弹可穿透 1 个敌人", tier:2, icon:"arrow.right.to.line", effect:(s)=>{ s.pierceCount += 1; }});
+      skills.push({ name:"分裂弹", description:"子弹击中敌人后分裂成 2 发", tier:3, icon:"arrow.triangle.branch", effect:(s)=>{ s.splitOnHit = true; s.splitCount = 2; }});
+      skills.push({ name:"追踪导弹", description:"子弹会轻微追踪敌人", tier:2, icon:"location.north.fill", effect:(s)=>{ s.homingStrength += 0.3; }});
+      skills.push({ name:"强力追踪", description:"大幅增强子弹追踪能力", tier:3, icon:"location.north.line.fill", effect:(s)=>{ s.homingStrength += 0.7; }});
+      skills.push({ name:"反弹弹", description:"子弹撞墙后反弹 1 次", tier:2, icon:"arrow.uturn.right", effect:(s)=>{ s.bounceCount += 1; }});
+      skills.push({ name:"超级反弹", description:"子弹可反弹 3 次", tier:3, icon:"arrow.triangle.2.circlepath", effect:(s)=>{ s.bounceCount += 3; }});
+      skills.push({ name:"冰冻弹", description:"子弹有 20% 几率冰冻敌人 1秒", tier:2, icon:"snowflake", effect:(s)=>{ s.freezeChance += 0.2; s.freezeDuration = Math.max(s.freezeDuration, 1.0); }});
+      skills.push({ name:"寒冰大师", description:"冰冻几率 +30%，持续 +1秒", tier:3, icon:"snowflake.circle.fill", effect:(s)=>{ s.freezeChance += 0.3; s.freezeDuration += 1.0; }});
+      skills.push({ name:"燃烧弹", description:"子弹点燃敌人，3秒内造成额外伤害", tier:2, icon:"flame.fill", effect:(s)=>{ s.burnChance = 1.0; s.burnDamage = 5; s.burnDuration = 3.0; }});
+      skills.push({ name:"地狱火", description:"燃烧伤害 +100%，蔓延给附近敌人", tier:3, icon:"flame.circle.fill", effect:(s)=>{ s.burnDamage *= 2; s.burnSpread = true; }});
+      skills.push({ name:"毒弹", description:"敌人中毒，持续掉血 5秒", tier:2, icon:"leaf.fill", effect:(s)=>{ s.poisonChance = 1.0; s.poisonDamage = 3; s.poisonDuration = 5.0; }});
+      skills.push({ name:"剧毒", description:"毒伤害 +100%，中毒敌人死亡时爆炸", tier:3, icon:"leaf.circle.fill", effect:(s)=>{ s.poisonDamage *= 2; s.poisonExplode = true; }});
+      skills.push({ name:"闪电链", description:"子弹击中后跳跃至附近 2 个敌人", tier:3, icon:"bolt.horizontal.fill", effect:(s)=>{ s.chainLightning = true; s.chainCount = 2; }});
+      skills.push({ name:"超导闪电", description:"闪电跳跃 +2 次，伤害不衰减", tier:3, icon:"bolt.circle.fill", effect:(s)=>{ s.chainCount += 2; s.chainDamageDecay = 1.0; }});
+      skills.push({ name:"爆炸弹头", description:"子弹击中产生小范围爆炸", tier:2, icon:"burst.fill", effect:(s)=>{ s.areaDamageRadius = 30; }});
+      skills.push({ name:"核爆", description:"爆炸范围 +100%，击退敌人", tier:3, icon:"sun.max.fill", effect:(s)=>{ s.areaDamageRadius *= 2; s.explosionKnockback = true; }});
+      skills.push({ name:"引力弹", description:"子弹吸引附近敌人靠近弹道", tier:2, icon:"tornado", effect:(s)=>{ s.bulletGravityPull = 50; }});
+      skills.push({ name:"黑洞弹", description:"子弹消失时产生吸引敌人的黑洞", tier:3, icon:"circle.hexagongrid.fill", effect:(s)=>{ s.blackHoleOnDeath = true; }});
+
+      // ------------------------------
+      // 🛡️ 防御与生存类 (36-55)
+      // ------------------------------
+      skills.push({ name:"能量护盾", description:"生成 1 个绕身旋转的护盾球", tier:2, icon:"shield.lefthalf.filled", effect:(s)=>{ s.orbitalShieldCount += 1; }});
+      skills.push({ name:"护盾矩阵", description:"护盾球 +2，旋转速度提升", tier:3, icon:"shield.checkered", effect:(s)=>{ s.orbitalShieldCount += 2; s.orbitalShieldSpeed *= 1.5; }});
+      skills.push({ name:"荆棘护甲", description:"受击时反弹 30% 伤害给攻击者", tier:2, icon:"allergens", effect:(s)=>{ s.thornsDamagePercent += 0.3; }});
+      skills.push({ name:"荆棘大师", description:"反弹伤害 +50%，附带减速效果", tier:3, icon:"allergens.fill", effect:(s)=>{ s.thornsDamagePercent += 0.5; s.thornsSlow = true; }});
+      skills.push({ name:"闪避大师", description:"20% 几率完全闪避伤害", tier:2, icon:"figure.dodge", effect:(s)=>{ s.dodgeChance += 0.2; }});
+      skills.push({ name:"幻影", description:"闪避成功后短暂无敌", tier:3, icon:"figure.2.arms.open", effect:(s)=>{ s.dodgeInvincibility = true; }});
+      skills.push({ name:"无敌帧强化", description:"受伤后无敌时间 +0.5秒", tier:2, icon:"clock.badge.checkmark", effect:(s)=>{ s.iFrameDuration += 0.5; }});
+      skills.push({ name:"最后一搏", description:"生命低于 20% 时，伤害 +50%", tier:2, icon:"heart.slash.fill", effect:(s)=>{ s.lowHpDamageBoost = true; s.lowHpThreshold = 0.2; s.lowHpDamageMulti = 1.5; }});
+      skills.push({ name:"狂战士", description:"生命低于 30% 时，攻速 +100%", tier:3, icon:"figure.martial.arts", effect:(s)=>{ s.berserkerMode = true; s.berserkerThreshold = 0.3; }});
+      skills.push({ name:"吸血鬼", description:"10% 几率吸取伤害的 20% 为生命", tier:2, icon:"drop.fill", effect:(s)=>{ s.lifestealChance += 0.1; s.lifestealPercent = 0.2; }});
+      skills.push({ name:"血之契约", description:"吸血几率 100%，但最大生命 -20%", tier:3, icon:"drop.triangle.fill", effect:(s)=>{ s.lifestealChance = 1.0; s.lifestealPercent = 0.15; s.playerMaxHealth *= 0.8; s.playerHealth = Math.min(s.playerHealth, s.playerMaxHealth); }});
+      skills.push({ name:"再生", description:"每秒恢复 2 点生命", tier:2, icon:"bandage.fill", effect:(s)=>{ s.regenRate += 2; }});
+      skills.push({ name:"超级再生", description:"受伤后 5秒 内再生效果 x3", tier:3, icon:"bandage", effect:(s)=>{ s.combatRegenBoost = true; }});
+      skills.push({ name:"紧急修复", description:"生命低于 25% 时每秒回复 5%", tier:2, icon:"cross.circle.fill", effect:(s)=>{ s.emergencyHealActive = true; }});
+      skills.push({ name:"不死鸟", description:"死亡时有 50% 几率复活并回复 30% 血量", tier:3, icon:"bird.fill", effect:(s)=>{ s.phoenixRevive = true; s.phoenixChance = 0.5; }});
+      skills.push({ name:"坚韧", description:"单次伤害上限为最大生命的 25%", tier:3, icon:"figure.strengthtraining.traditional", effect:(s)=>{ s.damageCap = 0.25; }});
+      skills.push({ name:"适应性护甲", description:"连续受到相同类型伤害时减伤增加", tier:2, icon:"circle.dotted", effect:(s)=>{ s.adaptiveArmor = true; }});
+      skills.push({ name:"回光返照", description:"致命伤害时有3秒无敌但之后必死", tier:3, icon:"sparkle", effect:(s)=>{ s.lastStand = true; }});
+      skills.push({ name:"格挡", description:"正面受击有 15% 几率完全格挡", tier:2, icon:"hand.raised.fill", effect:(s)=>{ s.blockChance += 0.15; }});
+      skills.push({ name:"完美格挡", description:"格挡成功时反击造成 200% 伤害", tier:3, icon:"hand.raised.circle.fill", effect:(s)=>{ s.perfectBlockCounter = true; }});
+
+      // ------------------------------
+      // 🌀 召唤物与自动武器 (56-75)
+      // ------------------------------
+      skills.push({ name:"攻击无人机", description:"召唤 1 架自动攻击无人机", tier:2, icon:"airplane", effect:(s)=>{ s.droneCount += 1; }});
+      skills.push({ name:"无人机编队", description:"无人机 +2，攻击力提升", tier:3, icon:"airplane.circle.fill", effect:(s)=>{ s.droneCount += 2; s.droneDamage *= 1.5; }});
+      skills.push({ name:"地雷部署", description:"移动时留下地雷，敌人踩中爆炸", tier:2, icon:"circle.hexagongrid", effect:(s)=>{ s.mineDropEnabled = true; s.mineDropInterval = 2.0; }});
+      skills.push({ name:"地雷专家", description:"地雷伤害 +100%，爆炸范围 +50%", tier:3, icon:"circle.hexagongrid.fill", effect:(s)=>{ s.mineDamage *= 2; s.mineRadius *= 1.5; }});
+      skills.push({ name:"自动炮塔", description:"召唤固定炮塔持续攻击", tier:2, icon:"building.columns.fill", effect:(s)=>{ s.turretCount += 1; }});
+      skills.push({ name:"重型炮塔", description:"炮塔攻击造成范围伤害", tier:3, icon:"building.2.fill", effect:(s)=>{ s.turretAOE = true; s.turretDamage *= 1.5; }});
+      skills.push({ name:"刃旋", description:"环绕玩家的旋转刀片", tier:2, icon:"fan.fill", effect:(s)=>{ s.bladeOrbitCount += 2; }});
+      skills.push({ name:"死亡之舞", description:"刀片数量 +4，范围扩大", tier:3, icon:"fan.and.light.ceiling.fill", effect:(s)=>{ s.bladeOrbitCount += 4; s.bladeOrbitRadius *= 1.5; }});
+      skills.push({ name:"幽灵", description:"召唤幽灵自动攻击最近敌人", tier:2, icon:"moon.fill", effect:(s)=>{ s.ghostCount += 1; }});
+      skills.push({ name:"幽灵军团", description:"幽灵 +3，攻击带有减速效果", tier:3, icon:"moon.stars.fill", effect:(s)=>{ s.ghostCount += 3; s.ghostSlow = true; }});
+      skills.push({ name:"火焰轨迹", description:"移动时留下火焰路径伤害敌人", tier:2, icon:"flame", effect:(s)=>{ s.fireTrailEnabled = true; }});
+      skills.push({ name:"地狱之路", description:"火焰伤害 +100%，减速敌人", tier:3, icon:"flame.fill", effect:(s)=>{ s.fireTrailDamage *= 2; s.fireTrailSlow = true; }});
+      skills.push({ name:"召唤陨石", description:"每 10秒 随机召唤陨石轰炸", tier:2, icon:"globe.americas.fill", effect:(s)=>{ s.meteorEnabled = true; s.meteorInterval = 10.0; }});
+      skills.push({ name:"流星雨", description:"陨石数量 x3，间隔减半", tier:3, icon:"sparkles", effect:(s)=>{ s.meteorCount *= 3; s.meteorInterval *= 0.5; }});
+      skills.push({ name:"闪电光环", description:"周围敌人持续受到闪电伤害", tier:2, icon:"bolt.ring.closed", effect:(s)=>{ s.lightningAuraEnabled = true; s.lightningAuraRadius = 100; }});
+      skills.push({ name:"雷神", description:"光环范围 +100%，伤害 +50%", tier:3, icon:"bolt.shield.fill", effect:(s)=>{ s.lightningAuraRadius *= 2; s.lightningAuraDamage *= 1.5; }});
+      skills.push({ name:"影子克隆", description:"召唤 1 个复制你攻击的影子", tier:3, icon:"person.2.fill", effect:(s)=>{ s.shadowCloneCount += 1; }});
+      skills.push({ name:"分身术", description:"影子克隆 +2，持续时间增加", tier:3, icon:"person.3.fill", effect:(s)=>{ s.shadowCloneCount += 2; s.shadowCloneDuration *= 1.5; }});
+      skills.push({ name:"黑洞", description:"每 15秒 生成黑洞吸引并伤害敌人", tier:3, icon:"circle.dotted.circle", effect:(s)=>{ s.blackHoleAbility = true; }});
+      skills.push({ name:"奇点", description:"黑洞吸引力和伤害提升 100%", tier:3, icon:"circle.circle.fill", effect:(s)=>{ s.blackHolePower *= 2; }});
+
+      // ------------------------------
+      // ⚡ 触发与连锁类 (76-90)
+      // ------------------------------
+      skills.push({ name:"连杀奖励", description:"连续击杀增加临时伤害加成", tier:2, icon:"flame.circle", effect:(s)=>{ s.killStreakEnabled = true; }});
+      skills.push({ name:"杀戮狂欢", description:"连杀奖励上限提高，衰减减慢", tier:3, icon:"flame.circle.fill", effect:(s)=>{ s.killStreakMaxBonus *= 2; s.killStreakDecay *= 0.5; }});
+      skills.push({ name:"击杀回血", description:"击杀敌人回复 2 点生命", tier:2, icon:"heart.text.square.fill", effect:(s)=>{ s.killHealAmount = 2; }});
+      skills.push({ name:"噬魂", description:"击杀回复 5 生命，暂时提升攻速", tier:3, icon:"person.crop.circle.badge.checkmark", effect:(s)=>{ s.killHealAmount = 5; s.killAttackSpeedBoost = true; }});
+      skills.push({ name:"击杀爆炸", description:"敌人死亡时爆炸伤害周围敌人", tier:2, icon:"burst", effect:(s)=>{ s.deathExplosion = true; s.deathExplosionRadius = 50; }});
+      skills.push({ name:"连锁爆炸", description:"爆炸可以触发其他敌人爆炸", tier:3, icon:"waveform.path.ecg", effect:(s)=>{ s.chainExplosion = true; }});
+      skills.push({ name:"暴怒", description:"受到伤害后 3秒 内攻击力 +25%", tier:2, icon:"exclamationmark.octagon.fill", effect:(s)=>{ s.rageOnHit = true; s.rageDamageBonus = 0.25; }});
+      skills.push({ name:"复仇", description:"受伤后下一次攻击必定暴击", tier:3, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.revengeEnabled = true; }});
+      skills.push({ name:"幸运一击", description:"5% 几率造成 10倍 伤害", tier:2, icon:"star.circle.fill", effect:(s)=>{ s.luckyCritChance = 0.05; s.luckyCritMulti = 10.0; }});
+      skills.push({ name:"欧皇附体", description:"幸运一击几率翻倍", tier:3, icon:"crown.fill", effect:(s)=>{ s.luckyCritChance *= 2; }});
+      skills.push({ name:"处决", description:"对低血量敌人造成额外伤害", tier:2, icon:"scissors", effect:(s)=>{ s.executeEnabled = true; s.executeThreshold = 0.3; }});
+      skills.push({ name:"斩杀", description:"直接击杀 20% 血量以下的敌人", tier:3, icon:"scissors.badge.ellipsis", effect:(s)=>{ s.instantKillThreshold = 0.2; }});
+      skills.push({ name:"超载", description:"暴击时有几率再次攻击", tier:2, icon:"bolt.badge.a.fill", effect:(s)=>{ s.overloadChance = 0.3; }});
+      skills.push({ name:"无限超载", description:"超载可以连锁触发", tier:3, icon:"bolt.badge.clock.fill", effect:(s)=>{ s.overloadChain = true; }});
+      skills.push({ name:"时间扭曲", description:"击杀敌人有几率短暂减慢时间", tier:3, icon:"clock.arrow.circlepath", effect:(s)=>{ s.timeWarpOnKill = true; }});
+
+      // ------------------------------
+      // 🎮 特殊机制类 (91-115)
+      // ------------------------------
+      skills.push({ name:"加特林模式", description:"射速 x2，单发伤害 -40%", tier:3, icon:"gearshape.fill", effect:(s)=>{ s.shootInterval *= 0.5; s.bulletDamage *= 0.6; }});
+      skills.push({ name:"狙击模式", description:"射速 -50%，伤害 x2，射程无限", tier:3, icon:"scope", effect:(s)=>{ s.shootInterval *= 2; s.bulletDamage *= 2; s.bulletLifetime = 10.0; }});
+      skills.push({ name:"霰弹模式", description:"+5 子弹，大散布，短射程", tier:3, icon:"list.bullet", effect:(s)=>{ s.bulletCount += 5; s.spreadAngle = 0.8; s.bulletLifetime *= 0.5; }});
+      skills.push({ name:"蓄力攻击", description:"站立不动时积攒能量，下次攻击伤害提升", tier:2, icon:"bolt.fill", effect:(s)=>{ s.chargeAttackEnabled = true; }});
+      skills.push({ name:"超级蓄力", description:"蓄力速度 +100%，最大加成提升", tier:3, icon:"bolt.batteryblock.fill", effect:(s)=>{ s.chargeSpeed *= 2; s.chargeMaxBonus *= 1.5; }});
+      skills.push({ name:"冲刺", description:"双击方向可以冲刺", tier:2, icon:"figure.run", effect:(s)=>{ s.dashEnabled = true; s.dashCooldown = 3.0; }});
+      skills.push({ name:"闪电冲刺", description:"冲刺伤害路径上的敌人", tier:3, icon:"figure.run.circle.fill", effect:(s)=>{ s.dashDamage = true; }});
+      skills.push({ name:"弹药回收", description:"未击中的子弹有 30% 几率返还", tier:2, icon:"arrow.uturn.backward", effect:(s)=>{ s.ammoRecoveryChance = 0.3; }});
+      skills.push({ name:"永动机", description:"击中敌人时有几率不消耗射击间隔", tier:2, icon:"repeat.circle.fill", effect:(s)=>{ s.freeAttackChance = 0.2; }});
+      skills.push({ name:"近战反击", description:"敌人近身时自动释放冲击波", tier:2, icon:"waveform", effect:(s)=>{ s.meleeCounterEnabled = true; }});
+      skills.push({ name:"弹幕", description:"同时向所有方向射击", tier:3, icon:"circle.and.line.horizontal.fill", effect:(s)=>{ s.bulletCount += 8; s.spreadAngle = TAU / s.bulletCount; s.allDirectionFire = true; }});
+      skills.push({ name:"后座力", description:"射击时向后推动自己，增加灵活性", tier:2, icon:"arrow.backward.to.line", effect:(s)=>{ s.recoilPush = true; }});
+      skills.push({ name:"压制射击", description:"射击方向的敌人移动速度降低", tier:2, icon:"arrow.down.to.line.compact", effect:(s)=>{ s.suppressionEnabled = true; }});
+      skills.push({ name:"脆弱标记", description:"击中的敌人受到额外伤害持续 3秒", tier:2, icon:"tag.fill", effect:(s)=>{ s.vulnerabilityMark = true; s.vulnerabilityBonus = 0.3; }});
+      skills.push({ name:"移动射击", description:"移动时射速 +30%", tier:2, icon:"arrow.right.and.line.vertical.and.arrow.left", effect:(s)=>{ s.movingFireRateBonus = 0.3; }});
+      skills.push({ name:"静止强化", description:"站定时伤害 +40%", tier:2, icon:"stop.fill", effect:(s)=>{ s.stationaryDamageBonus = 0.4; }});
+      skills.push({ name:"玻璃大炮", description:"伤害 +100%，但生命值 -50%", tier:3, icon:"sparkle.magnifyingglass", effect:(s)=>{ s.bulletDamage *= 2; s.playerMaxHealth *= 0.5; s.playerHealth = Math.min(s.playerHealth, s.playerMaxHealth); }});
+      skills.push({ name:"坦克", description:"生命 +100%，移动速度 -20%", tier:3, icon:"shield.fill", effect:(s)=>{ s.playerMaxHealth *= 2; s.playerHealth *= 2; s.playerSpeedMulti *= 0.8; }});
+      skills.push({ name:"赌徒", description:"每次攻击伤害在 50%-200% 之间随机", tier:2, icon:"dice.fill", effect:(s)=>{ s.gamblerMode = true; }});
+      skills.push({ name:"临界状态", description:"生命越接近 50%，伤害越高", tier:3, icon:"gauge.badge.plus", effect:(s)=>{ s.criticalStateEnabled = true; }});
+      skills.push({ name:"共生", description:"附近每有 1 个敌人，伤害 +5%（上限50%）", tier:2, icon:"person.3.sequence.fill", effect:(s)=>{ s.symbiosisEnabled = true; }});
+      skills.push({ name:"清场", description:"屏幕内敌人 <5 时，伤害 +50%", tier:2, icon:"rectangle.badge.minus", effect:(s)=>{ s.clearingBonus = true; }});
+      skills.push({ name:"人海战术克星", description:"屏幕内敌人 >10 时，获得范围伤害", tier:2, icon:"rectangle.badge.plus", effect:(s)=>{ s.crowdControl = true; }});
+      skills.push({ name:"动量", description:"连续移动时速度逐渐提升", tier:2, icon:"figure.walk.motion", effect:(s)=>{ s.momentumEnabled = true; }});
+      skills.push({ name:"终极动量", description:"动量也会增加伤害", tier:3, icon:"figure.run.motion", effect:(s)=>{ s.momentumDamage = true; }});
+
+      // ------------------------------
+      // ✅ 额外：飞刀（刃旋）升级分支（只在已有飞刀后进入卡池）
+      // ------------------------------
+      for (const sk of baseBladeSkills) skills.push(sk);
+
+      return skills;
+    }
+
+    function generateExtraBladeSkills() {
+      // 这些是对 Swift 版本的“飞刀”做的增强：更多升级维度
+      // 默认不改变原有行为；只有获得刃旋后，这些升级才会进卡池
+      return [
+        { name:"飞刀精通", description:"飞刀伤害 +30%", tier:1, icon:"fan.fill", effect:(s)=>{ s.bladeOrbitDamage *= 1.30; } },
+        { name:"刀阵扩张", description:"飞刀半径 +20", tier:1, icon:"circle.dotted", effect:(s)=>{ s.bladeOrbitRadius += 20; } },
+        { name:"刀舞加速", description:"飞刀旋转速度 +25%", tier:1, icon:"timer", effect:(s)=>{ s.bladeOrbitSpeed *= 1.25; } },
+        { name:"利刃增殖", description:"飞刀数量 +1", tier:2, icon:"fan.fill", effect:(s)=>{ s.bladeOrbitCount += 1; } },
+        { name:"锋刃风暴", description:"飞刀数量 +3，旋转速度 +20%", tier:3, icon:"wind", effect:(s)=>{ s.bladeOrbitCount += 3; s.bladeOrbitSpeed *= 1.20; } },
+        { name:"巨刃", description:"飞刀体积 +35%，伤害 +15%", tier:2, icon:"circle.fill", effect:(s)=>{ s.bladeOrbitScale *= 1.35; s.bladeOrbitDamage *= 1.15; } },
+        { name:"寒刃", description:"飞刀命中 20% 冰冻 0.8秒", tier:2, icon:"snowflake", effect:(s)=>{ s.bladeOrbitFreezeChance = Math.min(1, s.bladeOrbitFreezeChance + 0.20); s.bladeOrbitFreezeDuration = Math.max(s.bladeOrbitFreezeDuration, 0.8); } },
+        { name:"灼刃", description:"飞刀命中 30% 点燃 2秒", tier:2, icon:"flame.fill", effect:(s)=>{ s.bladeOrbitBurnChance = Math.min(1, s.bladeOrbitBurnChance + 0.30); s.bladeOrbitBurnDuration = Math.max(s.bladeOrbitBurnDuration, 2.0); s.bladeOrbitBurnDamage = Math.max(s.bladeOrbitBurnDamage, 4); } },
+        { name:"毒刃", description:"飞刀命中 30% 中毒 3秒", tier:2, icon:"leaf.fill", effect:(s)=>{ s.bladeOrbitPoisonChance = Math.min(1, s.bladeOrbitPoisonChance + 0.30); s.bladeOrbitPoisonDuration = Math.max(s.bladeOrbitPoisonDuration, 3.0); s.bladeOrbitPoisonDamage = Math.max(s.bladeOrbitPoisonDamage, 3); } },
+        { name:"吸血飞刃", description:"飞刀命中 15% 吸血（伤害的 20%）", tier:3, icon:"drop.fill", effect:(s)=>{ s.bladeOrbitLifestealChance = Math.min(1, s.bladeOrbitLifestealChance + 0.15); s.bladeOrbitLifestealPercent = Math.max(s.bladeOrbitLifestealPercent, 0.20); } },
+      ];
+    }
+
+    // ============================================================
+    // 4. Game object (ported from Swift GameScene)
+    // ============================================================
+    let _idSeq = 1;
+    function nextId(){ return _idSeq++; }
+
+    function makeGame() {
+      // ------------------------------
+      // Numeric safety (prevent overflow / NaN / Infinity)
+      // ------------------------------
+      const NUM_CAP = 9e15; // < Number.MAX_SAFE_INTEGER (~9.007e15)
+      const clampFinite = (n, min, max) => {
+        n = Number.isFinite(n) ? n : min;
+        if (n < min) return min;
+        if (n > max) return max;
+        return n;
+      };
+      const safeNumber = (n, fallback = 0) => {
+        n = Number.isFinite(n) ? n : fallback;
+        if (n > NUM_CAP) return NUM_CAP;
+        if (n < -NUM_CAP) return -NUM_CAP;
+        return n;
+      };
+      const safeNonNeg = (n, fallback = 0) => clampFinite(safeNumber(n, fallback), 0, NUM_CAP);
+
+      const formatShort = (n) => {
+        n = safeNumber(n, 0);
+        const sign = n < 0 ? "-" : "";
+        let abs = Math.abs(n);
+        if (abs < 1000) return sign + String(Math.round(abs));
+        const units = [
+          { v: 1e15, s: "Q" },
+          { v: 1e12, s: "T" },
+          { v: 1e9, s: "B" },
+          { v: 1e6, s: "M" },
+          { v: 1e3, s: "K" },
+        ];
+        for (let i = 0; i < units.length; i++) {
+          const u = units[i];
+          if (abs >= u.v) {
+            const val = abs / u.v;
+            const dp = val >= 100 ? 0 : (val >= 10 ? 1 : 2);
+            return sign + val.toFixed(dp) + u.s;
+          }
+        }
+        return sign + String(Math.round(abs));
+      };
+
+      const g = {
+        // Callbacks (like SwiftUI layer)
+        onLevelUp: null,
+        onStateChange: null,
+        onGameOver: null,
+
+        // Entities
+        player: { x: 0, y: 0, r: 15, lastHit: -999, color: "#00d7ff" },
+        camera: { x: 0, y: 0, shakeEnd: 0, shakeAmp: 0 },
+        enemies: [],
+        bullets: [],
+        expOrbs: [],
+        orbitals: [],       // {type:'shield'|'blade', x,y, r/w/h, rot, colliding:Set}
+        drones: [],         // {x,y,lastShot}
+        ghosts: [],         // {x,y}
+        mines: [],          // {x,y, damage, radius, born}
+        fireTrails: [],     // {x,y, born, lastTick}
+        warnings: [],       // meteor warning {x,y, born}
+        blackHoles: [],     // {x,y, radius, end, fadeEnd, nextTick, small}
+        poisonClouds: [],   // {x,y, born, ticks, nextTick, fadeStart, fadeEnd}
+        effects: [],        // visuals
+        particles: [],      // juicy particles
+        screenFlash: null,  // {color, intensity, start, end}
+        hitStopEnd: 0,
+        hitStopScale: 1.0,
+
+        // MARK: 属性系统 - 基础
+        playerSpeedMulti: 1.0,
+        bulletDamage: 15,
+        shootInterval: 0.6,
+        bulletCount: 1,
+        bulletSpeedMulti: 1.0,
+        bulletScale: 1.0,
+        bulletLifetime: 1.5,
+        knockbackForce: 0,
+        spreadAngle: 0.15,
+        pickupRange: 100,
+        critRate: 0.05,
+        critDamageMulti: 2.0,
+        damageReduction: 0,
+        expMultiplier: 1.0,
+        luckBonus: 0,
+        moveShootPenalty: true,
+        regenRate: 0,
+
+        // MARK: 属性系统 - 子弹变体
+        pierceCount: 0,
+        lifestealChance: 0.0,
+        lifestealPercent: 0.2,
+        areaDamageRadius: 0,
+        homingStrength: 0,
+        bounceCount: 0,
+        splitOnHit: false,
+        splitCount: 0,
+        freezeChance: 0,
+        freezeDuration: 0,
+        burnChance: 0,
+        burnDamage: 0,
+        burnDuration: 0,
+        burnSpread: false,
+        poisonChance: 0,
+        poisonDamage: 0,
+        poisonDuration: 0,
+        poisonExplode: false,
+        chainLightning: false,
+        chainCount: 0,
+        chainDamageDecay: 0.7,
+        explosionKnockback: false,
+        bulletGravityPull: 0,
+        blackHoleOnDeath: false,
+
+        // MARK: 属性系统 - 防御
+        orbitalShieldCount: 0,
+        orbitalShieldSpeed: 1.0,
+        orbitalShieldDamage: 20,
+        thornsDamagePercent: 0,
+        thornsSlow: false,
+        dodgeChance: 0,
+        dodgeInvincibility: false,
+        iFrameDuration: 0.5,
+        lowHpDamageBoost: false,
+        lowHpThreshold: 0.2,
+        lowHpDamageMulti: 1.5,
+        berserkerMode: false,
+        berserkerThreshold: 0.3,
+        emergencyHealActive: false,
+        phoenixRevive: false,
+        phoenixChance: 0,
+        damageCap: 1.0,
+        adaptiveArmor: false,
+        lastStand: false,
+        blockChance: 0,
+        perfectBlockCounter: false,
+        combatRegenBoost: false,
+        lastDamageTime: 0,
+
+        // MARK: 属性系统 - 召唤物
+        droneCount: 0,
+        droneDamage: 10,
+        mineDropEnabled: false,
+        mineDropInterval: 2.0,
+        mineDamage: 50,
+        mineRadius: 60,
+        turretCount: 0,
+        turretDamage: 15,
+        turretAOE: false,
+        bladeOrbitCount: 0,
+        bladeOrbitRadius: 120,
+        bladeOrbitDamage: 12,
+        ghostCount: 0,
+        ghostSlow: false,
+        fireTrailEnabled: false,
+        fireTrailDamage: 8,
+        fireTrailSlow: false,
+        meteorEnabled: false,
+        meteorInterval: 10.0,
+        meteorCount: 1,
+        meteorDamage: 80,
+        lightningAuraEnabled: false,
+        lightningAuraRadius: 0,
+        lightningAuraDamage: 5,
+        shadowCloneCount: 0,
+        shadowCloneDuration: 5.0,
+        blackHoleAbility: false,
+        blackHolePower: 1.0,
+
+        // MARK: 属性系统 - 触发机制
+        killStreakEnabled: false,
+        killStreakMaxBonus: 1.0,
+        killStreakDecay: 1.0,
+        killStreak: 0,
+        lastKillTime: 0,
+        killHealAmount: 0,
+        killAttackSpeedBoost: false,
+        deathExplosion: false,
+        deathExplosionRadius: 50,
+        chainExplosion: false,
+        rageOnHit: false,
+        rageDamageBonus: 0,
+        rageEndTime: 0,
+        revengeEnabled: false,
+        revengeNextCrit: false,
+        luckyCritChance: 0,
+        luckyCritMulti: 10.0,
+        executeEnabled: false,
+        executeThreshold: 0,
+        instantKillThreshold: 0,
+        overloadChance: 0,
+        overloadChain: false,
+        timeWarpOnKill: false,
+        timeWarpActive: false,
+        timeWarpEndTime: 0,
+
+        // MARK: 属性系统 - 特殊
+        chargeAttackEnabled: false,
+        chargeSpeed: 1.0,
+        chargeMaxBonus: 2.0,
+        currentCharge: 0,
+        dashEnabled: false,
+        dashCooldown: 3.0,
+        dashDamage: false,
+        lastDashTime: 0,
+        ammoRecoveryChance: 0,
+        freeAttackChance: 0,
+        meleeCounterEnabled: false,
+        lastMeleeCounter: 0,
+        allDirectionFire: false,
+        recoilPush: false,
+        suppressionEnabled: false,
+        vulnerabilityMark: false,
+        vulnerabilityBonus: 0,
+        movingFireRateBonus: 0,
+        stationaryDamageBonus: 0,
+        gamblerMode: false,
+        criticalStateEnabled: false,
+        symbiosisEnabled: false,
+        clearingBonus: false,
+        crowdControl: false,
+        momentumEnabled: false,
+        momentumDamage: false,
+        currentMomentum: 0,
+
+        // 额外：飞刀升级参数（不改变原版，默认=0/1）
+        bladeOrbitSpeed: 1.0,
+        bladeOrbitScale: 1.0,
+        bladeOrbitFreezeChance: 0,
+        bladeOrbitFreezeDuration: 0,
+        bladeOrbitBurnChance: 0,
+        bladeOrbitBurnDamage: 0,
+        bladeOrbitBurnDuration: 0,
+        bladeOrbitPoisonChance: 0,
+        bladeOrbitPoisonDamage: 0,
+        bladeOrbitPoisonDuration: 0,
+        bladeOrbitLifestealChance: 0,
+        bladeOrbitLifestealPercent: 0.2,
+
+        // MARK: 游戏状态
+        playerHealth: 100,
+        playerMaxHealth: 100,
+        currentExp: 0,
+        maxExp: 70,
+        level: 1,
+        isPausedGame: false,
+        lastShootTime: 0,
+        lastRegenTime: 0,
+        lastMineTime: 0,
+        lastMeteorTime: 0,
+        lastBlackHoleTime: 0,
+        lastFireTrailTime: 0,
+        joystickVector: { dx: 0, dy: 0 },
+        wasMovingLastFrame: false,
+
+        // UI/bookkeeping
+        acquiredSkills: [],
+        acquiredSkillMeta: [],
+        isLevelingUp: false,
+        isGameOver: false,
+        skillChoices: [],
+        allSkills: [],
+      };
+
+      // ------------------------------
+      // Internal queues (avoid deep recursion)
+      // ------------------------------
+      g._killQueue = [];
+
+      // ------------------------------
+      // Helpers like Swift
+      // ------------------------------
+      g.updateHealthUI = () => g.updateUI();
+
+      g.updateUI = () => {
+        if (typeof g.onStateChange === "function") {
+          g.onStateChange(g.currentExp / g.maxExp, g.playerHealth / g.playerMaxHealth, g.level);
+        }
+      };
+
+      
+      // ------------------------------
+      // Combat Power System (30s window, multi-factor, smoothed)
+      // Used for: enemy director (数量/强度) + local leaderboard
+      // ------------------------------
+      g.stats = {
+        startTime: 0,
+        kills: 0,
+        dmgDealt: 0,
+        dmgTaken: 0,
+        expGained: 0
+      };
+
+      g.combat = {
+        window: 30.0,
+        events: { kills: [], dmgDealt: [], dmgTaken: [], exp: [], levelUps: [] },
+        _acc: { kills: 0, dmgDealt: 0, dmgTaken: 0, exp: 0, levelUps: 0 },
+        rating: 0,
+        ratingSmooth: 0,
+        tier: "D",
+        tierColor: "rgba(255,255,255,.92)",
+        peak: 0,
+        integral: 0,
+        lastEval: 0
+      };
+
+      g._pushCombatEvent = (arr, t, v) => {
+        if (!arr) return;
+        arr.push({ t, v: safeNonNeg(v, 0) });
+      };
+
+      g._pruneCombatEvents = (arr, t, windowSec) => {
+        const cutoff = t - windowSec;
+        while (arr.length > 0 && arr[0].t < cutoff) arr.shift();
+      };
+
+      g._sumCombatEvents = (arr, t, windowSec) => {
+        g._pruneCombatEvents(arr, t, windowSec);
+        let sum = 0;
+        for (let i = 0; i < arr.length; i++) sum += arr[i].v;
+        return safeNonNeg(sum, 0);
+      };
+
+      g.estimateBuildDps = () => {
+        const crit = 1 + clamp(g.critRate, 0, 1) * (safeNumber(g.critDamageMulti, 2.0) - 1);
+        const si = Math.max(0.06, safeNumber(g.shootInterval, 0.6));
+        const sps = 1 / si;
+        const bulletDps = safeNonNeg(safeNumber(g.bulletDamage, 0) * crit * safeNumber(g.bulletCount, 1) * sps, 0);
+
+        // drones fire ~ every 0.8s, not all shots hit (so add a conservative hit factor)
+        const dc = safeNumber(g.droneCount, 0);
+        const droneSps = (dc > 0) ? (dc * (1/0.8) * 0.65) : 0;
+        const droneDps = safeNonNeg(safeNumber(g.bulletDamage, 0) * crit * droneSps, 0);
+
+        // orbitals are contact-based: approximate
+        const bladeDps = safeNonNeg(safeNumber(g.bladeOrbitCount, 0) * safeNumber(g.bladeOrbitDamage, 0) * safeNumber(g.bladeOrbitSpeed, 1.0) * 0.55, 0);
+        const shieldDps = safeNonNeg(safeNumber(g.orbitalShieldCount, 0) * safeNumber(g.orbitalShieldDamage, 0) * safeNumber(g.orbitalShieldSpeed, 1.0) * 0.35, 0);
+
+        const auraDps = g.lightningAuraEnabled ? safeNonNeg(safeNumber(g.lightningAuraDamage, 0) * 1.2, 0) : 0;
+
+        return safeNonNeg(bulletDps + droneDps + bladeDps + shieldDps + auraDps, 0);
+      };
+
+      g.estimateSkillScore = () => {
+        // use meta if available; otherwise fall back to skill count
+        const meta = g.acquiredSkillMeta || [];
+        if (!meta || meta.length === 0) return safeNonNeg(g.acquiredSkills.length, 0) * 1.0;
+        let score = 0;
+        for (let i = 0; i < meta.length; i++) {
+          const tier = meta[i].tier || 1;
+          score += (tier === 3) ? 4.0 : (tier === 2 ? 2.3 : 1.0);
+        }
+        return safeNonNeg(score, 0);
+      };
+
+      g._combatTierFromScore = (score) => {
+        if (score >= 920) return { tier:"SSS", color:"#ff3b30" };
+        if (score >= 820) return { tier:"SS",  color:"#ff9f0a" };
+        if (score >= 700) return { tier:"S",   color:"#ffd60a" };
+        if (score >= 560) return { tier:"A",   color:"#34c759" };
+        if (score >= 420) return { tier:"B",   color:"#4aa3ff" };
+        if (score >= 280) return { tier:"C",   color:"#9ca3af" };
+        return { tier:"D", color:"rgba(255,255,255,.92)" };
+      };
+
+      g.computeCombatRating = (t) => {
+        const c = g.combat;
+        const W = c.window;
+
+        const kills = g._sumCombatEvents(c.events.kills, t, W);
+        const dmg = g._sumCombatEvents(c.events.dmgDealt, t, W);
+        const dmgTaken = g._sumCombatEvents(c.events.dmgTaken, t, W);
+        const exp = g._sumCombatEvents(c.events.exp, t, W);
+        const lvlups = g._sumCombatEvents(c.events.levelUps, t, W);
+
+        const kpm = kills * 60 / W;
+        const dps = dmg / W;
+        const dtps = dmgTaken / W;
+        const xps = exp / W;
+        const lpm = lvlups * 60 / W;
+
+        const buildDps = g.estimateBuildDps();
+        const skillScore = g.estimateSkillScore();
+        const hpRatio = clamp(g.playerHealth / Math.max(1, g.playerMaxHealth), 0, 1);
+        const sinceHit = (g.lastDamageTime ? (t - g.lastDamageTime) : W);
+        const calm = clamp(sinceHit / W, 0, 1);
+        const efficiency = dps / Math.max(1, dtps);
+
+        // normalize with log scaling (prevents overflow / runaway)
+        const nK = clamp(Math.log1p(kpm) / Math.log1p(80), 0, 1);
+        const nD = clamp(Math.log1p(dps) / Math.log1p(900), 0, 1);
+        const nB = clamp(Math.log1p(buildDps) / Math.log1p(1200), 0, 1);
+        const nX = clamp(Math.log1p(xps) / Math.log1p(120), 0, 1);
+        const nL = clamp(Math.log1p(lpm) / Math.log1p(10), 0, 1);
+        const nS = clamp(Math.log1p(skillScore) / Math.log1p(120), 0, 1);
+        const nE = clamp(Math.log1p(efficiency) / Math.log1p(12), 0, 1);
+
+        const raw =
+          0.18 * nB +
+          0.18 * nD +
+          0.16 * nK +
+          0.12 * nX +
+          0.10 * nL +
+          0.10 * nS +
+          0.08 * nE +
+          0.05 * calm +
+          0.03 * hpRatio;
+
+        const rating = clamp(1000 * raw, 0, 1000);
+        const tc = g._combatTierFromScore(rating);
+
+        return {
+          rating,
+          kpm,
+          dps,
+          xps,
+          buildDps,
+          hpRatio,
+          tier: tc.tier,
+          tierColor: tc.color
+        };
+      };
+
+      g.updateCombatRating = (t) => {
+        const c = g.combat;
+        if (!c) return;
+
+        // flush accumulators (reduces event spam from DOT, multi-hit, etc.)
+        const acc = c._acc;
+        if (acc.kills > 0) { g._pushCombatEvent(c.events.kills, t, acc.kills); acc.kills = 0; }
+        if (acc.dmgDealt > 0) { g._pushCombatEvent(c.events.dmgDealt, t, acc.dmgDealt); acc.dmgDealt = 0; }
+        if (acc.dmgTaken > 0) { g._pushCombatEvent(c.events.dmgTaken, t, acc.dmgTaken); acc.dmgTaken = 0; }
+        if (acc.exp > 0) { g._pushCombatEvent(c.events.exp, t, acc.exp); acc.exp = 0; }
+        if (acc.levelUps > 0) { g._pushCombatEvent(c.events.levelUps, t, acc.levelUps); acc.levelUps = 0; }
+
+        // update at most ~6-7 times per second
+        if (c.lastEval && (t - c.lastEval) < 0.15) return;
+
+        const dt = c.lastEval ? Math.min(0.25, Math.max(0, t - c.lastEval)) : 0;
+        c.lastEval = t;
+
+        const res = g.computeCombatRating(t);
+        c.rating = res.rating;
+
+        const alpha = clamp(dt * 2.2, 0.04, 0.25);
+        c.ratingSmooth = (c.ratingSmooth === 0) ? c.rating : lerp(c.ratingSmooth, c.rating, alpha);
+
+        c.peak = Math.max(c.peak, c.ratingSmooth);
+        c.integral = safeNonNeg(c.integral + c.ratingSmooth * dt, 0);
+
+        c.tier = res.tier;
+        c.tierColor = res.tierColor;
+        c.snapshot = res;
+      };
+
+      // ------------------------------
+      // Enemy Director (dynamic spawn & scaling based on combat rating)
+      // ------------------------------
+      g.director = {
+        lastT: 0,
+        spawnBudget: 0,
+        spawnRate: 1.2,      // enemies / sec
+        strength: 0,         // derived from combat rating
+        diff: 1.0,           // used as enemy HP scaling
+        dmgMul: 1.0,         // used as enemy contact damage scaling
+        targetEnemies: 12,
+        maxEnemies: 60,
+        eliteChance: 0.04,
+        progress: 0.0,
+      };
+
+      g.directorStep = (t) => {
+        if (g.isPausedGame || g.isGameOver) {
+          g.director.lastT = t;
+          return;
+        }
+
+        const d = g.director;
+        d.lastT = t;
+
+        // keep director in sync with simulation time scaling
+        const timeScale = (g.timeWarpActive && t < g.timeWarpEndTime) ? 0.55 : 1.0;
+        const hitScale = (g.hitStopEnd && t < g.hitStopEnd) ? (g.hitStopScale || 0.25) : 1.0;
+        const dt = 0.016 * timeScale * hitScale;
+
+        // update combat rating first (so spawns react to current performance)
+        g.updateCombatRating(t);
+
+        const p = (g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0;
+        const strength = clamp(p / 650, 0, 1.8);
+        d.strength = strength;
+
+        const timeAlive = g._startTime ? Math.max(0, t - g._startTime) : 0;
+        const timeProg = clamp(timeAlive / 240, 0, 1);  // 0~1 in first 4 minutes
+        d.progress = clamp(0.55 * timeProg + 0.45 * clamp(strength / 1.2, 0, 1), 0, 1);
+
+        // difficulty multipliers (bounded)
+        d.diff = clamp(1.0 + (g.level - 1) * 0.11 + strength * 0.90, 1.0, 6.5);
+        d.dmgMul = clamp(1.0 + (g.level - 1) * 0.085 + strength * 0.22, 1.0, 4.0);
+
+        // desired on-screen enemies
+        d.targetEnemies = Math.round(clamp(8 + g.level * 0.75 + strength * 16, 8, 95));
+        d.maxEnemies = Math.round(clamp(d.targetEnemies + 22 + strength * 16, 40, 130));
+
+        // spawn rate (enemies/sec), with density feedback to avoid runaway
+        let rate = clamp(0.9 + g.level * 0.06 + strength * 1.9, 0.6, 6.2);
+        if (g.enemies.length < d.targetEnemies * 0.75) rate *= 1.35;
+        if (g.enemies.length > d.targetEnemies * 1.10) rate *= 0.25;
+        if (g.enemies.length >= d.maxEnemies) rate = 0;
+
+        d.spawnRate = rate;
+
+        // elite chance grows with strength + progress
+        d.eliteChance = clamp(0.02 + 0.06 * strength + 0.06 * d.progress, 0.02, 0.20);
+
+        // budgeted spawn
+        d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
+
+        let spawned = 0;
+        const maxLoop = 10;
+        while (d.spawnBudget >= 1 && spawned < maxLoop && g.enemies.length < d.maxEnemies) {
+          g.spawnEnemy(t);
+          d.spawnBudget -= 1;
+          spawned++;
+        }
+      };
+
+      // ------------------------------
+      // Enemy Definitions (13 types total = 原有3 + 新增10)
+      // 简约建模 + 不同参数/行为
+      // ------------------------------
+      g.enemyDefs = [
+        { id:"grunt",    name:"小兵",   model:"square",      color:"#ff3b30", w:30, h:30, hp:30,  speed:1.00, damage:1.00, exp:1.00, ai:"chase",   weight:52, unlock:0.00 },
+        { id:"runner",   name:"跑者",   model:"diamond",     color:"#34c759", w:24, h:24, hp:22,  speed:1.45, damage:0.90, exp:0.85, ai:"chase",   weight:28, unlock:0.00 },
+
+        // ✅ 新增10种
+        { id:"brute",    name:"蛮牛",   model:"rectWide",    color:"#ff9f0a", w:44, h:30, hp:60,  speed:0.80, damage:1.20, exp:1.60, ai:"chase",   weight:12, unlock:0.20 },
+        { id:"tank",     name:"坦克",   model:"squareHeavy", color:"#b91c1c", w:52, h:52, hp:110, speed:0.65, damage:1.35, exp:2.40, ai:"chase",   weight:7,  unlock:0.35 },
+        { id:"shielder", name:"盾兵",   model:"squareShield",color:"#9ca3af", w:34, h:34, hp:48,  speed:0.95, damage:1.05, exp:1.50, ai:"chase",   weight:10, unlock:0.25, armor:0.35 },
+        { id:"zigzag",   name:"游走者", model:"triangle",    color:"#4aa3ff", w:30, h:30, hp:40,  speed:1.05, damage:1.00, exp:1.35, ai:"zigzag",  weight:9,  unlock:0.30 },
+        { id:"orbiter",  name:"环绕者", model:"circle",      color:"#22d3ee", w:30, h:30, hp:42,  speed:1.00, damage:1.00, exp:1.40, ai:"orbit",   weight:8,  unlock:0.35, orbitR:190 },
+        { id:"dasher",   name:"冲锋者", model:"diamondSharp",color:"#ffd60a", w:28, h:28, hp:36,  speed:0.95, damage:1.15, exp:1.45, ai:"dash",    weight:7,  unlock:0.40 },
+        { id:"ranger",   name:"游侠",   model:"capsule",     color:"#60a5fa", w:34, h:22, hp:46,  speed:1.05, damage:1.05, exp:1.50, ai:"kite",    weight:6,  unlock:0.45, keepDist:230 },
+        { id:"spawner",  name:"召唤者", model:"pentagon",    color:"#e5e7eb", w:38, h:38, hp:70,  speed:0.75, damage:1.15, exp:2.20, ai:"spawner", weight:4,  unlock:0.55, spawnMinions:true },
+        { id:"splitter", name:"分裂体", model:"circleDot",   color:"#a855f7", w:40, h:40, hp:78,  speed:0.85, damage:1.20, exp:2.60, ai:"chase",   weight:3,  unlock:0.60, splitOnDeath:true, splitCount:2, splitType:"swarm" },
+        { id:"swarm",    name:"蜂群",   model:"tiny",        color:"#fbbf24", w:18, h:18, hp:14,  speed:1.65, damage:0.75, exp:0.55, ai:"chase",   weight:6,  unlock:0.00, minion:true },
+
+        // 原有精英（依然保留，但生成由 director.eliteChance 控制）
+        { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:160, speed:0.90, damage:1.70, exp:3.80, ai:"chase",   weight:2,  unlock:0.65, elite:true }
+      ];
+
+      g.getEnemyDef = (id) => {
+        for (let i = 0; i < g.enemyDefs.length; i++) if (g.enemyDefs[i].id === id) return g.enemyDefs[i];
+        return g.enemyDefs[0];
+      };
+
+      g.pickEnemyDef = (t) => {
+        const d = g.director || { progress: 0, eliteChance: 0.04 };
+        const prog = clamp(d.progress || 0, 0, 1);
+
+        // elite roll (separate: prevents weight explosion)
+        if (Math.random() < (d.eliteChance || 0.04)) return g.getEnemyDef("elite");
+
+        // weighted pick among non-elite, gated by progress
+        let total = 0;
+        for (let i = 0; i < g.enemyDefs.length; i++) {
+          const def = g.enemyDefs[i];
+          if (def.elite) continue;
+          const unlock = def.unlock || 0;
+          if (prog < unlock) continue;
+
+          const w = safeNonNeg(def.weight || 1, 1) * (1 + (d.strength || 0) * 0.35);
+          total += w;
+        }
+        if (total <= 0) return g.getEnemyDef("grunt");
+
+        let r = Math.random() * total;
+        for (let i = 0; i < g.enemyDefs.length; i++) {
+          const def = g.enemyDefs[i];
+          if (def.elite) continue;
+          const unlock = def.unlock || 0;
+          if (prog < unlock) continue;
+
+          const w = safeNonNeg(def.weight || 1, 1) * (1 + (d.strength || 0) * 0.35);
+          r -= w;
+          if (r <= 0) return def;
+        }
+        return g.getEnemyDef("grunt");
+      };
+
+      g.createEnemyFromDef = (def, x, y, t, opts = null) => {
+        const d = g.director || { diff: 1.0 };
+        const diff = safeNumber(d.diff, 1.0);
+
+        const w = safeNonNeg(def.w, 30);
+        const h = safeNonNeg(def.h, 30);
+
+        const hpBase = safeNonNeg(def.hp, 30);
+        const hp = clamp(hpBase * diff, 1, 200000);
+
+        const speed = safeNonNeg(GameConfig.baseEnemySpeed * safeNonNeg(def.speed, 1.0) * (1 + safeNumber(d.strength, 0) * 0.12), 10);
+
+        const enemy = {
+          id: nextId(),
+          typeId: def.id,
+          typeName: def.name,
+          model: def.model,
+          ai: def.ai || "chase",
+          x, y,
+          w, h,
+          rot: 0,
+          color: def.color,
+          baseColor: def.color,
+          hp,
+          maxHp: hp,
+          speed,
+          armor: clamp(safeNumber(def.armor, 0), 0, 0.85),
+          damageMul: clamp(safeNumber(def.damage, 1.0), 0.2, 5.0),
+          expMul: clamp(safeNumber(def.exp, 1.0), 0.1, 20.0),
+
+          // behavior params
+          orbitR: def.orbitR || 180,
+          keepDist: def.keepDist || 220,
+          spawnMinions: !!def.spawnMinions,
+          splitOnDeath: !!def.splitOnDeath,
+          splitCount: def.splitCount || 0,
+          splitType: def.splitType || "swarm",
+
+          // runtime
+          frozenUntil: 0,
+          slowedUntil: 0,
+          burnEnd: null,
+          poisonEnd: null,
+          nextDash: 0,
+          dashEnd: 0,
+          nextSpawn: 0,
+          aiSeed: rand(0, 1000),
+        };
+
+        if (opts && opts.isMinion) enemy._minion = true;
+
+        g.enemies.push(enemy);
+        return enemy;
+      };
+
+      g.spawnMinions = (fromEnemy, count, t) => {
+        const def = g.getEnemyDef("swarm");
+        const n = Math.max(1, count | 0);
+        for (let i = 0; i < n; i++) {
+          const ang = rand(0, TAU);
+          const rr = rand(10, 22);
+          g.createEnemyFromDef(def, fromEnemy.x + Math.cos(ang)*rr, fromEnemy.y + Math.sin(ang)*rr, t, { isMinion: true });
+        }
+      };
+
+      g.computeExpDrop = (enemy, t) => {
+        // Base exp: type multiplier + difficulty + some "risk bonus"
+        const d = g.director || { diff: 1.0 };
+        const diff = safeNumber(d.diff, 1.0);
+        const hpRatio = clamp(g.playerHealth / Math.max(1, g.playerMaxHealth), 0, 1);
+
+        const base = 10;
+        const typeMul = clamp(safeNumber(enemy.expMul, 1.0), 0.1, 20.0);
+
+        // grow moderately with sqrt(diff) to avoid overflow
+        const diffMul = 1 + Math.sqrt(Math.max(0, diff - 1)) * 0.55;
+
+        // low HP comeback bonus (up to +25%)
+        const risk = clamp((0.35 - hpRatio) / 0.35, 0, 1);
+        const riskMul = 1 + 0.25 * risk;
+
+        // slight streak bonus (up to +15%)
+        const streakMul = 1 + Math.min(0.15, (g.killStreak || 0) * 0.01);
+
+        const rng = rand(0.92, 1.08);
+
+        let xp = clamp(base * typeMul * diffMul * riskMul * streakMul * rng, 1, 1200);
+        if (enemy && enemy._minion) xp *= 0.65;
+        return xp;
+      };
+
+g.getClosestEnemy = (pos = null) => {
+        const fromX = pos ? pos.x : g.player.x;
+        const fromY = pos ? pos.y : g.player.y;
+        let best = null;
+        let bestD2 = Infinity;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead || e._killQueued) continue;
+          const dx = e.x - fromX;
+          const dy = e.y - fromY;
+          const d2 = dx*dx + dy*dy;
+          if (d2 < bestD2) { bestD2 = d2; best = e; }
+        }
+        return best;
+      };
+
+      g.isEnemyInFiringDirection = (enemy) => {
+        const target = g.getClosestEnemy();
+        if (!target) return false;
+        const firingAngle = Math.atan2(target.y - g.player.y, target.x - g.player.x);
+        const enemyAngle = Math.atan2(enemy.y - g.player.y, enemy.x - g.player.x);
+        return Math.abs(firingAngle - enemyAngle) < 0.5;
+      };
+
+      // ------------------------------
+      // Effects (visual)
+      // ------------------------------
+      g.createHitEffect = (pos, t) => {
+        g.effects.push({ kind:"hit", x: pos.x, y: pos.y, start: t, end: t + 0.10 });
+      };
+
+      g.createExplosionEffect = (pos, radius, t) => {
+        const r = radius != null ? radius : g.areaDamageRadius;
+        g.effects.push({ kind:"explosion", x: pos.x, y: pos.y, r, start: t, end: t + 0.20 });
+      };
+
+      g.showDamageNum = (pos, val, isCrit, isLucky, t) => {
+        // Always keep the UI stable (no NaN/Infinity / crazy-long strings)
+        const num = (typeof val === "number") ? safeNonNeg(val, 0) : safeNonNeg(parseFloat(val), 0);
+        const text = (typeof val === "string") ? val : formatShort(num);
+
+        g.effects.push({
+          kind:"damageText",
+          x: pos.x,
+          y: pos.y - 10,
+          val: text,
+          isCrit: !!isCrit,
+          isLucky: !!isLucky,
+          start: t,
+          end: t + 0.50
+        });
+      };
+
+      // ------------------------------
+      // Damage numbers: always show (DOT is auto-aggregated to prevent spam)
+      // ------------------------------
+      g.damageTextDotInterval = 0.12;
+      g.damageTextMin = 0.75;
+
+      g._accumulateDamageText = (enemy, amount, t, isCrit, isLucky) => {
+        if (!enemy) return;
+
+        if (!enemy._dmgText) {
+          enemy._dmgText = { acc: 0, crit: false, lucky: false, next: 0 };
+        }
+        const st = enemy._dmgText;
+        st.acc = safeNonNeg(st.acc + amount, 0);
+        st.crit = st.crit || !!isCrit;
+        st.lucky = st.lucky || !!isLucky;
+
+        if (!st.next || st.next < t) st.next = t + g.damageTextDotInterval;
+
+        if (t >= st.next) {
+          // Avoid "0" spam: only show when it has built up a bit.
+          if (st.acc >= g.damageTextMin) {
+            g.showDamageNum({x:enemy.x, y:enemy.y}, st.acc, st.crit, st.lucky, t);
+            st.acc = 0;
+            st.crit = false;
+            st.lucky = false;
+          }
+          st.next = t + g.damageTextDotInterval;
+        }
+      };
+
+      g.flushDamageText = (enemy, t) => {
+        const st = enemy && enemy._dmgText;
+        if (st && st.acc > 0) {
+          g.showDamageNum({x:enemy.x, y:enemy.y}, st.acc, st.crit, st.lucky, t);
+          st.acc = 0;
+          st.crit = false;
+          st.lucky = false;
+          st.next = t + g.damageTextDotInterval;
+        }
+      };
+
+      // ------------------------------
+      // Kill queue (avoid recursive kill chains / stack overflow)
+      // ------------------------------
+      g.queueKill = (enemy, t) => {
+        if (!enemy || enemy._killed || enemy._killQueued) return;
+        enemy._killQueued = true;
+        g._killQueue.push({ enemy, t });
+      };
+
+      g.processKillQueue = (t) => {
+        let guard = 0;
+        while (g._killQueue.length > 0 && guard < 20000) {
+          const item = g._killQueue.shift();
+          const e = item.enemy;
+          if (!e || e._killed) { guard++; continue; }
+
+          // Flush any pending DOT number so the final damage doesn't get lost
+          g.flushDamageText(e, item.t);
+
+          e._killed = true;
+          e._killQueued = false;
+          g.killEnemy(e, item.t);
+
+          guard++;
+        }
+        if (guard >= 20000) {
+          console.warn("processKillQueue: guard tripped, clearing queue to prevent freeze.");
+          g._killQueue.length = 0;
+        }
+      };
+
+g.showDodgeEffect = (t) => {
+        g.effects.push({ kind:"label", text:"DODGE!", x:g.player.x, y:g.player.y, start:t, end:t+0.50, color:"#00d7ff" });
+      };
+      g.showBlockEffect = (t) => {
+        g.effects.push({ kind:"label", text:"BLOCK!", x:g.player.x, y:g.player.y, start:t, end:t+0.50, color:"#ffffff" });
+      };
+      g.showPhoenixEffect = (t) => {
+        g.effects.push({ kind:"phoenix", x:g.player.x, y:g.player.y, start:t, end:t+0.50 });
+      };
+
+      g.flash = (color, intensity, duration, t) => {
+        g.screenFlash = { color, intensity, start: t, end: t + duration };
+      };
+
+      g.hitStop = (duration, scale, t) => {
+        // scale < 1 => slow motion (hit stop)
+        g.hitStopEnd = Math.max(g.hitStopEnd || 0, t + duration);
+        g.hitStopScale = Math.min(g.hitStopScale || 1.0, scale);
+      };
+
+      g.emitBurst = (pos, count, color, t, speed = 420) => {
+        if (g.particles.length > 900) return;
+        for (let i = 0; i < count; i++) {
+          const ang = rand(0, TAU);
+          const sp = rand(speed * 0.35, speed);
+          const life = rand(0.18, 0.42);
+          const r = rand(1.5, 3.8);
+          g.particles.push({
+            kind: "spark",
+            x: pos.x, y: pos.y,
+            px: pos.x, py: pos.y,
+            vx: Math.cos(ang) * sp,
+            vy: Math.sin(ang) * sp,
+            r,
+            color,
+            born: t,
+            die: t + life
+          });
+        }
+      };
+
+      g.emitSparks = (pos, count, color, t, baseAngle = null) => {
+        if (g.particles.length > 900) return;
+        for (let i = 0; i < count; i++) {
+          const ang = (baseAngle == null) ? rand(0, TAU) : (baseAngle + rand(-0.9, 0.9));
+          const sp = rand(260, 680);
+          const life = rand(0.10, 0.24);
+          const r = rand(1.2, 3.0);
+          g.particles.push({
+            kind: "spark",
+            x: pos.x, y: pos.y,
+            px: pos.x, py: pos.y,
+            vx: Math.cos(ang) * sp,
+            vy: Math.sin(ang) * sp,
+            r,
+            color,
+            born: t,
+            die: t + life
+          });
+        }
+      };
+
+      g.shakeCamera = (duration, amp, t) => {
+        // backward compatible: shakeCamera(duration, t)
+        if (t === undefined) { t = amp; amp = 5; }
+        g.camera.shakeEnd = Math.max(g.camera.shakeEnd, t + duration);
+        g.camera.shakeAmp = Math.max(g.camera.shakeAmp || 0, amp || 5);
+      };
+
+      // ------------------------------
+      // Combat / Status
+      // ------------------------------
+      g.calculateDamage = (baseValue, target, t) => {
+        let damage = baseValue;
+
+        // 背水一战
+        if (g.lowHpDamageBoost) {
+          const hpRatio = g.playerHealth / g.playerMaxHealth;
+          if (hpRatio < g.lowHpThreshold) damage *= g.lowHpDamageMulti;
+        }
+
+        // 临界状态
+        if (g.criticalStateEnabled) {
+          const hpRatio = g.playerHealth / g.playerMaxHealth;
+          const bonus = 1.0 + (0.5 - Math.abs(hpRatio - 0.5)) * 2;
+          damage *= bonus;
+        }
+
+        // 连杀加成
+        if (g.killStreakEnabled) {
+          const bonus = Math.min(g.killStreak * 0.1, g.killStreakMaxBonus);
+          damage *= (1 + bonus);
+        }
+
+        // 暴怒
+        if (g.rageOnHit && t < g.rageEndTime) {
+          damage *= (1 + g.rageDamageBonus);
+        }
+
+        // 静止加成
+        if (g.stationaryDamageBonus > 0 && !g.wasMovingLastFrame) {
+          damage *= (1 + g.stationaryDamageBonus);
+        }
+
+        // 动量伤害
+        if (g.momentumDamage) {
+          damage *= (1 + g.currentMomentum * 0.5);
+        }
+
+        // 共生
+        if (g.symbiosisEnabled) {
+          const enemyCount = g.enemies.length;
+          const bonus = Math.min(enemyCount * 0.05, 0.5);
+          damage *= (1 + bonus);
+        }
+
+        // 清场/人海
+        let nearbyEnemies = 0;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < 300*300) nearbyEnemies++;
+        }
+        if (g.clearingBonus && nearbyEnemies < 5) damage *= 1.5;
+        if (g.crowdControl && nearbyEnemies > 10) {
+          // Swift 里留空，这里保持不实现
+        }
+
+        // 赌徒模式
+        if (g.gamblerMode) {
+          damage *= rand(0.5, 2.0);
+        }
+
+        // 处决
+        if (g.executeEnabled) {
+          const targetHp = target.hp;
+          const targetMaxHp = target.maxHp || targetHp;
+          if ((targetHp / targetMaxHp) < g.executeThreshold) damage *= 2;
+        }
+
+        return safeNonNeg(damage, 0);
+      };
+
+      g.applyStatusEffects = (enemy, t) => {
+        // 冰冻
+        if (g.freezeChance > 0 && Math.random() < g.freezeChance) {
+          enemy.frozenUntil = Math.max(enemy.frozenUntil || 0, t + g.freezeDuration);
+          enemy.color = "#00d7ff";
+          enemy.baseColorAfterFreeze = "#ff3b30"; // Swift: 解冻后强制变红
+        }
+
+        // 燃烧
+        if (g.burnChance > 0 && Math.random() < g.burnChance) {
+          enemy.burnEnd = t + g.burnDuration;
+          enemy.burnDmg = g.burnDamage;
+
+          if (g.burnSpread) {
+            for (let i = 0; i < g.enemies.length; i++) {
+              const near = g.enemies[i];
+            if (near === enemy) continue;
+            if (near._dead) continue;
+              const dx = near.x - enemy.x, dy = near.y - enemy.y;
+              if (dx*dx + dy*dy < 50*50) {
+                near.burnEnd = t + g.burnDuration * 0.5;
+                near.burnDmg = g.burnDamage * 0.5;
+              }
+            }
+          }
+        }
+
+        // 毒
+        if (g.poisonChance > 0 && Math.random() < g.poisonChance) {
+          enemy.poisonEnd = t + g.poisonDuration;
+          enemy.poisonDmg = g.poisonDamage;
+        }
+      };
+
+      // 额外：飞刀命中附加效果（不会影响原版其它系统）
+      g.applyBladeStatusEffects = (enemy, t) => {
+        if (g.bladeOrbitFreezeChance > 0 && Math.random() < g.bladeOrbitFreezeChance) {
+          enemy.frozenUntil = Math.max(enemy.frozenUntil || 0, t + g.bladeOrbitFreezeDuration);
+          enemy.color = "#00d7ff";
+          enemy.baseColorAfterFreeze = "#ff3b30";
+        }
+        if (g.bladeOrbitBurnChance > 0 && Math.random() < g.bladeOrbitBurnChance) {
+          enemy.burnEnd = t + g.bladeOrbitBurnDuration;
+          enemy.burnDmg = g.bladeOrbitBurnDamage;
+        }
+        if (g.bladeOrbitPoisonChance > 0 && Math.random() < g.bladeOrbitPoisonChance) {
+          enemy.poisonEnd = t + g.bladeOrbitPoisonDuration;
+          enemy.poisonDmg = g.bladeOrbitPoisonDamage;
+        }
+      };
+
+      g.applyDamageToEnemy = (enemy, damage, t, meta = null) => {
+        if (!enemy || enemy._dead || enemy._killed) return;
+
+        let dmg = safeNonNeg(damage, 0);
+        if (dmg <= 0) return;
+
+        // armor（盾兵等）：按比例削减最终承受伤害
+        const armor = clamp(safeNumber(enemy.armor, 0), 0, 0.85);
+        if (armor > 0) dmg *= (1 - armor);
+        dmg = safeNonNeg(dmg, 0);
+        if (dmg <= 0) return;
+
+        // stats / combat window
+        if (g.stats) g.stats.dmgDealt = safeNonNeg((g.stats.dmgDealt || 0) + dmg, 0);
+        if (g.combat && g.combat._acc) g.combat._acc.dmgDealt = safeNonNeg((g.combat._acc.dmgDealt || 0) + dmg, 0);
+
+        // Always show damage numbers on enemies:
+        // - direct hits (bullet / mine / orbital / meteor...) => immediate
+        // - DOT (burn/poison/aura/blackhole...) => aggregated to avoid spam
+        const isCrit = !!(meta && meta.isCrit);
+        const isLucky = !!(meta && meta.isLucky);
+        const immediate = !!(meta && meta.immediate);
+        if (immediate) {
+          g.showDamageNum({x:enemy.x, y:enemy.y}, dmg, isCrit, isLucky, t);
+        } else {
+          g._accumulateDamageText(enemy, dmg, t, isCrit, isLucky);
+        }
+
+        enemy.hp = safeNonNeg((enemy.hp || 0) - dmg, 0);
+
+        // 斩杀 / 处决
+        if (g.instantKillThreshold > 0 && enemy.maxHp) {
+          const ratio = enemy.hp / enemy.maxHp;
+          if (ratio < g.instantKillThreshold) enemy.hp = 0;
+        }
+
+        if (enemy.hp <= 0) {
+          enemy.hp = 0;
+          enemy._dead = true;
+          g.queueKill(enemy, t);
+        } else {
+          // Swift: colorize flash（这里用一个短特效代替）
+          g.effects.push({ kind:"enemyHit", x: enemy.x, y: enemy.y, start:t, end:t+0.10 });
+        }
+      };
+
+      g.killEnemy = (enemy, t) => {
+        if (!enemy || enemy._removed) return;
+        enemy._removed = true;
+
+        const pos = { x: enemy.x, y: enemy.y };
+
+        // 爽感：击杀爆裂 + 震屏 + 音效（精英更猛）
+        const isElite = (enemy.typeId === "elite") || (enemy.maxHp >= 140);
+        SFX.kill(t, isElite);
+        g.hitStop(isElite ? 0.07 : 0.05, isElite ? 0.16 : 0.22, t);
+        g.shakeCamera(isElite ? 0.18 : 0.12, isElite ? 12 : 8, t);
+        g.flash("#ff9f0a", isElite ? 0.18 : 0.12, 0.12, t);
+        g.emitBurst(pos, isElite ? 28 : 18, isElite ? "#ff9f0a" : "#ffd60a", t, isElite ? 720 : 560);
+
+        // 死亡爆炸
+        if (g.deathExplosion) {
+          g.createExplosionEffect(pos, g.deathExplosionRadius, t);
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy) continue;
+            const dx = near.x - pos.x, dy = near.y - pos.y;
+            if (dx*dx + dy*dy < g.deathExplosionRadius*g.deathExplosionRadius) {
+              g.applyDamageToEnemy(near, g.bulletDamage * 0.5, t);
+            }
+          }
+        }
+
+        // 毒爆
+        if (g.poisonExplode && enemy.poisonEnd != null) {
+          g.createPoisonExplosion(pos, t);
+        }
+
+        // 连杀
+        g.killStreak += 1;
+        g.lastKillTime = t;
+
+        // stats / combat window
+        if (g.stats) g.stats.kills = (g.stats.kills || 0) + 1;
+        if (g.combat && g.combat._acc) g.combat._acc.kills = (g.combat._acc.kills || 0) + 1;
+
+        // 击杀回血
+        if (g.killHealAmount > 0) g.heal(g.killHealAmount);
+
+        // 时间扭曲
+        if (g.timeWarpOnKill && Math.random() < 0.1) {
+          g.timeWarpActive = true;
+          g.timeWarpEndTime = t + 2.0;
+        }
+
+        // 掉落经验（按类型/强度/风险）
+        const xp = g.computeExpDrop(enemy, t);
+        g.spawnExpOrb(pos, xp, enemy.baseColor);
+
+        // 分裂（分裂体死亡后生成蜂群）
+        if (enemy.splitOnDeath && enemy.splitCount > 0) {
+          g.spawnMinions(enemy, enemy.splitCount, t);
+        }
+
+        // Remove enemy
+        const idx = g.enemies.indexOf(enemy);
+        if (idx >= 0) g.enemies.splice(idx, 1);
+      };
+
+      g.triggerChainLightning = (fromEnemy, damage, remaining, t) => {
+        if (remaining <= 0) return;
+
+        // Swift: 遍历 children，找到第一个满足距离的敌人
+        let target = null;
+        let bestD2 = Infinity;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          if (e === fromEnemy) continue;
+          const dx = e.x - fromEnemy.x, dy = e.y - fromEnemy.y;
+          const d2 = dx*dx + dy*dy;
+          if (d2 < 150*150 && d2 < bestD2) { bestD2 = d2; target = e; }
+        }
+        if (!target) return;
+
+        // Lightning visual
+        g.effects.push({ kind:"line", x1: fromEnemy.x, y1: fromEnemy.y, x2: target.x, y2: target.y, start:t, end:t+0.20 });
+
+        g.applyDamageToEnemy(target, damage, t, { immediate: true });
+        g.triggerChainLightning(target, damage * g.chainDamageDecay, remaining - 1, t);
+      };
+
+      // ------------------------------
+      // Projectile creation
+      // ------------------------------
+      g.createBullet = (angle, t, override = null) => {
+        const scale = g.bulletScale;
+        const w = 8 * scale;
+        const h = 20 * scale;
+
+        const speed = (override && override.speed != null) ? override.speed : (GameConfig.baseBulletSpeed * g.bulletSpeedMulti);
+        const vx = Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+
+        // charge bonus
+        let bonusDamage = 1.0;
+        if (!override?.noCharge && g.chargeAttackEnabled && g.currentCharge > 0) {
+          bonusDamage = 1.0 + g.currentCharge;
+          g.currentCharge = 0;
+        }
+
+        const bullet = {
+          id: nextId(),
+          x: g.player.x,
+          y: g.player.y,
+          w,
+          h,
+          rot: angle - Math.PI/2,
+          vx,
+          vy,
+          born: t,
+          die: t + (override && override.life != null ? override.life : g.bulletLifetime),
+          pierceLeft: (override && override.pierceLeft != null) ? override.pierceLeft : g.pierceCount,
+          bounceLeft: g.bounceCount,
+          chargeBonus: (override && override.chargeBonus != null) ? override.chargeBonus : bonusDamage,
+          hitSet: new Set()
+        };
+        g.bullets.push(bullet);
+      };
+
+      g.createSplitBullet = (pos, angle, t) => {
+        const speed = GameConfig.baseBulletSpeed * 0.7;
+        const b = {
+          id: nextId(),
+          x: pos.x,
+          y: pos.y,
+          w: 6,
+          h: 12,
+          rot: angle - Math.PI/2,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          born: t,
+          die: t + 0.8,
+          pierceLeft: 0,
+          bounceLeft: 0,
+          chargeBonus: 1.0,
+          hitSet: new Set()
+        };
+        g.bullets.push(b);
+      };
+
+      // Drone bullet uses same bullet system
+      g.fireDroneBullet = (drone, target, t) => {
+        const dx = target.x - drone.x, dy = target.y - drone.y;
+        const angle = Math.atan2(dy, dx);
+        const speed = 400;
+        const b = {
+          id: nextId(),
+          x: drone.x,
+          y: drone.y,
+          w: 4,
+          h: 8,
+          rot: angle - Math.PI/2,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          born: t,
+          die: t + 1.5,
+          pierceLeft: 0,
+          bounceLeft: 0,
+          chargeBonus: 1.0,
+          hitSet: new Set(),
+          droneBullet: true
+        };
+        g.bullets.push(b);
+      };
+
+      g.shoot = (t) => {
+        const target = g.getClosestEnemy();
+        if (!target) return;
+
+        const dx = target.x - g.player.x;
+        const dy = target.y - g.player.y;
+        const baseAngle = Math.atan2(dy, dx);
+
+        // SFX + muzzle flash
+        SFX.shoot(t);
+        g.effects.push({ kind:"muzzle", x:g.player.x, y:g.player.y, ang: baseAngle, start:t, end:t+0.06 });
+
+        if (g.allDirectionFire) {
+          for (let i = 0; i < g.bulletCount; i++) {
+            const angle = i * (TAU / g.bulletCount);
+            g.createBullet(angle, t);
+          }
+        } else {
+          const totalSpread = (g.bulletCount - 1) * g.spreadAngle;
+          const startAngle = baseAngle - totalSpread / 2;
+          for (let i = 0; i < g.bulletCount; i++) {
+            const angle = startAngle + i * g.spreadAngle;
+            g.createBullet(angle, t);
+          }
+        }
+
+        // recoil
+        if (g.recoilPush) {
+          g.player.x -= Math.cos(baseAngle) * 5;
+          g.player.y -= Math.sin(baseAngle) * 5;
+        }
+      };
+
+      // ------------------------------
+      // Collisions handlers
+      // ------------------------------
+      g.handleBulletHit = (bullet, enemy, t) => {
+        // Damage
+        let damage = g.calculateDamage(g.bulletDamage, enemy, t);
+
+        // charge bonus
+        damage *= (bullet.chargeBonus || 1.0);
+
+        // vulnerability
+        if (enemy.vulnerableUntil != null && t < enemy.vulnerableUntil) {
+          damage *= (1 + g.vulnerabilityBonus);
+        }
+
+        // crit
+        let isCrit = false;
+        let actualCritRate = g.critRate;
+        if (g.revengeEnabled && g.revengeNextCrit) {
+          actualCritRate = 1.0;
+          g.revengeNextCrit = false;
+        }
+        if (Math.random() < actualCritRate) {
+          damage *= g.critDamageMulti;
+          isCrit = true;
+        }
+
+        // lucky crit
+        let isLucky = false;
+        const luckyRoll = Math.random();
+        if (luckyRoll < g.luckyCritChance) {
+          isLucky = true;
+          damage *= g.luckyCritMulti;
+        }
+
+        // apply (always show damage number on enemy)
+        g.applyDamageToEnemy(enemy, damage, t, { isCrit, isLucky, immediate: true });
+
+        // juice feedback
+        const bigHit = (isCrit || isLucky);
+        SFX.hit(t, bigHit);
+        g.hitStop(bigHit ? 0.05 : 0.03, bigHit ? 0.22 : 0.34, t);
+        g.shakeCamera(bigHit ? 0.10 : 0.06, bigHit ? 7 : 3, t);
+        g.emitSparks({x:enemy.x, y:enemy.y}, bigHit ? 12 : 7, "#ffd60a", t, Math.atan2(bullet.vy, bullet.vx));
+
+        // status
+        g.applyStatusEffects(enemy, t);
+
+        // knockback
+        if (g.knockbackForce > 0) {
+          const vx = enemy.x - bullet.x, vy = enemy.y - bullet.y;
+          const len = hypot(vx, vy) || 1;
+          enemy.x += (vx/len) * g.knockbackForce * 0.1;
+          enemy.y += (vy/len) * g.knockbackForce * 0.1;
+        }
+
+        // area damage
+        if (g.areaDamageRadius > 0) {
+          g.createExplosionEffect({x:enemy.x, y:enemy.y}, g.areaDamageRadius, t);
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy) continue;
+            const dx = near.x - enemy.x, dy = near.y - enemy.y;
+            if (dx*dx + dy*dy < g.areaDamageRadius*g.areaDamageRadius) {
+              g.applyDamageToEnemy(near, damage * 0.5, t, { isCrit, isLucky, immediate: true });
+              if (g.explosionKnockback) {
+                const len = hypot(dx, dy) || 1;
+                near.x += (dx/len) * 50;
+                near.y += (dy/len) * 50;
+              }
+            }
+          }
+        } else {
+          g.createHitEffect({x:bullet.x, y:bullet.y}, t);
+        }
+
+        // chain lightning
+        if (g.chainLightning) {
+          g.triggerChainLightning(enemy, damage * g.chainDamageDecay, g.chainCount, t);
+        }
+
+        // split
+        if (g.splitOnHit) {
+          const currentAngle = Math.atan2(bullet.vy, bullet.vx);
+          const half = Math.floor(g.splitCount / 2);
+          for (let i = 0; i < g.splitCount; i++) {
+            const splitAngle = currentAngle + (i - half) * 0.5;
+            g.createSplitBullet({x:enemy.x, y:enemy.y}, splitAngle, t);
+          }
+        }
+
+        // lifesteal
+        if (Math.random() < g.lifestealChance) {
+          g.heal(damage * g.lifestealPercent);
+        }
+
+        // vulnerability mark
+        if (g.vulnerabilityMark) {
+          enemy.vulnerableUntil = t + 3.0;
+        }
+
+        // pierce
+        if (bullet.pierceLeft > 0) {
+          bullet.pierceLeft -= 1;
+        } else {
+          bullet._dead = true;
+        }
+
+        // overload
+        if (Math.random() < g.overloadChance) {
+          g.shoot(t);
+        }
+      };
+
+      g.handleOrbitalHit = (orbital, enemy, t) => {
+        // Swift 原版：let damage = orbitalShieldCount > 0 ? orbitalShieldDamage : bladeOrbitDamage
+        // 这里做了“优化”：按类型分别计算（否则飞刀升级容易被护盾覆盖）
+        let damage;
+        if (orbital.type === "shield") damage = g.orbitalShieldDamage;
+        else damage = g.bladeOrbitDamage;
+
+        g.applyDamageToEnemy(enemy, damage, t, { immediate: true });
+
+        // 爽感：飞刀命中受击颜色 + 刀光 + 火花 + 音效
+        if (orbital.type === "blade") {
+          enemy.hitFlashEnd = Math.max(enemy.hitFlashEnd || 0, t + 0.08);
+          g.effects.push({ kind:"slash", x: enemy.x, y: enemy.y, ang: orbital.rot, start: t, end: t + 0.12 });
+          g.emitSparks({x:enemy.x, y:enemy.y}, 10, "#ffffff", t, orbital.rot);
+          SFX.blade(t);
+          g.hitStop(0.02, 0.35, t);
+          g.shakeCamera(0.07, 4, t);
+        }
+
+        // 额外：飞刀命中附加状态/吸血
+        if (orbital.type === "blade") {
+          g.applyBladeStatusEffects(enemy, t);
+          if (g.bladeOrbitLifestealChance > 0 && Math.random() < g.bladeOrbitLifestealChance) {
+            g.heal(damage * g.bladeOrbitLifestealPercent);
+          }
+        }
+      };
+
+      g.handleMineHit = (mine, t) => {
+        const pos = { x: mine.x, y: mine.y };
+        const damage = mine.damage;
+        const radius = mine.radius;
+
+        g.createExplosionEffect(pos, radius, t);
+        SFX.kill(t, true);
+        g.flash("#ff9f0a", 0.12, 0.12, t);
+        g.shakeCamera(0.14, 11, t);
+        g.hitStop(0.06, 0.20, t);
+        g.emitBurst(pos, 26, "#ff9f0a", t, 780);
+
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - pos.x, dy = e.y - pos.y;
+          if (dx*dx + dy*dy < radius*radius) {
+            g.applyDamageToEnemy(e, damage, t, { immediate: true });
+          }
+        }
+
+        mine._dead = true;
+      };
+
+      g.handlePlayerHit = (enemy, t) => {
+        if (t - g.player.lastHit < g.iFrameDuration) return;
+
+        // Dodge
+        if (Math.random() < g.dodgeChance) {
+          g.showDodgeEffect(t);
+          if (g.dodgeInvincibility) g.player.lastHit = t;
+          return;
+        }
+
+        // Block
+        if (Math.random() < g.blockChance) {
+          g.showBlockEffect(t);
+          if (g.perfectBlockCounter) {
+            g.applyDamageToEnemy(enemy, g.bulletDamage * 2, t);
+          }
+          return;
+        }
+
+        // Damage calc
+        const baseDmg = 9;
+        const d = g.director || null;
+        const dirMul = d ? safeNumber(d.dmgMul, 1.0) : (1.0 + (g.level - 1) * 0.085);
+        const typeMul = clamp(safeNumber(enemy.damageMul, 1.0), 0.2, 5.0);
+        let damage = baseDmg * dirMul * typeMul;
+
+        damage *= (1 - g.damageReduction);
+        damage = Math.min(damage, g.playerMaxHealth * g.damageCap);
+
+        // Thorns
+        if (g.thornsDamagePercent > 0) {
+          g.applyDamageToEnemy(enemy, damage * g.thornsDamagePercent, t);
+          if (g.thornsSlow) enemy.slowed = true;
+        }
+
+        g.takeDamage(damage, t);
+
+        // Rage
+        if (g.rageOnHit) g.rageEndTime = t + 3.0;
+
+        // Revenge
+        if (g.revengeEnabled) g.revengeNextCrit = true;
+
+        g.player.lastHit = t;
+        g.lastDamageTime = t;
+
+        SFX.hit(t, true);
+        g.hitStop(0.06, 0.22, t);
+        g.shakeCamera(0.28, 16, t);
+        g.emitBurst({x:g.player.x, y:g.player.y}, 18, "#ff3b30", t, 520);
+      };
+
+      // ------------------------------
+      // Player state
+      // ------------------------------
+      g.takeDamage = (val, t) => {
+        val = safeNonNeg(val, 0);
+
+        if (g.stats) g.stats.dmgTaken = safeNonNeg((g.stats.dmgTaken || 0) + val, 0);
+        if (g.combat && g.combat._acc) g.combat._acc.dmgTaken = safeNonNeg((g.combat._acc.dmgTaken || 0) + val, 0);
+        g.playerHealth = safeNonNeg((g.playerHealth || 0) - val, 0);
+
+        g.flash("#ff3b30", 0.30, 0.20, t);
+
+        if (g.playerHealth <= 0) {
+          if (g.phoenixRevive && Math.random() < g.phoenixChance) {
+            g.playerHealth = safeNonNeg(g.playerMaxHealth * 0.3, 1);
+            g.phoenixRevive = false;
+            g.showPhoenixEffect(t);
+          } else if (g.lastStand) {
+            g.playerHealth = 1;
+            g.lastStand = false;
+            // 3 seconds later die
+            g._pendingDeathAt = t + 3.0;
+          } else {
+            g.playerHealth = 0;
+            g.isPausedGame = true;
+            g.isGameOver = true;
+            if (typeof g.onGameOver === "function") g.onGameOver();
+          }
+        }
+        g.updateUI();
+      };
+
+      g.heal = (val) => {
+        val = safeNonNeg(val, 0);
+        const maxHp = safeNonNeg(g.playerMaxHealth, 0);
+        g.playerHealth = clampFinite(safeNonNeg((g.playerHealth || 0) + val, 0), 0, maxHp);
+        g.updateUI();
+      };
+
+      g.addExp = (val, t) => {
+        // 让开局升级更快一点：前 90 秒额外经验加成（不影响后期节奏）
+        let boost = 1.0;
+        if (g._startTime != null) {
+          const elapsed = t - g._startTime;
+          if (elapsed < 45) boost = 1.35;
+          else if (elapsed < 90) boost = 1.15;
+        }
+
+        val = safeNonNeg(val, 0);
+        const gained = val * boost;
+
+        // stats / combat window
+        if (g.stats) g.stats.expGained = safeNonNeg((g.stats.expGained || 0) + gained, 0);
+        if (g.combat && g.combat._acc) g.combat._acc.exp = safeNonNeg((g.combat._acc.exp || 0) + gained, 0);
+
+        g.currentExp = safeNonNeg((g.currentExp || 0) + gained, 0);
+
+        if (g.currentExp >= g.maxExp) {
+          g.currentExp = safeNonNeg((g.currentExp || 0) - (g.maxExp || 0), 0);
+
+          // 经验曲线：前期更平滑更快，后期回归原版 1.2
+          const nextLevel = g.level + 1;
+          let mult = 1.20;
+          if (nextLevel <= 6) mult = 1.12;
+          else if (nextLevel <= 12) mult = 1.16;
+
+          g.maxExp = safeNonNeg((g.maxExp || 0) * mult, 1);
+          g.level = nextLevel;
+
+          // 爽感反馈：闪屏 + 抖动 + 短暂停顿 + 金色爆裂
+          g.isPausedGame = true;
+          g.flash("#ffd60a", 0.22, 0.18, t);
+          g.shakeCamera(0.22, 10, t);
+          g.hitStop(0.10, 0.18, t);
+          g.emitBurst({x:g.player.x, y:g.player.y}, 26, "#ffd60a", t, 520);
+
+          SFX.levelup(t);
+
+          if (typeof g.onLevelUp === "function") g.onLevelUp();
+        }
+
+        g.updateUI();
+      };
+
+      // ------------------------------
+      // Spawns / Summons
+      // ------------------------------
+      g.spawnEnemy = (t) => {
+        const def = g.pickEnemyDef(t);
+
+        const half = GameConfig.mapSize * 0.5 - 40;
+        const ang = rand(0, TAU);
+        const dist = rand(520, 820);
+
+        let x = g.player.x + Math.cos(ang) * dist;
+        let y = g.player.y + Math.sin(ang) * dist;
+
+        x = clamp(x, -half, half);
+        y = clamp(y, -half, half);
+
+        g.createEnemyFromDef(def, x, y, t);
+      };
+
+      g.spawnExpOrb = (pos, value = 12, color = null) => {
+        const v = clamp(safeNonNeg(value == null ? 12 : value, 12), 1, 2000);
+        const r = clamp(3.5 + Math.sqrt(v) * 0.32, 4, 11);
+        const col = color || "#34c759";
+        g.expOrbs.push({ id: nextId(), x: pos.x, y: pos.y, r, val: v, color: col });
+      };
+
+      g.createOrbitalShield = () => {
+        g.orbitals.push({ id: nextId(), type:"shield", x:g.player.x, y:g.player.y, r: 12, rot: 0, colliding: new Set() });
+      };
+
+      g.createOrbitalBlade = () => {
+        g.orbitals.push({ id: nextId(), type:"blade", x:g.player.x, y:g.player.y, w: 30, h: 6, rot: 0, colliding: new Set() });
+      };
+
+      g.createDrone = () => {
+        g.drones.push({ id: nextId(), x: g.player.x, y: g.player.y + 60, lastShot: 0 });
+      };
+
+      g.createGhost = () => {
+        g.ghosts.push({ id: nextId(), x: g.player.x, y: g.player.y });
+      };
+
+      g.dropMine = (pos, t) => {
+        g.mines.push({
+          id: nextId(),
+          x: pos.x,
+          y: pos.y,
+          r: 10,
+          damage: g.mineDamage,
+          radius: g.mineRadius,
+          born: t
+        });
+      };
+
+      g.createFireTrail = (pos, t) => {
+        g.fireTrails.push({ id: nextId(), x: pos.x, y: pos.y, r: 15, born: t, die: t + 1.5, lastTick: t });
+      };
+
+      g.summonMeteor = (t) => {
+        const x = g.player.x + rand(-200, 200);
+        const y = g.player.y + rand(-200, 200);
+        g.warnings.push({ id: nextId(), x, y, born: t });
+      };
+
+      g.createBlackHole = (pos, t, small=false) => {
+        const radius = small ? 50 : 100;
+        const duration = small ? 1.5 : 3.0;
+        g.blackHoles.push({
+          id: nextId(),
+          x: pos.x,
+          y: pos.y,
+          radius,
+          end: t + duration,
+          fadeEnd: t + duration + 0.3,
+          nextTick: t,
+          small
+        });
+      };
+
+      g.createPoisonExplosion = (pos, t) => {
+        g.poisonClouds.push({
+          id: nextId(),
+          x: pos.x,
+          y: pos.y,
+          radius: 60,
+          born: t,
+          ticks: 0,
+          nextTick: t,
+          fadeStart: t + 3.0,
+          fadeEnd: t + 3.5
+        });
+      };
+
+      // ------------------------------
+      // Update Systems (ported)
+      // ------------------------------
+      g.updateEnemies = (dt, t) => {
+        const half = GameConfig.mapSize * 0.5 - 30;
+
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+
+          // thaw (restore color after freeze)
+          if (e.frozenUntil && t >= e.frozenUntil) {
+            e.frozenUntil = 0;
+            if (e.baseColorAfterFreeze) {
+              e.color = e.baseColorAfterFreeze;
+              e.baseColorAfterFreeze = null;
+            } else {
+              e.color = e.baseColor || e.color;
+            }
+          }
+
+          // clear timed slow from ghost
+          if (e._ghostSlowUntil != null && t >= e._ghostSlowUntil) {
+            e.slowed = false;
+            e._ghostSlowUntil = null;
+          }
+
+          const frozen = (e.frozenUntil && t < e.frozenUntil);
+
+          if (!frozen) {
+            const dx = g.player.x - e.x;
+            const dy = g.player.y - e.y;
+            const dist = Math.max(0.001, hypot(dx, dy));
+            let angle = Math.atan2(dy, dx);
+
+            let speed = safeNonNeg(e.speed, GameConfig.baseEnemySpeed);
+
+            // suppression
+            if (g.suppressionEnabled && g.isEnemyInFiringDirection(e)) speed *= 0.6;
+
+            // slowed
+            if (e.slowed) speed *= 0.5;
+
+            // AI behaviors
+            switch (e.ai) {
+              case "zigzag": {
+                angle += Math.sin(t * 3.2 + (e.aiSeed || 0)) * 0.9;
+                break;
+              }
+              case "orbit": {
+                const targetR = e.orbitR || 180;
+                const tang = angle + Math.PI / 2;
+                const err = clamp((dist - targetR) / targetR, -0.75, 0.75);
+                angle = tang + err;
+                break;
+              }
+              case "dash": {
+                if (!e.nextDash || e.nextDash < 1e-6) e.nextDash = t + rand(1.0, 2.2);
+                if (t >= e.nextDash) {
+                  e.dashEnd = t + 0.28;
+                  e.nextDash = t + rand(1.8, 3.2);
+                }
+                if (t < (e.dashEnd || 0)) speed *= 2.6;
+                break;
+              }
+              case "kite": {
+                const keep = e.keepDist || 220;
+                if (dist < keep * 0.85) {
+                  angle += Math.PI; // run away
+                  speed *= 1.05;
+                } else if (dist < keep * 1.10) {
+                  angle += Math.PI / 2; // strafe
+                  speed *= 0.95;
+                }
+                break;
+              }
+              case "spawner": {
+                // summon minions periodically
+                speed *= 0.85;
+                if (!e.nextSpawn || e.nextSpawn < 1e-6) e.nextSpawn = t + rand(1.6, 2.6);
+
+                if (t >= e.nextSpawn) {
+                  const s = safeNumber(g.director && g.director.strength, 0);
+                  const count = clamp(2 + Math.floor(s * 1.3) + (Math.random() < 0.25 ? 1 : 0), 2, 5);
+                  g.spawnMinions(e, count, t);
+
+                  const cd = rand(2.2, 3.8) / (1 + s * 0.35);
+                  e.nextSpawn = t + cd;
+                }
+                break;
+              }
+              default:
+                break;
+            }
+
+            e.x += Math.cos(angle) * speed * dt;
+            e.y += Math.sin(angle) * speed * dt;
+            e.x = clamp(e.x, -half, half);
+            e.y = clamp(e.y, -half, half);
+
+            e.rot = angle - Math.PI/2;
+          }
+
+          // burn damage (ticks even if frozen)
+          if (e.burnEnd != null && t < e.burnEnd) {
+            const burnDmg = e.burnDmg || 0;
+            g.applyDamageToEnemy(e, burnDmg * dt * 10, t);
+          }
+
+          // poison damage (ticks even if frozen)
+          if (e.poisonEnd != null && t < e.poisonEnd) {
+            const poisonDmg = e.poisonDmg || 0;
+            g.applyDamageToEnemy(e, poisonDmg * dt * 10, t);
+          }
+
+          // vulnerable auto-clear
+          if (e.vulnerableUntil != null && t >= e.vulnerableUntil) e.vulnerableUntil = null;
+        }
+      };
+
+      g.updateOrbitals = (dt, t) => {
+        // Ensure counts
+        const shields = g.orbitals.filter(o => o.type === "shield");
+        const blades = g.orbitals.filter(o => o.type === "blade");
+
+        while (shields.length + g.orbitals.filter(o=>o.type==="shield").length < g.orbitalShieldCount) {
+          // (this branch never hits due to above), keep simple
+          g.createOrbitalShield();
+        }
+        while (g.orbitals.filter(o=>o.type==="shield").length < g.orbitalShieldCount) g.createOrbitalShield();
+        while (g.orbitals.filter(o=>o.type==="blade").length < g.bladeOrbitCount) g.createOrbitalBlade();
+
+        const shieldList = g.orbitals.filter(o=>o.type==="shield");
+        const bladeList = g.orbitals.filter(o=>o.type==="blade");
+
+        // Update positions
+        for (let i = 0; i < shieldList.length; i++) {
+          const o = shieldList[i];
+          const angle = (t * 2 * g.orbitalShieldSpeed) + i * (TAU / Math.max(1, g.orbitalShieldCount));
+          o.x = g.player.x + Math.cos(angle) * 70;
+          o.y = g.player.y + Math.sin(angle) * 70;
+          o.rot = angle;
+        }
+        for (let i = 0; i < bladeList.length; i++) {
+          const o = bladeList[i];
+          const angle = (t * 3 * g.bladeOrbitSpeed) + i * (TAU / Math.max(1, g.bladeOrbitCount));
+          o.x = g.player.x + Math.cos(angle) * g.bladeOrbitRadius;
+          o.y = g.player.y + Math.sin(angle) * g.bladeOrbitRadius;
+          o.rot = angle;
+          o.w = 30 * g.bladeOrbitScale;
+          o.h = 6 * g.bladeOrbitScale;
+        }
+
+        // Orbital vs enemy contact begin
+        for (let oi = 0; oi < g.orbitals.length; oi++) {
+          const o = g.orbitals[oi];
+          const current = new Set();
+
+          for (let ei = 0; ei < g.enemies.length; ei++) {
+            const e = g.enemies[ei];
+            if (e._dead) continue;
+            const dx = e.x - o.x, dy = e.y - o.y;
+            const rr = (o.type === "shield" ? (o.r + Math.max(e.w,e.h)/2) : (Math.max(o.w,o.h)/2 + Math.max(e.w,e.h)/2));
+            if (dx*dx + dy*dy <= rr*rr) {
+              current.add(e.id);
+              if (!o.colliding.has(e.id)) {
+                g.handleOrbitalHit(o, e, t);
+              }
+            }
+          }
+
+          o.colliding = current;
+        }
+      };
+
+      g.updateDrones = (t) => {
+        // Ensure count
+        while (g.drones.length < g.droneCount) g.createDrone();
+
+        for (let i = 0; i < g.drones.length; i++) {
+          const d = g.drones[i];
+          if (t - d.lastShot > 0.8) {
+            const target = g.getClosestEnemy({x:d.x, y:d.y});
+            if (target) {
+              g.fireDroneBullet(d, target, t);
+              d.lastShot = t;
+            }
+          }
+          // follow player with jitter target
+          const targetX = g.player.x + rand(-50, 50);
+          const targetY = g.player.y + rand(50, 80);
+          d.x += (targetX - d.x) * 0.02;
+          d.y += (targetY - d.y) * 0.02;
+        }
+      };
+
+      g.updateGhosts = (t) => {
+        while (g.ghosts.length < g.ghostCount) g.createGhost();
+
+        for (let i = 0; i < g.ghosts.length; i++) {
+          const gh = g.ghosts[i];
+          const target = g.getClosestEnemy({x:gh.x, y:gh.y});
+          if (target) {
+            const dx = target.x - gh.x;
+            const dy = target.y - gh.y;
+            const dist = hypot(dx, dy);
+            if (dist > 30) {
+              gh.x += dx / dist * 3;
+              gh.y += dy / dist * 3;
+            } else {
+              g.applyDamageToEnemy(target, 5, t);
+              if (g.ghostSlow) {
+                target.slowed = true;
+                target._ghostSlowUntil = t + 1.0;
+              }
+            }
+          } else {
+            gh.x += (g.player.x - gh.x) * 0.05;
+            gh.y += (g.player.y - gh.y) * 0.05;
+          }
+        }
+
+        // clear ghost slow
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          if (e._ghostSlowUntil != null && t >= e._ghostSlowUntil) {
+            e.slowed = false;
+            e._ghostSlowUntil = null;
+          }
+        }
+      };
+
+      g.updateBulletHoming = (dt, t) => {
+        if (g.homingStrength <= 0) return;
+
+        for (let i = 0; i < g.bullets.length; i++) {
+          const b = g.bullets[i];
+          const target = g.getClosestEnemy({x:b.x, y:b.y});
+          if (!target) continue;
+
+          const dx = target.x - b.x;
+          const dy = target.y - b.y;
+          const targetAngle = Math.atan2(dy, dx);
+
+          let currentAngle = Math.atan2(b.vy, b.vx);
+
+          let angleDiff = targetAngle - currentAngle;
+          while (angleDiff > Math.PI) angleDiff -= TAU;
+          while (angleDiff < -Math.PI) angleDiff += TAU;
+
+          currentAngle += angleDiff * g.homingStrength * dt * 10;
+
+          const speed = hypot(b.vx, b.vy);
+          b.vx = Math.cos(currentAngle) * speed;
+          b.vy = Math.sin(currentAngle) * speed;
+          b.rot = currentAngle - Math.PI/2;
+        }
+      };
+
+      g.updateLightningAura = (t) => {
+        if (!g.lightningAuraEnabled) return;
+
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < g.lightningAuraRadius*g.lightningAuraRadius) {
+            g.applyDamageToEnemy(e, g.lightningAuraDamage * 0.016, t);
+          }
+        }
+      };
+
+      g.updateExpOrbs = (t) => {
+        for (let i = 0; i < g.expOrbs.length; i++) {
+          const orb = g.expOrbs[i];
+          const dx = g.player.x - orb.x;
+          const dy = g.player.y - orb.y;
+          const dist = hypot(dx, dy);
+
+          if (dist < g.pickupRange) {
+            orb.x += dx * 0.1;
+            orb.y += dy * 0.1;
+          }
+
+          // pickup
+          if (dist < (g.player.r + orb.r)) {
+            orb._dead = true;
+            SFX.pickup(t);
+            g.emitSparks({x:orb.x, y:orb.y}, 6, orb.color || "#34c759", t);
+            g.addExp(orb.val || 12, t);
+          }
+        }
+      };
+
+      // ------------------------------
+      // Skills: generate choices (mirrors Swift weighting)
+      // ------------------------------
+      g.generateSkills = () => {
+        const pool = [];
+        for (let i = 0; i < g.allSkills.length; i++) {
+          const sk = g.allSkills[i];
+
+          // 额外飞刀升级：只有已有飞刀后才进池（避免一开始污染原版）
+          if (sk._requiresBlades && g.bladeOrbitCount <= 0) continue;
+
+          let weight = 1;
+          if (sk.tier === 1) weight = Math.max(1, 10 - Math.floor(g.level / 3));
+          else if (sk.tier === 2) weight = Math.min(10, 3 + Math.floor(g.level / 2));
+          else if (sk.tier === 3) weight = Math.min(5, Math.floor(g.level / 5));
+
+          for (let w = 0; w < weight; w++) pool.push(sk);
+        }
+        // Swift: shuffled().prefix(3)
+        // 这里保持相同行为：允许重复（但 UI 会去重显示一次以免选择冲突）
+        for (let i = pool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [pool[i], pool[j]] = [pool[j], pool[i]];
+        }
+        const picks = pool.slice(0, 3);
+
+        // UI 去重（同名技能重复会导致点选体验差）
+        const seen = new Set();
+        const unique = [];
+        for (const p of picks) {
+          if (seen.has(p.name)) continue;
+          seen.add(p.name);
+          unique.push(p);
+        }
+        while (unique.length < 3 && pool.length > unique.length) {
+          const cand = pool[unique.length];
+          if (!cand) break;
+          if (!seen.has(cand.name)) { seen.add(cand.name); unique.push(cand); }
+          else break;
+        }
+
+        g.skillChoices = unique.slice(0,3);
+      };
+
+      g.selectSkill = (skill) => {
+        skill.effect(g);
+        g.acquiredSkills.push(skill.name);
+        if (g.acquiredSkillMeta) g.acquiredSkillMeta.push({ name: skill.name, tier: skill.tier || 1 });
+        g.isLevelingUp = false;
+        g.isPausedGame = false;
+        g.updateUI();
+      };
+
+      g.resetGame = () => {
+        // Reset everything by reinitializing (simpler)
+      };
+
+      // ------------------------------
+      // Main update loop (ported from Swift update)
+      // ------------------------------
+      g.update = (t) => {
+        // Always process queued kills to keep state consistent
+        if (g._killQueue && g._killQueue.length) g.processKillQueue(t);
+
+        if (g.isPausedGame) return;
+
+        // time warp end
+        if (g.timeWarpActive && t > g.timeWarpEndTime) g.timeWarpActive = false;
+
+        const timeScale = g.timeWarpActive ? 0.5 : 1.0;
+
+        // hit stop: small slow-motion when hits happen (more "juicy")
+        let hitScale = 1.0;
+        if (t < (g.hitStopEnd || 0)) {
+          hitScale = g.hitStopScale || 0.25;
+        } else {
+          g.hitStopScale = 1.0;
+        }
+
+        const dt = 0.016 * timeScale * hitScale;
+
+        // pending death (last stand)
+        if (g._pendingDeathAt != null && t >= g._pendingDeathAt) {
+          if (g.playerHealth <= 1) {
+            g.playerHealth = 0;
+            g.isPausedGame = true;
+            g.isGameOver = true;
+            if (typeof g.onGameOver === "function") g.onGameOver();
+          }
+          g._pendingDeathAt = null;
+        }
+
+        // 1. movement
+        const isMoving = (g.joystickVector.dx !== 0 || g.joystickVector.dy !== 0);
+        if (isMoving) {
+          let actualSpeed = GameConfig.basePlayerSpeed * g.playerSpeedMulti;
+
+          // momentum
+          if (g.momentumEnabled) {
+            g.currentMomentum = Math.min(g.currentMomentum + dt * 2, 1.0);
+            actualSpeed *= (1.0 + g.currentMomentum * 0.5);
+          }
+
+          g.player.x += g.joystickVector.dx * actualSpeed * dt;
+          g.player.y += g.joystickVector.dy * actualSpeed * dt;
+
+          // fire trail
+          if (g.fireTrailEnabled && (t - g.lastFireTrailTime) > 0.1) {
+            g.createFireTrail({x:g.player.x, y:g.player.y}, t);
+            g.lastFireTrailTime = t;
+          }
+        } else {
+          // charge
+          if (g.chargeAttackEnabled) {
+            g.currentCharge = Math.min(g.currentCharge + dt * g.chargeSpeed, g.chargeMaxBonus);
+          }
+          // momentum decay
+          if (g.momentumEnabled) {
+            g.currentMomentum = Math.max(g.currentMomentum - dt * 3, 0);
+          }
+        }
+        g.wasMovingLastFrame = isMoving;
+
+        // camera follows player
+        g.camera.x = g.player.x;
+        g.camera.y = g.player.y;
+
+        // 2. auto shoot
+        let effectiveShootInterval = g.shootInterval;
+        if (isMoving && g.movingFireRateBonus > 0) {
+          effectiveShootInterval *= (1.0 - g.movingFireRateBonus);
+        }
+        if (g.berserkerMode && (g.playerHealth / g.playerMaxHealth) < g.berserkerThreshold) {
+          effectiveShootInterval *= 0.5;
+        }
+        if ((t - g.lastShootTime) > effectiveShootInterval) {
+          if (g.enemies.length > 0) {
+            g.shoot(t);
+            g.lastShootTime = t;
+          }
+        }
+
+        // 3. regen
+        let effectiveRegen = g.regenRate;
+        if (g.combatRegenBoost && (t - g.lastDamageTime) < 5.0) effectiveRegen *= 3;
+        if (g.emergencyHealActive && (g.playerHealth / g.playerMaxHealth) < 0.25) {
+          effectiveRegen += g.playerMaxHealth * 0.05;
+        }
+        if (effectiveRegen > 0 && (t - g.lastRegenTime) > 1.0) {
+          g.heal(effectiveRegen);
+          g.lastRegenTime = t;
+        }
+
+        // 4. mine drop
+        if (g.mineDropEnabled && isMoving && (t - g.lastMineTime) > g.mineDropInterval) {
+          g.dropMine({x:g.player.x, y:g.player.y}, t);
+          g.lastMineTime = t;
+        }
+
+        // 5. meteor
+        if (g.meteorEnabled && (t - g.lastMeteorTime) > g.meteorInterval) {
+          for (let i = 0; i < g.meteorCount; i++) g.summonMeteor(t);
+          g.lastMeteorTime = t;
+        }
+
+        // 6. black hole
+        if (g.blackHoleAbility && (t - g.lastBlackHoleTime) > 15.0) {
+          g.createBlackHole({x:g.player.x, y:g.player.y}, t, false);
+          g.lastBlackHoleTime = t;
+        }
+
+        // 7. kill streak decay
+        if (g.killStreakEnabled && (t - g.lastKillTime) > 3.0) {
+          g.killStreak = Math.max(0, g.killStreak - 1);
+        }
+
+        // 8. systems update
+        g.updateEnemies(dt, t);
+        g.updateOrbitals(dt, t);
+        g.updateDrones(t);
+        g.updateGhosts(t);
+        g.updateBulletHoming(dt, t);
+        g.updateLightningAura(t);
+
+        // Move bullets (physics)
+        for (let i = 0; i < g.bullets.length; i++) {
+          const b = g.bullets[i];
+          b.x += b.vx * dt;
+          b.y += b.vy * dt;
+        }
+
+        // Fire trail damage tick + lifetime
+        for (let i = 0; i < g.fireTrails.length; i++) {
+          const ft = g.fireTrails[i];
+          if (t >= ft.die) { ft._dead = true; continue; }
+          if ((t - ft.lastTick) >= 0.2) {
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = e.x - ft.x, dy = e.y - ft.y;
+              if (dx*dx + dy*dy < 20*20) {
+                g.applyDamageToEnemy(e, g.fireTrailDamage, t);
+                if (g.fireTrailSlow) e.slowed = true; // Swift: no clear
+              }
+            }
+            ft.lastTick = t;
+          }
+        }
+
+        // Meteor warnings resolve
+        for (let i = 0; i < g.warnings.length; i++) {
+          const w = g.warnings[i];
+          if ((t - w.born) > 1.0 && !w._done) {
+            w._done = true;
+            g.createExplosionEffect({x:w.x, y:w.y}, 80, t);
+            SFX.kill(t, true);
+            g.flash("#ff3b30", 0.10, 0.10, t);
+            g.shakeCamera(0.16, 12, t);
+            g.hitStop(0.05, 0.22, t);
+            g.emitBurst({x:w.x, y:w.y}, 30, "#ff3b30", t, 820);
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = e.x - w.x, dy = e.y - w.y;
+              if (dx*dx + dy*dy < 80*80) {
+                g.applyDamageToEnemy(e, g.meteorDamage, t, { immediate: true });
+              }
+            }
+          }
+          if ((t - w.born) > 1.05) w._dead = true;
+        }
+
+        // Black holes tick + lifetime
+        for (let i = 0; i < g.blackHoles.length; i++) {
+          const bh = g.blackHoles[i];
+          if (t >= bh.nextTick && t <= bh.end) {
+            bh.nextTick += 0.05;
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = bh.x - e.x, dy = bh.y - e.y;
+              const dist = hypot(dx, dy);
+              if (dist < bh.radius * 2) {
+                const pull = g.blackHolePower * 5;
+                const len = dist || 1;
+                e.x += (dx / len) * pull;
+                e.y += (dy / len) * pull;
+                if (dist < 30) g.applyDamageToEnemy(e, 10, t);
+              }
+            }
+          }
+          if (t > bh.fadeEnd) bh._dead = true;
+        }
+
+        // Poison clouds tick + lifetime
+        for (let i = 0; i < g.poisonClouds.length; i++) {
+          const pc = g.poisonClouds[i];
+          if (t >= pc.nextTick && pc.ticks < 10) {
+            pc.nextTick += 0.3;
+            pc.ticks += 1;
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = e.x - pc.x, dy = e.y - pc.y;
+              if (dx*dx + dy*dy < pc.radius*pc.radius) {
+                g.applyDamageToEnemy(e, g.poisonDamage, t);
+              }
+            }
+          }
+          if (t > pc.fadeEnd) pc._dead = true;
+        }
+
+        // Exp orbs
+        g.updateExpOrbs(t);
+
+        // Collisions: bullets vs enemies
+        for (let bi = 0; bi < g.bullets.length; bi++) {
+          const b = g.bullets[bi];
+          if (t >= b.die) {
+            if (g.blackHoleOnDeath) g.createBlackHole({x:b.x, y:b.y}, t, true);
+            b._dead = true;
+            continue;
+          }
+          for (let ei = 0; ei < g.enemies.length; ei++) {
+            const e = g.enemies[ei];
+            if (e._dead) continue;
+            if (b.hitSet.has(e.id)) continue;
+
+            // rough collision: circle vs circle
+            const dx = e.x - b.x, dy = e.y - b.y;
+            const rr = (Math.max(e.w,e.h)/2 + Math.max(b.w,b.h)/2);
+            if (dx*dx + dy*dy <= rr*rr) {
+              b.hitSet.add(e.id);
+              g.handleBulletHit(b, e, t);
+              if (b._dead) break;
+            }
+          }
+        }
+
+        // Collisions: mines vs enemies
+        for (let mi = 0; mi < g.mines.length; mi++) {
+          const m = g.mines[mi];
+          for (let ei = 0; ei < g.enemies.length; ei++) {
+            const e = g.enemies[ei];
+            if (e._dead) continue;
+            const dx = e.x - m.x, dy = e.y - m.y;
+            const rr = m.r + Math.max(e.w,e.h)/2;
+            if (dx*dx + dy*dy <= rr*rr) {
+              g.handleMineHit(m, t);
+              break;
+            }
+          }
+        }
+
+        // Collisions: player vs enemy
+        for (let ei = 0; ei < g.enemies.length; ei++) {
+          const e = g.enemies[ei];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          const rr = g.player.r + Math.max(e.w,e.h)/2;
+          if (dx*dx + dy*dy <= rr*rr) {
+            g.handlePlayerHit(e, t);
+          }
+        }
+
+        // Process queued kills (avoid recursive kill chains)
+        g.processKillQueue(t);
+
+        // Particles update
+        for (let i = 0; i < g.particles.length; i++) {
+          const p = g.particles[i];
+          p.px = p.x; p.py = p.y;
+          p.x += p.vx * dt;
+          p.y += p.vy * dt;
+          p.vx *= 0.90;
+          p.vy *= 0.90;
+          if (t > p.die) p._dead = true;
+        }
+
+        // Cleanup
+        g.bullets = g.bullets.filter(b => !b._dead);
+        g.expOrbs = g.expOrbs.filter(o => !o._dead);
+        g.mines = g.mines.filter(m => !m._dead);
+        g.fireTrails = g.fireTrails.filter(ft => !ft._dead);
+        g.warnings = g.warnings.filter(w => !w._dead);
+        g.blackHoles = g.blackHoles.filter(bh => !bh._dead);
+        g.poisonClouds = g.poisonClouds.filter(pc => !pc._dead);
+        g.particles = g.particles.filter(p => !p._dead);
+        g.effects = g.effects.filter(eff => t < eff.end);
+      };
+
+      // ------------------------------
+      // Rendering
+      // ------------------------------
+      g.render = (t) => {
+        const w = canvas.width;
+        const h = canvas.height;
+
+        // camera shake
+        let camX = g.camera.x;
+        let camY = g.camera.y;
+        if (t < g.camera.shakeEnd) {
+          const amp = g.camera.shakeAmp;
+          camX += rand(-amp, amp);
+          camY += rand(-amp, amp);
+        }
+
+        // background
+        ctx.clearRect(0,0,w,h);
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0,0,w,h);
+
+        // grid tiles (like Swift)
+        const gridSize = 200;
+        const worldLeft = camX - w/2;
+        const worldRight = camX + w/2;
+        const worldTop = camY - h/2;
+        const worldBottom = camY + h/2;
+
+        const gx0 = Math.floor(worldLeft / gridSize) - 1;
+        const gx1 = Math.floor(worldRight / gridSize) + 1;
+        const gy0 = Math.floor(worldTop / gridSize) - 1;
+        const gy1 = Math.floor(worldBottom / gridSize) + 1;
+
+        ctx.fillStyle = "rgba(255,255,255,0.08)";
+        for (let gx = gx0; gx <= gx1; gx++) {
+          for (let gy = gy0; gy <= gy1; gy++) {
+            if (((gx + gy) & 1) === 0) {
+              const x = gx * gridSize - camX + w/2;
+              const y = gy * gridSize - camY + h/2;
+              ctx.fillRect(x - gridSize/2, y - gridSize/2, gridSize, gridSize);
+            }
+          }
+        }
+
+        // helper: world->screen
+        const sx = (x) => (x - camX + w/2);
+        const sy = (y) => (y - camY + h/2);
+
+        // black holes
+        for (let i = 0; i < g.blackHoles.length; i++) {
+          const bh = g.blackHoles[i];
+          const alpha = (t > bh.end) ? clamp(1 - (t - bh.end)/0.3, 0, 1) : 1;
+          ctx.beginPath();
+          ctx.arc(sx(bh.x), sy(bh.y), bh.radius, 0, TAU);
+          ctx.fillStyle = `rgba(168,85,247,${0.35*alpha})`;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = `rgba(168,85,247,${0.8*alpha})`;
+          ctx.stroke();
+        }
+
+        // poison clouds
+        for (let i = 0; i < g.poisonClouds.length; i++) {
+          const pc = g.poisonClouds[i];
+          let alpha = 0.4;
+          if (t > pc.fadeStart) alpha *= clamp(1 - (t - pc.fadeStart)/(pc.fadeEnd - pc.fadeStart), 0, 1);
+          ctx.beginPath();
+          ctx.arc(sx(pc.x), sy(pc.y), pc.radius, 0, TAU);
+          ctx.fillStyle = `rgba(52,199,89,${alpha})`;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = `rgba(52,199,89,${alpha})`;
+          ctx.stroke();
+        }
+
+        // fire trails
+        for (let i = 0; i < g.fireTrails.length; i++) {
+          const ft = g.fireTrails[i];
+          const life = clamp((ft.die - t) / 1.5, 0, 1);
+          ctx.beginPath();
+          ctx.arc(sx(ft.x), sy(ft.y), ft.r * (0.5 + 0.5*life), 0, TAU);
+          ctx.fillStyle = `rgba(255,149,0,${0.55*life})`;
+          ctx.fill();
+        }
+
+        // mines
+        for (let i = 0; i < g.mines.length; i++) {
+          const m = g.mines[i];
+          const pulse = 0.5 + 0.5*Math.sin((t - m.born)*8);
+          ctx.beginPath();
+          ctx.arc(sx(m.x), sy(m.y), m.r, 0, TAU);
+          ctx.fillStyle = `rgba(255,149,0,${0.65 + 0.2*pulse})`;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(255,59,48,0.9)";
+          ctx.stroke();
+        }
+
+        // exp orbs
+        for (let i = 0; i < g.expOrbs.length; i++) {
+          const o = g.expOrbs[i];
+          ctx.beginPath();
+          ctx.arc(sx(o.x), sy(o.y), o.r, 0, TAU);
+          ctx.fillStyle = o.color || "#34c759";
+          ctx.fill();
+        }
+
+        // enemies (simple but distinct models)
+        const roundRectPath = (x, y, w, h, r) => {
+          const rr = clamp(r, 0, Math.min(w, h) * 0.5);
+          ctx.beginPath();
+          ctx.moveTo(x + rr, y);
+          ctx.lineTo(x + w - rr, y);
+          ctx.arcTo(x + w, y, x + w, y + rr, rr);
+          ctx.lineTo(x + w, y + h - rr);
+          ctx.arcTo(x + w, y + h, x + w - rr, y + h, rr);
+          ctx.lineTo(x + rr, y + h);
+          ctx.arcTo(x, y + h, x, y + h - rr, rr);
+          ctx.lineTo(x, y + rr);
+          ctx.arcTo(x, y, x + rr, y, rr);
+          ctx.closePath();
+        };
+
+        const drawPoly = (sides, radius, rot0 = -Math.PI/2) => {
+          ctx.beginPath();
+          for (let k = 0; k < sides; k++) {
+            const a = rot0 + k * (TAU / sides);
+            const px = Math.cos(a) * radius;
+            const py = Math.sin(a) * radius;
+            if (k === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          }
+          ctx.closePath();
+        };
+
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          ctx.save();
+          ctx.translate(sx(e.x), sy(e.y));
+          ctx.rotate(e.rot || 0);
+
+          const col = e.color || "#ff3b30";
+          ctx.fillStyle = col;
+
+          const w = e.w || 30;
+          const h = e.h || 30;
+          const hw = w * 0.5;
+          const hh = h * 0.5;
+
+          switch (e.model) {
+            case "circle": {
+              const r = Math.max(hw, hh);
+              ctx.beginPath();
+              ctx.arc(0, 0, r, 0, TAU);
+              ctx.fill();
+              break;
+            }
+            case "tiny": {
+              const r = Math.max(6, Math.min(hw, hh));
+              ctx.beginPath();
+              ctx.arc(0, 0, r, 0, TAU);
+              ctx.fill();
+              break;
+            }
+            case "triangle": {
+              ctx.beginPath();
+              ctx.moveTo(0, -hh);
+              ctx.lineTo(hw, hh);
+              ctx.lineTo(-hw, hh);
+              ctx.closePath();
+              ctx.fill();
+              break;
+            }
+            case "diamond": {
+              ctx.beginPath();
+              ctx.moveTo(0, -hh);
+              ctx.lineTo(hw, 0);
+              ctx.lineTo(0, hh);
+              ctx.lineTo(-hw, 0);
+              ctx.closePath();
+              ctx.fill();
+              break;
+            }
+            case "diamondSharp": {
+              ctx.beginPath();
+              ctx.moveTo(0, -hh * 1.15);
+              ctx.lineTo(hw * 0.85, 0);
+              ctx.lineTo(0, hh * 1.15);
+              ctx.lineTo(-hw * 0.85, 0);
+              ctx.closePath();
+              ctx.fill();
+              break;
+            }
+            case "rectWide": {
+              ctx.fillRect(-hw, -hh, w, h);
+              ctx.fillStyle = colorWithAlpha("#000000", 0.18);
+              ctx.fillRect(-hw, -3, w, 6);
+              break;
+            }
+            case "squareHeavy": {
+              ctx.fillRect(-hw, -hh, w, h);
+              ctx.strokeStyle = colorWithAlpha("#000000", 0.35);
+              ctx.lineWidth = 3;
+              ctx.strokeRect(-hw + 1.5, -hh + 1.5, w - 3, h - 3);
+              break;
+            }
+            case "squareShield": {
+              ctx.fillRect(-hw, -hh, w, h);
+              ctx.strokeStyle = colorWithAlpha("#ffffff", 0.55);
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(0, -hh * 0.65);
+              ctx.lineTo(hw * 0.55, -hh * 0.10);
+              ctx.lineTo(hw * 0.38, hh * 0.55);
+              ctx.lineTo(0, hh * 0.75);
+              ctx.lineTo(-hw * 0.38, hh * 0.55);
+              ctx.lineTo(-hw * 0.55, -hh * 0.10);
+              ctx.closePath();
+              ctx.stroke();
+              break;
+            }
+            case "capsule": {
+              const r = Math.min(hw, hh) * 0.95;
+              roundRectPath(-hw, -hh, w, h, r);
+              ctx.fill();
+              break;
+            }
+            case "pentagon": {
+              drawPoly(5, Math.max(hw, hh));
+              ctx.fill();
+              break;
+            }
+            case "hex": {
+              drawPoly(6, Math.max(hw, hh));
+              ctx.fill();
+              break;
+            }
+            case "circleDot": {
+              const r = Math.max(hw, hh);
+              ctx.beginPath();
+              ctx.arc(0, 0, r, 0, TAU);
+              ctx.fill();
+              ctx.fillStyle = colorWithAlpha("#000000", 0.22);
+              ctx.beginPath();
+              ctx.arc(0, 0, Math.max(2.5, r * 0.25), 0, TAU);
+              ctx.fill();
+              break;
+            }
+            default: {
+              ctx.fillRect(-hw, -hh, w, h);
+            }
+          }
+
+          // HP bar for elites / big units
+          const isBig = (e.typeId === "elite") || ((e.maxHp || 0) >= 140);
+          if (isBig) {
+            const bw = Math.max(38, w);
+            const bh = 4;
+            ctx.fillStyle = "rgba(0,0,0,.45)";
+            ctx.fillRect(-bw/2, -hh - 12, bw, bh);
+            ctx.fillStyle = "#34c759";
+            ctx.fillRect(-bw/2, -hh - 12, bw * clamp((e.hp || 0) / Math.max(1, e.maxHp || 1), 0, 1), bh);
+          }
+
+          ctx.restore();
+        }
+
+        // orbitals
+        for (let i = 0; i < g.orbitals.length; i++) {
+          const o = g.orbitals[i];
+          if (o.type === "shield") {
+            ctx.beginPath();
+            ctx.arc(sx(o.x), sy(o.y), o.r, 0, TAU);
+            ctx.fillStyle = "rgba(0,122,255,0.55)";
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "rgba(0,215,255,0.95)";
+            ctx.stroke();
+          } else {
+            // blade: draw as a simple knife-like shape
+            ctx.save();
+            ctx.translate(sx(o.x), sy(o.y));
+            ctx.rotate(o.rot);
+            const bw = o.w, bh = o.h;
+
+            // body
+            ctx.fillStyle = "rgba(255,255,255,0.95)";
+            ctx.fillRect(-bw/2, -bh/2, bw, bh);
+
+            // tip
+            ctx.beginPath();
+            ctx.moveTo(bw/2, -bh/2);
+            ctx.lineTo(bw/2 + bh*1.2, 0);
+            ctx.lineTo(bw/2, bh/2);
+            ctx.closePath();
+            ctx.fillStyle = "rgba(255,255,255,0.95)";
+            ctx.fill();
+
+            // tiny guard
+            ctx.fillStyle = "rgba(0,0,0,0.35)";
+            ctx.fillRect(-bw/2 - 2, -bh/2, 4, bh);
+
+            ctx.restore();
+          }
+        }
+
+        // drones
+        for (let i = 0; i < g.drones.length; i++) {
+          const d = g.drones[i];
+          ctx.fillStyle = "rgba(180,180,180,0.95)";
+          ctx.fillRect(sx(d.x) - 10, sy(d.y) - 10, 20, 20);
+        }
+
+        // ghosts
+        for (let i = 0; i < g.ghosts.length; i++) {
+          const gh = g.ghosts[i];
+          ctx.beginPath();
+          ctx.arc(sx(gh.x), sy(gh.y), 15, 0, TAU);
+          ctx.fillStyle = "rgba(168,85,247,0.45)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(168,85,247,0.85)";
+          ctx.stroke();
+        }
+
+        // bullets
+        for (let i = 0; i < g.bullets.length; i++) {
+          const b = g.bullets[i];
+          ctx.save();
+          ctx.translate(sx(b.x), sy(b.y));
+          ctx.rotate(b.rot);
+
+          // trail
+          ctx.fillStyle = "rgba(255,255,255,0.35)";
+          ctx.fillRect(-1, 2, 2, 10);
+
+          // body
+          ctx.fillStyle = b.droneBullet ? "rgba(255,149,0,0.95)" : "rgba(255,214,10,0.95)";
+          ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+          ctx.restore();
+        }
+
+        // meteor warning circles
+        for (let i = 0; i < g.warnings.length; i++) {
+          const w0 = g.warnings[i];
+          const alpha = clamp(1 - (t - w0.born)/1.0, 0, 1);
+          ctx.beginPath();
+          ctx.arc(sx(w0.x), sy(w0.y), 50, 0, TAU);
+          ctx.fillStyle = `rgba(255,59,48,${0.20 + 0.15*alpha})`;
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = `rgba(255,59,48,${0.65 + 0.25*alpha})`;
+          ctx.stroke();
+        }
+
+        // player
+        ctx.fillStyle = g.player.color;
+        ctx.fillRect(sx(g.player.x) - 15, sy(g.player.y) - 15, 30, 30);
+
+        // effects
+        for (let i = 0; i < g.effects.length; i++) {
+          const ef = g.effects[i];
+          const life = clamp((t - ef.start) / (ef.end - ef.start), 0, 1);
+          const inv = 1 - life;
+
+          if (ef.kind === "hit") {
+            ctx.beginPath();
+            ctx.arc(sx(ef.x), sy(ef.y), 3 * inv, 0, TAU);
+            ctx.fillStyle = `rgba(255,214,10,${inv})`;
+            ctx.fill();
+          } else if (ef.kind === "explosion") {
+            ctx.beginPath();
+            ctx.arc(sx(ef.x), sy(ef.y), ef.r, 0, TAU);
+            ctx.fillStyle = `rgba(255,149,0,${0.5*inv})`;
+            ctx.fill();
+          } else if (ef.kind === "damageText") {
+            const y = ef.y - life * 30;
+            let fs = ef.isLucky ? 32 : (ef.isCrit ? 24 : 16);
+            ctx.font = `bold ${fs}px sans-serif`;
+            const col = ef.isLucky ? "#ffd60a" : (ef.isCrit ? "#ff3b30" : "#ffffff");
+            ctx.fillStyle = `rgba(${parseInt(col.slice(1,3),16)},${parseInt(col.slice(3,5),16)},${parseInt(col.slice(5,7),16)},${inv})`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(String(ef.val), sx(ef.x), sy(y));
+          } else if (ef.kind === "label") {
+            const y = ef.y - life * 30;
+            ctx.font = "bold 20px sans-serif";
+            ctx.fillStyle = colorWithAlpha(ef.color || "#ffffff", inv);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(ef.text, sx(ef.x), sy(y));
+          } else if (ef.kind === "phoenix") {
+            const scale = 1 + life;
+            ctx.beginPath();
+            ctx.arc(sx(ef.x), sy(ef.y), 100 * scale, 0, TAU);
+            ctx.fillStyle = `rgba(255,149,0,${0.35*inv})`;
+            ctx.fill();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = `rgba(255,149,0,${0.85*inv})`;
+            ctx.stroke();
+          } else if (ef.kind === "line") {
+            ctx.beginPath();
+            ctx.moveTo(sx(ef.x1), sy(ef.y1));
+            ctx.lineTo(sx(ef.x2), sy(ef.y2));
+            ctx.strokeStyle = `rgba(0,215,255,${inv})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          } else if (ef.kind === "enemyHit") {
+            ctx.beginPath();
+            ctx.arc(sx(ef.x), sy(ef.y), 16 * inv, 0, TAU);
+            ctx.strokeStyle = `rgba(255,255,255,${0.45*inv})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        }
+
+        // screen flash
+        if (g.screenFlash && t < g.screenFlash.end) {
+          const a = clamp(1 - (t - g.screenFlash.start) / (g.screenFlash.end - g.screenFlash.start), 0, 1);
+          ctx.fillStyle = g.screenFlash.color.replace("0.30", (0.30 * a).toFixed(3));
+          ctx.fillRect(0,0,w,h);
+        }
+      };
+
+      return g;
+    }
+
+    // ============================================================
+    // 5. UI glue (like SwiftUI ViewModel)
+    // ============================================================
+    let game = null;
+    let allSkillsBase = null;
+
+    function buildSkillPool(g) {
+      // extra blade skills: mark requires
+      const extra = generateExtraBladeSkills().map(s => ({...s, _requiresBlades: true}));
+      allSkillsBase = generateAllSkills(extra);
+      g.allSkills = allSkillsBase;
+    }
+
+    function showLevelUpOverlay(g) {
+      overlay.classList.add("show");
+      overlay.classList.add("mode-levelup");
+      overlay.classList.remove("mode-gameover");
+      clearMovementInputs();
+      overlayTitle.textContent = "LEVEL UP!";
+      overlayTitle.style.color = "#ffd60a";
+      overlaySubtitle.textContent = "选择一个技能升级";
+      gameoverStatsEl.style.display = "none";
+      restartRow.style.display = "none";
+
+      choicesEl.innerHTML = "";
+      for (const sk of g.skillChoices) {
+        const btn = document.createElement("div");
+        btn.className = "skillBtn";
+        btn.innerHTML = `
+          <div class="skillIcon ${tierClass(sk.tier)}">${iconFallback(sk.icon)}</div>
+          <div class="skillMeta">
+            <div class="skillTitleRow">
+              <div class="skillName ${tierClass(sk.tier)}">${sk.name}</div>
+              <div class="skillTier ${tierClass(sk.tier)}">[${tierName(sk.tier)}]</div>
+            </div>
+            <div class="skillDesc">${sk.description}</div>
+          </div>
+          <div style="opacity:.55;font-weight:900">›</div>
+        `;
+        btn.addEventListener("click", () => {
+          if (!game || !game.isLevelingUp) return;
+          game.selectSkill(sk);
+          overlay.classList.remove("show");
+        });
+        choicesEl.appendChild(btn);
+      }
+    }
+
+    
+    // ============================================================
+    // Local Leaderboard (by Combat Power)
+    // ============================================================
+    const LEADERBOARD_KEY = "bigear_leaderboard_v1";
+
+    function formatTime(sec){
+      const s = Math.max(0, Math.floor(sec || 0));
+      const m = Math.floor(s / 60);
+      const r = s % 60;
+      return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
+    }
+
+    function loadLeaderboard(){
+      try{
+        const raw = localStorage.getItem(LEADERBOARD_KEY);
+        const list = raw ? JSON.parse(raw) : [];
+        if (!Array.isArray(list)) return [];
+        return list.filter(x => x && typeof x.score === "number").slice(0, 50);
+      }catch{
+        return [];
+      }
+    }
+
+    function saveLeaderboard(list){
+      try{
+        localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(list));
+      }catch{}
+    }
+
+    function addRunToLeaderboard(run, limit = 10){
+      const list = loadLeaderboard();
+      list.push(run);
+      list.sort((a,b) =>
+        (b.score - a.score) ||
+        ((b.level || 0) - (a.level || 0)) ||
+        ((b.time || 0) - (a.time || 0)) ||
+        ((b.when || 0) - (a.when || 0))
+      );
+      const trimmed = list.slice(0, limit);
+      saveLeaderboard(trimmed);
+      const rank = trimmed.findIndex(r => r.id === run.id) + 1;
+      return { list: trimmed, rank: rank > 0 ? rank : null };
+    }
+
+    function renderLeaderboardTable(list, highlightId){
+      if (!list || list.length === 0) return "";
+      const rows = list.map((r, idx) => {
+        const hi = (r.id === highlightId);
+        const bg = hi ? "rgba(255,214,10,.12)" : "transparent";
+        const bd = hi ? "rgba(255,214,10,.28)" : "rgba(255,255,255,.08)";
+        return `
+          <tr style="background:${bg}; border-bottom: 1px solid ${bd};">
+            <td style="padding:6px 6px; opacity:.9;">${idx + 1}</td>
+            <td style="padding:6px 6px; font-weight:900;">${Math.round(r.score || 0)}</td>
+            <td style="padding:6px 6px; font-weight:900;">${r.tier || ""}</td>
+            <td style="padding:6px 6px;">${formatTime(r.time || 0)}</td>
+            <td style="padding:6px 6px;">Lv.${r.level || 1}</td>
+            <td style="padding:6px 6px;">${r.kills || 0}</td>
+          </tr>`;
+      }).join("");
+
+      return `
+        <div style="margin-top:14px; text-align:left;">
+          <div style="font-weight:900; margin-bottom:6px; opacity:.92;">本地排行榜（战力评分）</div>
+          <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid rgba(255,255,255,.10); border-radius:10px; overflow:hidden;">
+            <thead>
+              <tr style="background: rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.10);">
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">#</th>
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">分</th>
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">段位</th>
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">时间</th>
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">等级</th>
+                <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">击杀</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <div style="margin-top:8px; font-size:12px; opacity:.65; line-height:1.35;">
+            评分 = 0.72×平均战力 + 0.28×峰值战力（平均战力来自 30秒滑窗系统的平滑积分）
+          </div>
+        </div>`;
+    }
+
+    function showGameOverOverlay(g) {
+      overlay.classList.add("show");
+      overlay.classList.add("mode-gameover");
+      overlay.classList.remove("mode-levelup");
+      clearMovementInputs();
+      overlayTitle.textContent = "GAME OVER";
+      overlayTitle.style.color = "#ff3b30";
+      overlaySubtitle.textContent = "";
+
+      choicesEl.innerHTML = "";
+      gameoverStatsEl.style.display = "block";
+
+      // prevent double-record if called twice
+      const endT = nowSec();
+      const timeAlive = g._startTime ? Math.max(0, endT - g._startTime) : 0;
+
+      let run = g._lastRun || null;
+      let board = { list: loadLeaderboard(), rank: null };
+
+      if (!run) {
+        const peak = Math.round((g.combat && g.combat.peak) ? g.combat.peak : 0);
+        const avg = Math.round((g.combat && timeAlive > 0) ? (g.combat.integral / timeAlive) : ((g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0));
+        const score = Math.round(0.72 * avg + 0.28 * peak);
+
+        const tierObj = (g._combatTierFromScore ? g._combatTierFromScore(score) : { tier: "", color: "#fff" });
+
+        run = {
+          id: g._runId || `${Date.now()}_${Math.floor(Math.random()*1e9)}`,
+          score,
+          tier: tierObj.tier,
+          time: timeAlive,
+          level: g.level,
+          kills: (g.stats && g.stats.kills) ? g.stats.kills : 0,
+          peak,
+          avg,
+          when: Date.now()
+        };
+
+        if (!g._runRecorded) {
+          board = addRunToLeaderboard(run, 10);
+          g._runRecorded = true;
+        }
+        g._lastRun = run;
+      }
+
+      const rankText = board.rank ? `#${board.rank}` : "—";
+      const tierColor = (g._combatTierFromScore ? g._combatTierFromScore(run.score).color : "#fff");
+
+      gameoverStatsEl.innerHTML = `
+        <div style="display:flex; gap:10px; justify-content:center; align-items:baseline; flex-wrap:wrap;">
+          <div>战力评分: <b style="color:${tierColor}">${run.score}</b></div>
+          <div style="opacity:.9;">段位: <b style="color:${tierColor}">${run.tier || ""}</b></div>
+          <div style="opacity:.9;">排名: <b>${rankText}</b></div>
+        </div>
+        <div style="margin-top:10px; line-height:1.65;">
+          <div>存活时间: <b>${formatTime(run.time)}</b></div>
+          <div>到达等级: <b>${g.level}</b></div>
+          <div>击杀数量: <b>${(g.stats && g.stats.kills) ? g.stats.kills : 0}</b></div>
+          <div>获得技能: <b>${g.acquiredSkills.length}</b></div>
+          <div style="opacity:.9;">平均战力: <b>${run.avg}</b> · 峰值战力: <b>${run.peak}</b></div>
+        </div>
+        ${renderLeaderboardTable(board.list, run.id)}
+      `;
+
+      restartRow.style.display = "flex";
+    }
+
+    function updateHUD(exp, hp, lv){
+      levelBadge.textContent = String(lv);
+      hpFill.style.width = `${clamp(hp,0,1) * 100}%`;
+      expFill.style.width = `${clamp(exp,0,1) * 100}%`;
+
+      if (!game) return;
+      if (game.acquiredSkills.length > 0) {
+        skillCountEl.style.display = "block";
+        skillCountEl.textContent = `技能: ${game.acquiredSkills.length}`;
+      } else {
+        skillCountEl.style.display = "none";
+      }
+
+      // 战斗水平（用于动态难度 & 本地排行榜）
+      if (powerBadgeEl) {
+        const p = Math.round((game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0);
+        const tier = (game.combat && game.combat.tier) ? game.combat.tier : "D";
+        powerBadgeEl.innerHTML = `战力: <b>${p}</b><span class="tier">${tier}</span>`;
+        powerBadgeEl.style.color = (game.combat && game.combat.tierColor) ? game.combat.tierColor : "rgba(255,255,255,.92)";
+      }
+    }
+
+    function resetGame(){
+      game = makeGame();
+      game._startTime = nowSec();
+      game._runId = `${Date.now()}_${Math.floor(Math.random()*1e9)}`;
+      if (game.stats) game.stats.startTime = game._startTime;
+      game._runRecorded = false;
+      buildSkillPool(game);
+
+      game.onStateChange = updateHUD;
+      game.onLevelUp = () => {
+        game.generateSkills();
+        game.isLevelingUp = true;
+        showLevelUpOverlay(game);
+      };
+      game.onGameOver = () => {
+        showGameOverOverlay(game);
+      };
+
+      // initial HUD
+      game.updateUI();
+
+      // initial spawn loop timer
+      _spawnTimer = nowSec();
+    }
+
+    restartBtn.addEventListener("click", () => {
+      overlay.classList.remove("show");
+      resetGame();
+    });
+
+    // ============================================================
+    // 5.5 Sound toggle (click button or press M) + unlock on gesture
+    // ============================================================
+    function refreshSoundIcon(){
+      if (!soundToggle) return;
+      if (SFX.isMuted()) {
+        soundToggle.classList.add("muted");
+        soundToggle.textContent = "🔇";
+      } else {
+        soundToggle.classList.remove("muted");
+        soundToggle.textContent = "🔊";
+      }
+    }
+    refreshSoundIcon();
+
+    if (soundToggle) {
+      soundToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        SFX.unlock();
+        SFX.setMuted(!SFX.isMuted());
+        refreshSoundIcon();
+      });
+    }
+
+    // first user gesture unlock (for autoplay policies)
+    window.addEventListener("pointerdown", () => { SFX.unlock(); }, { once:true, passive:true });
+
+    // ============================================================
+    // 6. Input (Joystick + WASD)
+    // ============================================================
+    const keys = new Set();
+    function recomputeKeyVector(){
+      let dx = 0, dy = 0;
+      if (keys.has("w")) dy -= 1;
+      if (keys.has("s")) dy += 1;
+      if (keys.has("a")) dx -= 1;
+      if (keys.has("d")) dx += 1;
+      if (dx !== 0 || dy !== 0){
+        const len = hypot(dx, dy);
+        dx /= len; dy /= len;
+      }
+      return {dx, dy};
+    }
+
+    window.addEventListener("keydown", (e) => {
+      const k = e.key.toLowerCase();
+
+      // unlock audio on user gesture (autoplay policies)
+      SFX.unlock();
+
+      // toggle mute
+      if (k === "m") {
+        SFX.setMuted(!SFX.isMuted());
+        refreshSoundIcon();
+        e.preventDefault();
+        return;
+      }
+
+      if (["w","a","s","d"].includes(k)) {
+        keys.add(k);
+        e.preventDefault();
+      }
+    }, { passive:false });
+
+    window.addEventListener("keyup", (e) => {
+      const k = e.key.toLowerCase();
+      if (["w","a","s","d"].includes(k)) {
+        keys.delete(k);
+        e.preventDefault();
+      }
+    }, { passive:false });
+
+    function clearMovementInputs(){
+      keys.clear();
+      if (game) game.joystickVector = {dx:0, dy:0};
+      setJoyKnob(0,0);
+    }
+    window.addEventListener("blur", clearMovementInputs);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) clearMovementInputs(); });
+
+    // Joystick pointer control
+    let joyActive = false;
+    let joyPointerId = null;
+    let joyCenter = {x:0,y:0};
+    const joyRadius = 70; // px
+
+    function setJoyKnob(dx, dy){
+      const px = dx * (joyRadius - 22);
+      const py = dy * (joyRadius - 22);
+      joyKnob.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%)`;
+    }
+
+    joystickEl.addEventListener("pointerdown", (e) => {
+      joyActive = true;
+      joyPointerId = e.pointerId;
+      joystickEl.setPointerCapture(joyPointerId);
+
+      const rect = joystickEl.getBoundingClientRect();
+      joyCenter = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+      setJoyKnob(0,0);
+    });
+
+    joystickEl.addEventListener("pointermove", (e) => {
+      if (!joyActive || e.pointerId !== joyPointerId) return;
+      const dx = e.clientX - joyCenter.x;
+      const dy = e.clientY - joyCenter.y;
+      const dist = hypot(dx, dy);
+      if (dist <= 0.0001) {
+        if (game) game.joystickVector = {dx:0, dy:0};
+        setJoyKnob(0,0);
+        return;
+      }
+      const factor = Math.min(dist, joyRadius) / dist;
+      const ndx = (dx * factor) / joyRadius;
+      const ndy = (dy * factor) / joyRadius;
+      if (game) game.joystickVector = {dx:ndx, dy:ndy};
+      setJoyKnob(ndx, ndy);
+    });
+
+    function endJoy(e){
+      if (!joyActive) return;
+      joyActive = false;
+      joyPointerId = null;
+      if (game) game.joystickVector = {dx:0, dy:0};
+      setJoyKnob(0,0);
+      try { joystickEl.releasePointerCapture(e.pointerId); } catch {}
+    }
+
+    joystickEl.addEventListener("pointerup", endJoy);
+    joystickEl.addEventListener("pointercancel", endJoy);
+    joystickEl.addEventListener("pointerleave", endJoy);
+
+    // ============================================================
+    // 7. Canvas sizing
+    // ============================================================
+    function resize(){
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // After setTransform to dpr, we want coordinates in CSS pixels
+      // => keep render code in CSS pixels by using canvas.width/dpr, so override below
+    }
+
+    window.addEventListener("resize", resize);
+
+    // In render we used canvas.width/height directly; those are in device pixels.
+    // To keep math in CSS pixels, we render with a fixed transform of dpr.
+    // So we need to convert w/h back:
+    function canvasCssSize(){
+      const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+      return { w: canvas.width / dpr, h: canvas.height / dpr };
+    }
+
+    // Patch render to use CSS size
+    const _origMakeGame = makeGame;
+    makeGame = function(){
+      const g = _origMakeGame();
+      const oldRender = g.render;
+      g.render = (t) => {
+        const {w, h} = canvasCssSize();
+        // temporarily alias canvas.width/height to css size for render
+        const savedW = canvas.width, savedH = canvas.height;
+        // We keep ctx transform set to dpr, so coordinates are CSS pixels already.
+        // But oldRender reads canvas.width/height: replace by monkey-patching getter-like vars
+        // Simpler: just create local proxies by temporarily setting numeric fields is not possible.
+        // We'll reimplement minimal wrapper:
+        // Copy of oldRender but using local w/h.
+        // => For simplicity, call a special render that expects css w/h:
+        renderWithCssSize(g, t, w, h);
+      };
+      return g;
+    };
+
+    function renderWithCssSize(g, t, w, h){
+      // camera shake
+      let camX = g.camera.x;
+      let camY = g.camera.y;
+      if (t < g.camera.shakeEnd) {
+        const amp = g.camera.shakeAmp;
+        camX += rand(-amp, amp);
+        camY += rand(-amp, amp);
+      }
+
+      ctx.clearRect(0,0,w,h);
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0,0,w,h);
+
+      // grid
+      const gridSize = 200;
+      const worldLeft = camX - w/2;
+      const worldRight = camX + w/2;
+      const worldTop = camY - h/2;
+      const worldBottom = camY + h/2;
+
+      const gx0 = Math.floor(worldLeft / gridSize) - 1;
+      const gx1 = Math.floor(worldRight / gridSize) + 1;
+      const gy0 = Math.floor(worldTop / gridSize) - 1;
+      const gy1 = Math.floor(worldBottom / gridSize) + 1;
+
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      for (let gx = gx0; gx <= gx1; gx++) {
+        for (let gy = gy0; gy <= gy1; gy++) {
+          if (((gx + gy) & 1) === 0) {
+            const x = gx * gridSize - camX + w/2;
+            const y = gy * gridSize - camY + h/2;
+            ctx.fillRect(x - gridSize/2, y - gridSize/2, gridSize, gridSize);
+          }
+        }
+      }
+
+      const sx = (x) => (x - camX + w/2);
+      const sy = (y) => (y - camY + h/2);
+
+      // black holes
+      for (let i = 0; i < g.blackHoles.length; i++) {
+        const bh = g.blackHoles[i];
+        const alpha = (t > bh.end) ? clamp(1 - (t - bh.end)/0.3, 0, 1) : 1;
+        ctx.beginPath();
+        ctx.arc(sx(bh.x), sy(bh.y), bh.radius, 0, TAU);
+        ctx.fillStyle = `rgba(168,85,247,${0.35*alpha})`;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(168,85,247,${0.8*alpha})`;
+        ctx.stroke();
+      }
+
+      // poison clouds
+      for (let i = 0; i < g.poisonClouds.length; i++) {
+        const pc = g.poisonClouds[i];
+        let alpha = 0.4;
+        if (t > pc.fadeStart) alpha *= clamp(1 - (t - pc.fadeStart)/(pc.fadeEnd - pc.fadeStart), 0, 1);
+        ctx.beginPath();
+        ctx.arc(sx(pc.x), sy(pc.y), pc.radius, 0, TAU);
+        ctx.fillStyle = `rgba(52,199,89,${alpha})`;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(52,199,89,${alpha})`;
+        ctx.stroke();
+      }
+
+      // fire trails
+      for (let i = 0; i < g.fireTrails.length; i++) {
+        const ft = g.fireTrails[i];
+        const life = clamp((ft.die - t) / 1.5, 0, 1);
+        ctx.beginPath();
+        ctx.arc(sx(ft.x), sy(ft.y), ft.r * (0.5 + 0.5*life), 0, TAU);
+        ctx.fillStyle = `rgba(255,149,0,${0.55*life})`;
+        ctx.fill();
+      }
+
+      // mines
+      for (let i = 0; i < g.mines.length; i++) {
+        const m = g.mines[i];
+        const pulse = 0.5 + 0.5*Math.sin((t - m.born)*8);
+        ctx.beginPath();
+        ctx.arc(sx(m.x), sy(m.y), m.r, 0, TAU);
+        ctx.fillStyle = `rgba(255,149,0,${0.65 + 0.2*pulse})`;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(255,59,48,0.9)";
+        ctx.stroke();
+      }
+
+      // exp orbs
+      for (let i = 0; i < g.expOrbs.length; i++) {
+        const o = g.expOrbs[i];
+        ctx.beginPath();
+        ctx.arc(sx(o.x), sy(o.y), o.r, 0, TAU);
+        ctx.fillStyle = "#34c759";
+        ctx.fill();
+      }
+
+      // enemies
+      for (let i = 0; i < g.enemies.length; i++) {
+        const e = g.enemies[i];
+        ctx.save();
+        ctx.translate(sx(e.x), sy(e.y));
+        ctx.rotate(e.rot);
+
+        // base
+        ctx.fillStyle = e.color;
+        ctx.fillRect(-e.w/2, -e.h/2, e.w, e.h);
+
+        // hit flash overlay (mainly for blade hits)
+        if (e.hitFlashEnd && t < e.hitFlashEnd) {
+          const a = clamp((e.hitFlashEnd - t) / 0.08, 0, 1);
+          ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`;
+          ctx.fillRect(-e.w/2, -e.h/2, e.w, e.h);
+        }
+
+        ctx.restore();
+      }
+
+      // orbitals
+      for (let i = 0; i < g.orbitals.length; i++) {
+        const o = g.orbitals[i];
+        if (o.type === "shield") {
+          ctx.beginPath();
+          ctx.arc(sx(o.x), sy(o.y), o.r, 0, TAU);
+          ctx.fillStyle = "rgba(0,122,255,0.55)";
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(0,215,255,0.95)";
+          ctx.stroke();
+        } else {
+          ctx.save();
+          ctx.translate(sx(o.x), sy(o.y));
+          ctx.rotate(o.rot);
+          ctx.shadowBlur = 14;
+          ctx.shadowColor = "rgba(255,255,255,0.55)";
+          const bw = o.w, bh = o.h;
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fillRect(-bw/2, -bh/2, bw, bh);
+          ctx.beginPath();
+          ctx.moveTo(bw/2, -bh/2);
+          ctx.lineTo(bw/2 + bh*1.2, 0);
+          ctx.lineTo(bw/2, bh/2);
+          ctx.closePath();
+          ctx.fillStyle = "rgba(255,255,255,0.95)";
+          ctx.fill();
+          ctx.fillStyle = "rgba(0,0,0,0.35)";
+          ctx.fillRect(-bw/2 - 2, -bh/2, 4, bh);
+          ctx.restore();
+        }
+      }
+
+      // drones
+      for (let i = 0; i < g.drones.length; i++) {
+        const d = g.drones[i];
+        ctx.fillStyle = "rgba(180,180,180,0.95)";
+        ctx.fillRect(sx(d.x) - 10, sy(d.y) - 10, 20, 20);
+      }
+
+      // ghosts
+      for (let i = 0; i < g.ghosts.length; i++) {
+        const gh = g.ghosts[i];
+        ctx.beginPath();
+        ctx.arc(sx(gh.x), sy(gh.y), 15, 0, TAU);
+        ctx.fillStyle = "rgba(168,85,247,0.45)";
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(168,85,247,0.85)";
+        ctx.stroke();
+      }
+
+      // bullets
+      for (let i = 0; i < g.bullets.length; i++) {
+        const b = g.bullets[i];
+        ctx.save();
+        ctx.translate(sx(b.x), sy(b.y));
+        ctx.rotate(b.rot);
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.fillRect(-1, 2, 2, 10);
+        ctx.fillStyle = b.droneBullet ? "rgba(255,149,0,0.95)" : "rgba(255,214,10,0.95)";
+        ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
+        ctx.restore();
+      }
+
+      // particles (sparks)
+      for (let i = 0; i < g.particles.length; i++) {
+        const p = g.particles[i];
+        const life = clamp((t - p.born) / (p.die - p.born), 0, 1);
+        const inv = 1 - life;
+        ctx.strokeStyle = colorWithAlpha(p.color, inv);
+        ctx.lineWidth = p.r;
+        ctx.beginPath();
+        ctx.moveTo(sx(p.px), sy(p.py));
+        ctx.lineTo(sx(p.x), sy(p.y));
+        ctx.stroke();
+      }
+
+      // meteor warnings
+      for (let i = 0; i < g.warnings.length; i++) {
+        const w0 = g.warnings[i];
+        const alpha = clamp(1 - (t - w0.born)/1.0, 0, 1);
+        ctx.beginPath();
+        ctx.arc(sx(w0.x), sy(w0.y), 50, 0, TAU);
+        ctx.fillStyle = `rgba(255,59,48,${0.20 + 0.15*alpha})`;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = `rgba(255,59,48,${0.65 + 0.25*alpha})`;
+        ctx.stroke();
+      }
+
+      // player
+      ctx.fillStyle = g.player.color;
+      ctx.fillRect(sx(g.player.x) - 15, sy(g.player.y) - 15, 30, 30);
+
+      // effects
+      for (let i = 0; i < g.effects.length; i++) {
+        const ef = g.effects[i];
+        const life = clamp((t - ef.start) / (ef.end - ef.start), 0, 1);
+        const inv = 1 - life;
+
+        if (ef.kind === "hit") {
+          ctx.beginPath();
+          ctx.arc(sx(ef.x), sy(ef.y), 3 * inv, 0, TAU);
+          ctx.fillStyle = `rgba(255,214,10,${inv})`;
+          ctx.fill();
+        } else if (ef.kind === "explosion") {
+          ctx.beginPath();
+          ctx.arc(sx(ef.x), sy(ef.y), ef.r, 0, TAU);
+          ctx.fillStyle = `rgba(255,149,0,${0.5*inv})`;
+          ctx.fill();
+        } else if (ef.kind === "damageText") {
+          const y = ef.y - life * 30;
+          const fs = ef.isLucky ? 32 : (ef.isCrit ? 24 : 16);
+          ctx.font = `bold ${fs}px sans-serif`;
+          const col = ef.isLucky ? "#a855f7" : (ef.isCrit ? "#ffd60a" : "#ffffff");
+          ctx.fillStyle = colorWithAlpha(col, inv);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(String(ef.val), sx(ef.x), sy(y));
+        } else if (ef.kind === "label") {
+          const y = ef.y - life * 30;
+          ctx.font = "bold 20px sans-serif";
+          ctx.fillStyle = colorWithAlpha(ef.color || "#ffffff", inv);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(ef.text, sx(ef.x), sy(y));
+        } else if (ef.kind === "phoenix") {
+          const scale = 1 + life;
+          ctx.beginPath();
+          ctx.arc(sx(ef.x), sy(ef.y), 100 * scale, 0, TAU);
+          ctx.fillStyle = `rgba(255,149,0,${0.35*inv})`;
+          ctx.fill();
+          ctx.lineWidth = 3;
+          ctx.strokeStyle = `rgba(255,149,0,${0.85*inv})`;
+          ctx.stroke();
+        } else if (ef.kind === "line") {
+          ctx.beginPath();
+          ctx.moveTo(sx(ef.x1), sy(ef.y1));
+          ctx.lineTo(sx(ef.x2), sy(ef.y2));
+          ctx.strokeStyle = `rgba(0,215,255,${inv})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        } else if (ef.kind === "muzzle") {
+          ctx.save();
+          ctx.translate(sx(ef.x), sy(ef.y));
+          ctx.rotate(ef.ang || 0);
+          const s = 26 * inv;
+          ctx.fillStyle = `rgba(255,214,10,${0.85 * inv})`;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(s, -s * 0.28);
+          ctx.lineTo(s, s * 0.28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        } else if (ef.kind === "slash") {
+          ctx.save();
+          ctx.translate(sx(ef.x), sy(ef.y));
+          ctx.rotate(ef.ang || 0);
+          ctx.strokeStyle = `rgba(255,255,255,${0.80 * inv})`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(0, 0, 22, -0.65, 0.65);
+          ctx.stroke();
+          ctx.restore();
+        } else if (ef.kind === "enemyHit") {
+          ctx.beginPath();
+          ctx.arc(sx(ef.x), sy(ef.y), 16 * inv, 0, TAU);
+          ctx.strokeStyle = `rgba(255,255,255,${0.45*inv})`;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        }
+      }
+
+      // screen flash
+      if (g.screenFlash && t < g.screenFlash.end) {
+        const a = clamp(1 - (t - g.screenFlash.start) / (g.screenFlash.end - g.screenFlash.start), 0, 1);
+        const col = g.screenFlash.color || "#ff3b30";
+        const intensity = (g.screenFlash.intensity != null) ? g.screenFlash.intensity : 0.30;
+        ctx.fillStyle = colorWithAlpha(col, intensity * a);
+        ctx.fillRect(0,0,w,h);
+      }
+    }
+
+    // ============================================================
+    // 8. Game loop + enemy spawn timer (matches Swift: every 0.8s)
+    // ============================================================
+    let _spawnTimer = 0;
+
+    function tick(){
+      const t = nowSec();
+
+      if (game) {
+        // Input: joystick active => use joystickVector, otherwise always use held keys
+        const keyVec = recomputeKeyVector();
+        if (!joyActive) {
+          game.joystickVector = keyVec;
+        }
+
+        // Update (simulation)
+        game.update(t);
+
+        // Enemy Director: spawn + dynamic scaling (based on combat power)
+        if (typeof game.directorStep === "function") game.directorStep(t);
+
+        // Render
+        game.render(t);
+
+        // HUD（每帧刷新：战力徽章/技能数）
+        updateHUD(game.currentExp / game.maxExp, game.playerHealth / game.playerMaxHealth, game.level);
+
+        // If game over triggered inside update
+        if (game.isGameOver) {
+          game.isPausedGame = true;
+          showGameOverOverlay(game);
+        }
+
+        // HUD is updated via callback
+      }
+
+      requestAnimationFrame(tick);
+    }
+
+    // ============================================================
+    // 9. Boot
+    // ============================================================
+    resize();
+    resetGame();
+    requestAnimationFrame(tick);
+
+  })();
