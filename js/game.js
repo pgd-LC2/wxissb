@@ -3,9 +3,6 @@
  * 包含游戏配置和游戏对象创建
  */
 
-// 使用工具函数
-const { TAU, clamp, lerp, rand, nowSec, hypot, colorWithAlpha } = window.GameUtils;
-
 // 游戏配置
 const GameConfig = {
   basePlayerSpeed: 200,
