@@ -3494,6 +3494,24 @@ g.showDodgeEffect = (t) => {
       ctx.fillStyle = g.player.color;
       ctx.fillRect(sx(g.player.x) - 15, sy(g.player.y) - 15, 30, 30);
 
+      // remote players (multiplayer)
+      if (typeof remotePlayers !== 'undefined') {
+        for (const id in remotePlayers) {
+          const p = remotePlayers[id];
+          ctx.globalAlpha = 0.6;
+          ctx.fillStyle = p.color;
+          ctx.fillRect(sx(p.x) - 12, sy(p.y) - 12, 24, 24);
+
+          ctx.globalAlpha = 0.8;
+          ctx.font = "bold 12px sans-serif";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillStyle = "#fff";
+          ctx.fillText(p.playerName, sx(p.x), sy(p.y) - 16);
+          ctx.globalAlpha = 1.0;
+        }
+      }
+
       // effects
       for (let i = 0; i < g.effects.length; i++) {
         const ef = g.effects[i];
@@ -3794,32 +3812,31 @@ g.showDodgeEffect = (t) => {
         (data) => {
           delete remotePlayers[data.playerId];
           updatePlayerList();
+        },
+        (status) => {
+          if (status === "SUBSCRIBED") {
+            if (roomStatus) {
+              roomStatus.textContent = `已连接到房间: ${currentRoomId}`;
+              roomStatus.className = "mp-status connected";
+            }
+            if (multiplayerToggle) {
+              multiplayerToggle.classList.add("active");
+            }
+            if (leaveRoomBtn) {
+              leaveRoomBtn.classList.remove("hidden");
+            }
+            if (joinRoomBtn) {
+              joinRoomBtn.textContent = "已连接";
+              joinRoomBtn.disabled = true;
+            }
+          } else if (status === "CHANNEL_ERROR") {
+            if (roomStatus) {
+              roomStatus.textContent = "连接失败";
+              roomStatus.className = "mp-status error";
+            }
+          }
         }
       );
-
-      currentChannel.subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          if (roomStatus) {
-            roomStatus.textContent = `已连接到房间: ${currentRoomId}`;
-            roomStatus.className = "mp-status connected";
-          }
-          if (multiplayerToggle) {
-            multiplayerToggle.classList.add("active");
-          }
-          if (leaveRoomBtn) {
-            leaveRoomBtn.classList.remove("hidden");
-          }
-          if (joinRoomBtn) {
-            joinRoomBtn.textContent = "已连接";
-            joinRoomBtn.disabled = true;
-          }
-        } else if (status === "CHANNEL_ERROR") {
-          if (roomStatus) {
-            roomStatus.textContent = "连接失败";
-            roomStatus.className = "mp-status error";
-          }
-        }
-      });
     }
 
     async function leaveRoom() {

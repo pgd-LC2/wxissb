@@ -111,7 +111,7 @@ const SupabaseAPI = {
     });
   },
 
-  subscribeToRoom(channel, onPlayerPosition, onPlayerLeft) {
+  subscribeToRoom(channel, onPlayerPosition, onPlayerLeft, onStatusChange) {
     if (!channel) return null;
 
     return channel
@@ -125,7 +125,11 @@ const SupabaseAPI = {
           onPlayerLeft(payload.payload);
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (onStatusChange) {
+          onStatusChange(status);
+        }
+      });
   },
 
   unsubscribeFromRoom(channel) {
