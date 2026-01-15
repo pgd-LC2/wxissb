@@ -86,6 +86,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"精准射手", description:"暴击率 +8%", tier:1, icon:"target", effect:(s)=>{ s.critRate += 0.08; }});
   skills.push({ name:"暴击大师", description:"暴击伤害 +30%", tier:1, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.critDamageMulti += 0.3; }});
   skills.push({ name:"磁铁体质", description:"拾取范围 +40%", tier:1, icon:"magnet", effect:(s)=>{ s.pickupRange *= 1.4; }});
+  skills.push({ name:"万有引力", description:"自动吸取所有经验球，无需靠近", tier:2, icon:"sparkles", effect:(s)=>{ s.expMagnetAll = true; }});
   skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
   skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
   skills.push({ name:"幸运星", description:"稀有掉落率 +10%", tier:1, icon:"star.fill", effect:(s)=>{ s.luckBonus += 0.1; }});
