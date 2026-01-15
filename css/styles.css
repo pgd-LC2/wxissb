@@ -81,8 +81,8 @@ canvas {
   width: 0%;
   border-radius: 999px;
 }
-.bar.hp .fill { background: var(--hp); }
-.bar.exp .fill { background: var(--exp); }
+.bar .fill.hp { background: var(--hp); }
+.bar .fill.exp { background: var(--exp); }
 
 #rightHud {
   margin-left: auto;
