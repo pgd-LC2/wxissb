@@ -1700,8 +1700,6 @@ g.showDodgeEffect = (t) => {
       // Update Systems (ported)
       // ------------------------------
       g.updateEnemies = (dt, t) => {
-        const half = GameConfig.mapSize * 0.5 - 30;
-
         for (let i = 0; i < g.enemies.length; i++) {
           const e = g.enemies[i];
 
@@ -1792,8 +1790,6 @@ g.showDodgeEffect = (t) => {
 
             e.x += Math.cos(angle) * speed * dt;
             e.y += Math.sin(angle) * speed * dt;
-            e.x = clamp(e.x, -half, half);
-            e.y = clamp(e.y, -half, half);
 
             e.rot = angle - Math.PI/2;
           }
