@@ -186,7 +186,7 @@ function generateAllSkills(baseBladeSkills = []) {
   // ------------------------------
   // 特殊机制类 (91-115)
   // ------------------------------
-  const TAU = Math.PI * 2;
+  const TAU = window.GameUtils.TAU;  // 从工具模块导入，避免重复定义
   skills.push({ name:"加特林模式", description:"射速 x2，单发伤害 -40%", tier:3, icon:"gearshape.fill", effect:(s)=>{ s.shootInterval *= 0.5; s.bulletDamage *= 0.6; }});
   skills.push({ name:"狙击模式", description:"射速 -50%，伤害 x2，射程无限", tier:3, icon:"scope", effect:(s)=>{ s.shootInterval *= 2; s.bulletDamage *= 2; s.bulletLifetime = 10.0; }});
   skills.push({ name:"霰弹模式", description:"+5 子弹，大散布，短射程", tier:3, icon:"list.bullet", effect:(s)=>{ s.bulletCount += 5; s.spreadAngle = 0.8; s.bulletLifetime *= 0.5; }});
