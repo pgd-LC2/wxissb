@@ -83,6 +83,9 @@ const SupabaseAPI = {
 
   broadcastPosition(channel, playerId, x, y, color, playerName) {
     if (!channel) return;
+    
+    // 只在频道已订阅时发送消息，避免自动回退到 REST API
+    if (channel.state !== 'joined') return;
 
     channel.send({
       type: 'broadcast',
@@ -100,6 +103,9 @@ const SupabaseAPI = {
 
   broadcastPlayerLeft(channel, playerId) {
     if (!channel) return;
+    
+    // 只在频道已订阅时发送消息，避免自动回退到 REST API
+    if (channel.state !== 'joined') return;
 
     channel.send({
       type: 'broadcast',
