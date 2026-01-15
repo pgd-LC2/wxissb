@@ -3137,6 +3137,12 @@ g.showDodgeEffect = (t) => {
     }
 
     window.addEventListener("keydown", (e) => {
+      // 如果焦点在输入框中，完全不处理，让浏览器默认行为处理输入
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        return; // 直接返回，不阻止任何默认行为
+      }
+      
       const k = e.key.toLowerCase();
 
       // unlock audio on user gesture (autoplay policies)
@@ -3157,6 +3163,12 @@ g.showDodgeEffect = (t) => {
     }, { passive:false });
 
     window.addEventListener("keyup", (e) => {
+      // 如果焦点在输入框中，完全不处理
+      const activeEl = document.activeElement;
+      if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+        return; // 直接返回，不阻止任何默认行为
+      }
+      
       const k = e.key.toLowerCase();
       if (["w","a","s","d"].includes(k)) {
         keys.delete(k);

@@ -383,6 +383,8 @@ canvas {
   font-size: 14px;
   box-sizing: border-box;
   margin-bottom: 8px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .mp-section input::placeholder { color: rgba(255,255,255,.45); }
 .mp-section button, #leaveRoomBtn {
@@ -549,6 +551,8 @@ canvas {
   font-size: 14px;
   box-sizing: border-box;
   margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
 }
 .submit-score-form input::placeholder { color: rgba(255,255,255,.45); }
 .submit-score-form button {
