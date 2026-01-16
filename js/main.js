@@ -2859,6 +2859,40 @@ g.showDodgeEffect = (t) => {
       return { list: trimmed, rank: rank > 0 ? rank : null };
     }
 
+    function renderLocalLeaderboardRows(list, highlightId){
+      if (!list || list.length === 0) return "";
+      return list.map((r, idx) => {
+        const hi = (r.id === highlightId);
+        const rowClass = hi ? "highlight" : "";
+        return `
+          <tr class="${rowClass}">
+            <td>${idx + 1}</td>
+            <td style="font-weight:900;">${Math.round(r.score || 0)}</td>
+            <td style="font-weight:900;">${r.tier || ""}</td>
+            <td>${formatTime(r.time || 0)}</td>
+            <td>Lv.${r.level || 1}</td>
+            <td>${r.kills || 0}</td>
+          </tr>`;
+      }).join("");
+    }
+
+    function renderGlobalLeaderboardRows(list, highlightName){
+      if (!list || list.length === 0) return "";
+      return list.map((r, idx) => {
+        const hi = highlightName && r.player_name === highlightName;
+        const rowClass = hi ? "highlight" : "";
+        return `
+          <tr class="${rowClass}">
+            <td>${idx + 1}</td>
+            <td style="font-weight:700; max-width:80px; overflow:hidden; text-overflow:ellipsis;">${r.player_name || "匿名"}</td>
+            <td style="font-weight:900;">${Math.round(r.score || 0)}</td>
+            <td style="font-weight:900;">${r.tier || ""}</td>
+            <td>Lv.${r.level || 1}</td>
+            <td>${r.kills || 0}</td>
+          </tr>`;
+      }).join("");
+    }
+
     function renderLeaderboardTable(list, highlightId){
       if (!list || list.length === 0) return "";
       const rows = list.map((r, idx) => {
@@ -2898,7 +2932,43 @@ g.showDodgeEffect = (t) => {
         </div>`;
     }
 
-    function showGameOverOverlay(g) {
+    async function fetchGlobalLeaderboard() {
+      if (!window.SupabaseAPI) return [];
+      const result = await window.SupabaseAPI.getLeaderboard(20);
+      return result.data || [];
+    }
+
+    async function refreshGlobalLeaderboardInOverlay(highlightName) {
+      const globalContent = document.getElementById("globalLeaderboardRows");
+      if (!globalContent) return;
+      
+      globalContent.innerHTML = '<div class="leaderboard-loading">加载中...</div>';
+      
+      const globalData = await fetchGlobalLeaderboard();
+      
+      if (!globalData || globalData.length === 0) {
+        globalContent.innerHTML = '<div class="leaderboard-empty">暂无数据</div>';
+        return;
+      }
+      
+      globalContent.innerHTML = `
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>玩家</th>
+              <th>分数</th>
+              <th>段位</th>
+              <th>等级</th>
+              <th>击杀</th>
+            </tr>
+          </thead>
+          <tbody>${renderGlobalLeaderboardRows(globalData, highlightName)}</tbody>
+        </table>
+      `;
+    }
+
+    async function showGameOverOverlay(g) {
       overlay.classList.add("show");
       overlay.classList.add("mode-gameover");
       overlay.classList.remove("mode-levelup");
@@ -2910,7 +2980,6 @@ g.showDodgeEffect = (t) => {
       choicesEl.innerHTML = "";
       gameoverStatsEl.style.display = "block";
 
-      // prevent double-record if called twice
       const endT = nowSec();
       const timeAlive = g._startTime ? Math.max(0, endT - g._startTime) : 0;
 
@@ -2949,29 +3018,81 @@ g.showDodgeEffect = (t) => {
       const submitFormHtml = g._scoreSubmitted ? `
         <div class="submit-status success">分数已提交到全球排行榜!</div>
       ` : `
-        <div class="submit-score-form">
+        <div class="gameover-submit-section">
           <input type="text" id="submitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" value="${getStoredPlayerName()}" />
           <button id="submitScoreBtn">提交分数</button>
           <div id="submitStatus" class="submit-status"></div>
         </div>
       `;
 
+      const localLeaderboardHtml = board.list.length > 0 ? `
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>分数</th>
+              <th>段位</th>
+              <th>时间</th>
+              <th>等级</th>
+              <th>击杀</th>
+            </tr>
+          </thead>
+          <tbody>${renderLocalLeaderboardRows(board.list, run.id)}</tbody>
+        </table>
+      ` : '<div class="leaderboard-empty">暂无本地记录</div>';
+
       gameoverStatsEl.innerHTML = `
-        <div style="display:flex; gap:10px; justify-content:center; align-items:baseline; flex-wrap:wrap;">
-          <div>战力评分: <b style="color:${tierColor}">${run.score}</b></div>
-          <div style="opacity:.9;">段位: <b style="color:${tierColor}">${run.tier || ""}</b></div>
-          <div style="opacity:.9;">排名: <b>${rankText}</b></div>
+        <div class="gameover-content">
+          <div class="gameover-stats-section">
+            <div style="display:flex; gap:12px; justify-content:center; align-items:baseline; flex-wrap:wrap;">
+              <div>战力评分: <b style="color:${tierColor}; font-size:18px;">${run.score}</b></div>
+              <div>段位: <b style="color:${tierColor}">${run.tier || ""}</b></div>
+              <div>本地排名: <b>${rankText}</b></div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:16px; justify-content:center; flex-wrap:wrap; font-size:14px;">
+              <div>存活: <b>${formatTime(run.time)}</b></div>
+              <div>等级: <b>${g.level}</b></div>
+              <div>击杀: <b>${(g.stats && g.stats.kills) ? g.stats.kills : 0}</b></div>
+              <div>技能: <b>${g.acquiredSkills.length}</b></div>
+            </div>
+            <div style="margin-top:6px; font-size:12px; opacity:.7;">
+              平均战力: ${run.avg} · 峰值战力: ${run.peak}
+            </div>
+          </div>
+          
+          ${submitFormHtml}
+          
+          <div class="dual-leaderboard-container">
+            <div class="leaderboard-column">
+              <div class="leaderboard-title local">
+                <span class="icon">📊</span>
+                <span>本地排行榜</span>
+              </div>
+              <div class="leaderboard-table-wrapper">
+                ${localLeaderboardHtml}
+              </div>
+              <div class="leaderboard-note">
+                评分 = 0.72×平均战力 + 0.28×峰值战力
+              </div>
+            </div>
+            
+            <div class="leaderboard-column">
+              <div class="leaderboard-title global">
+                <span class="icon">🌍</span>
+                <span>全球排行榜</span>
+              </div>
+              <div class="leaderboard-table-wrapper" id="globalLeaderboardRows">
+                <div class="leaderboard-loading">加载中...</div>
+              </div>
+              <div class="leaderboard-note">
+                提交分数后自动更新
+              </div>
+            </div>
+          </div>
         </div>
-        <div style="margin-top:10px; line-height:1.65;">
-          <div>存活时间: <b>${formatTime(run.time)}</b></div>
-          <div>到达等级: <b>${g.level}</b></div>
-          <div>击杀数量: <b>${(g.stats && g.stats.kills) ? g.stats.kills : 0}</b></div>
-          <div>获得技能: <b>${g.acquiredSkills.length}</b></div>
-          <div style="opacity:.9;">平均战力: <b>${run.avg}</b> · 峰值战力: <b>${run.peak}</b></div>
-        </div>
-        ${submitFormHtml}
-        ${renderLeaderboardTable(board.list, run.id)}
       `;
+
+      refreshGlobalLeaderboardInOverlay(g._submittedPlayerName || null);
 
       if (!g._scoreSubmitted) {
         const submitBtn = document.getElementById("submitScoreBtn");
@@ -3011,8 +3132,11 @@ g.showDodgeEffect = (t) => {
                 submitStatus.textContent = "提交成功!";
                 submitStatus.className = "submit-status success";
                 g._scoreSubmitted = true;
+                g._submittedPlayerName = playerName;
                 submitBtn.style.display = "none";
                 submitNameInput.style.display = "none";
+                
+                await refreshGlobalLeaderboardInOverlay(playerName);
               }
             } else {
               submitStatus.textContent = "Supabase 未初始化";
