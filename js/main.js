@@ -2884,7 +2884,7 @@ g.showDodgeEffect = (t) => {
         return `
           <tr class="${rowClass}">
             <td>${idx + 1}</td>
-            <td style="font-weight:700; max-width:80px; overflow:hidden; text-overflow:ellipsis;">${r.player_name || "匿名"}</td>
+            <td style="font-weight:700; max-width:80px; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(r.player_name || "匿名")}</td>
             <td style="font-weight:900;">${Math.round(r.score || 0)}</td>
             <td style="font-weight:900;">${r.tier || ""}</td>
             <td>Lv.${r.level || 1}</td>
