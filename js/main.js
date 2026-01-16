@@ -3068,6 +3068,7 @@ g.showDodgeEffect = (t) => {
       game._runId = `${Date.now()}_${Math.floor(Math.random()*1e9)}`;
       if (game.stats) game.stats.startTime = game._startTime;
       game._runRecorded = false;
+      game._gameOverShown = false;
       buildSkillPool(game);
 
       game.onStateChange = updateHUD;
@@ -3077,7 +3078,7 @@ g.showDodgeEffect = (t) => {
         showLevelUpOverlay(game);
       };
       game.onGameOver = () => {
-        showGameOverOverlay(game);
+        // showGameOverOverlay 现在由 tick 函数统一处理，避免重复调用
       };
 
       // initial HUD
@@ -3630,8 +3631,9 @@ g.showDodgeEffect = (t) => {
         updateHUD(game.currentExp / game.maxExp, game.playerHealth / game.playerMaxHealth, game.level);
 
         // If game over triggered inside update
-        if (game.isGameOver) {
+        if (game.isGameOver && !game._gameOverShown) {
           game.isPausedGame = true;
+          game._gameOverShown = true;
           showGameOverOverlay(game);
         }
 
@@ -3991,8 +3993,9 @@ g.showDodgeEffect = (t) => {
 
         updateHUD(game.currentExp / game.maxExp, game.playerHealth / game.playerMaxHealth, game.level);
 
-        if (game.isGameOver) {
+        if (game.isGameOver && !game._gameOverShown) {
           game.isPausedGame = true;
+          game._gameOverShown = true;
           showGameOverOverlay(game);
         }
       }
