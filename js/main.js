@@ -3078,7 +3078,7 @@ g.showDodgeEffect = (t) => {
         showLevelUpOverlay(game);
       };
       game.onGameOver = () => {
-        showGameOverOverlay(game);
+        // showGameOverOverlay 现在由 tick 函数统一处理，避免重复调用
       };
 
       // initial HUD
