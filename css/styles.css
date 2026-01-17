@@ -306,6 +306,141 @@ canvas {
 #soundToggle:hover{ background: rgba(0,0,0,.62); }
 #soundToggle.muted{ opacity: .55; }
 
+/* Shake toggle */
+#shakeToggle{
+  position: absolute;
+  right: 62px;
+  bottom: 56px;
+  z-index: 12;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.45);
+  color: rgba(255,255,255,.92);
+  font-size: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+}
+#shakeToggle:hover{ background: rgba(0,0,0,.62); }
+#shakeToggle.disabled{ opacity: .55; }
+
+/* Pause button */
+#pauseBtn{
+  position: absolute;
+  left: 12px;
+  top: 80px;
+  z-index: 12;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.45);
+  color: rgba(255,255,255,.92);
+  font-size: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+}
+#pauseBtn:hover{ background: rgba(0,0,0,.62); }
+
+/* Pause Overlay */
+#pauseOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 22;
+  background: rgba(0,0,0,.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  box-sizing: border-box;
+}
+#pauseOverlay.hidden { display: none; }
+
+#pausePanel {
+  width: min(420px, 100%);
+  background: rgba(20,20,20,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 22px;
+  box-sizing: border-box;
+  animation: popIn .18s ease-out;
+}
+#pausePanel h2 {
+  margin: 0 0 16px 0;
+  font-size: 28px;
+  text-align: center;
+  color: #ffd60a;
+}
+#pauseStats {
+  margin-bottom: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,.06);
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.pause-submit-section {
+  margin-bottom: 16px;
+}
+.pause-submit-section input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pause-submit-section input::placeholder { color: rgba(255,255,255,.45); }
+.pause-submit-section button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,214,10,.85);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pause-submit-section button:hover { background: rgba(255,214,10,1); }
+.pause-buttons {
+  display: flex;
+  gap: 12px;
+}
+.pause-buttons button {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+}
+#resumeBtn {
+  background: rgba(52,199,89,.85);
+  color: #fff;
+}
+#resumeBtn:hover { background: rgba(52,199,89,1); }
+#quitBtn {
+  background: rgba(255,59,48,.85);
+  color: #fff;
+}
+#quitBtn:hover { background: rgba(255,59,48,1); }
+
 /* Overlay "juicy" animation */
 @keyframes popIn {
   0% { transform: scale(0.92); opacity: 0; }

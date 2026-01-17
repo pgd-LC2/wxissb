@@ -39,7 +39,26 @@
     </div>
 
     <button id="soundToggle" title="声音（点击静音/开声音）" aria-label="sound">🔊</button>
+    <button id="shakeToggle" title="屏幕震动（点击开关）" aria-label="shake">📳</button>
+    <button id="pauseBtn" title="暂停游戏" aria-label="pause">⏸️</button>
     <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级 · M 静音</div>
+    
+    <!-- 暂停菜单 -->
+    <div id="pauseOverlay" class="hidden">
+      <div id="pausePanel">
+        <h2>游戏暂停</h2>
+        <div id="pauseStats"></div>
+        <div class="pause-submit-section">
+          <input type="text" id="pauseSubmitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" />
+          <button id="pauseSubmitScoreBtn">提交当前分数</button>
+          <div id="pauseSubmitStatus" class="submit-status"></div>
+        </div>
+        <div class="pause-buttons">
+          <button id="resumeBtn">继续游戏</button>
+          <button id="quitBtn">退出游戏</button>
+        </div>
+      </div>
+    </div>
 
     <div id="multiplayerPanel">
       <button id="multiplayerToggle" title="联机模式">👥</button>
