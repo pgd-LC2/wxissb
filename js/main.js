@@ -3236,6 +3236,18 @@ g.showDodgeEffect = (t) => {
 
       // initial spawn loop timer
       _spawnTimer = nowSec();
+
+      // 重置暂停菜单提交按钮状态
+      if (pauseSubmitScoreBtn) {
+        pauseSubmitScoreBtn.disabled = false;
+        pauseSubmitScoreBtn.textContent = "提交当前分数";
+      }
+      if (pauseSubmitStatus) {
+        pauseSubmitStatus.textContent = "";
+        pauseSubmitStatus.className = "submit-status";
+      }
+      pauseScoreSubmitted = false;
+      isPausedByUser = false;
     }
 
     restartBtn.addEventListener("click", () => {
