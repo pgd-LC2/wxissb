@@ -44,7 +44,7 @@ const SupabaseAPI = {
     }
 
     return { data };
-  },
+  }
 
   async getLeaderboard(limit = 50) {
     const client = getSupabaseClient();
@@ -65,84 +65,8 @@ const SupabaseAPI = {
     }
 
     return { data: data || [] };
-  },
-
-  createRealtimeChannel(roomId) {
-    const client = getSupabaseClient();
-    if (!client) {
-      console.error('Supabase client not initialized');
-      return null;
-    }
-
-    return client.channel(`room:${roomId}`, {
-      config: {
-        broadcast: { self: false }
-      }
-    });
-  },
-
-  broadcastPosition(channel, playerId, x, y, color, playerName) {
-    if (!channel) return;
-    
-    // 只在频道已订阅时发送消息，避免自动回退到 REST API
-    if (channel.state !== 'joined') return;
-
-    channel.send({
-      type: 'broadcast',
-      event: 'player_position',
-      payload: {
-        playerId,
-        x,
-        y,
-        color,
-        playerName,
-        timestamp: Date.now()
-      }
-    });
-  },
-
-  broadcastPlayerLeft(channel, playerId) {
-    if (!channel) return;
-    
-    // 只在频道已订阅时发送消息，避免自动回退到 REST API
-    if (channel.state !== 'joined') return;
-
-    channel.send({
-      type: 'broadcast',
-      event: 'player_left',
-      payload: {
-        playerId,
-        timestamp: Date.now()
-      }
-    });
-  },
-
-  subscribeToRoom(channel, onPlayerPosition, onPlayerLeft, onStatusChange) {
-    if (!channel) return null;
-
-    return channel
-      .on('broadcast', { event: 'player_position' }, (payload) => {
-        if (onPlayerPosition) {
-          onPlayerPosition(payload.payload);
-        }
-      })
-      .on('broadcast', { event: 'player_left' }, (payload) => {
-        if (onPlayerLeft) {
-          onPlayerLeft(payload.payload);
-        }
-      })
-      .subscribe((status) => {
-        if (onStatusChange) {
-          onStatusChange(status);
-        }
-      });
-  },
-
-  unsubscribeFromRoom(channel) {
-    if (channel) {
-      channel.unsubscribe();
-    }
   }
+
 };
 
 window.SupabaseAPI = SupabaseAPI;
