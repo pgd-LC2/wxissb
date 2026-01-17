@@ -44,7 +44,7 @@ const SupabaseAPI = {
     }
 
     return { data };
-  }
+  },
 
   async getLeaderboard(limit = 50) {
     const client = getSupabaseClient();
