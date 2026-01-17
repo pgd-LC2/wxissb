@@ -23,15 +23,14 @@
 | tier | TEXT | 段位（SSS/SS/S/A/B/C/D） |
 | created_at | TIMESTAMP | 创建时间 |
 
-## 实时联机
-
-使用 Supabase Realtime Broadcast 实现玩家位置同步：
-- 房间频道格式: `room:{room_id}`
-- 广播事件: `player_position`
-- 数据格式: `{ playerId, x, y, color }`
-
 ## 开发说明
 
 - 使用中文创建 PR 和与用户沟通
 - 本地测试: `python -m http.server 8000`
 - 访问: http://localhost:8000
+
+### 文件编码要求
+所有文件统一采用 UTF-8 编码。禁止使用其他编码方式进行查看、编辑或保存。
+Windows PowerShell 的默认写入编码不是 UTF-8（通常为 ANSI 或 UTF-16），因此不得使用 PowerShell 操作相关文件。会导致文件内容乱码。
+如果需要在 PowerShell 中操作文件，请确保使用 `Get-Content` 和 `Set-Content` 等 cmdlet 时指定 `-Encoding UTF8` 参数。
+在遇到文件乱码的时候需要及时使用git回滚到上一个版本，避免文件内容被损坏。
