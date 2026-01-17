@@ -73,4 +73,13 @@
       }
     });
   }
+
+  // Auto-open via query string
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("view") === "leaderboard") {
+    if (globalLeaderboard) {
+      globalLeaderboard.classList.remove("hidden");
+      loadGlobalLeaderboard();
+    }
+  }
 })();

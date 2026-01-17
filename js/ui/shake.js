@@ -4,6 +4,13 @@
   const GameApp = window.GameApp = window.GameApp || {};
   const { shakeToggle } = GameApp.DOM;
   const runtime = GameApp.Runtime;
+  const PREF_SHAKE = "bigear_pref_shake"; // "1" = enabled
+
+  try {
+    const pref = localStorage.getItem(PREF_SHAKE);
+    if (pref === "0") runtime.shakeEnabled = false;
+    if (pref === "1") runtime.shakeEnabled = true;
+  } catch {}
 
   function refreshShakeIcon() {
     if (!shakeToggle) return;
@@ -24,6 +31,9 @@
     shakeToggle.addEventListener("click", (e) => {
       e.stopPropagation();
       runtime.shakeEnabled = !runtime.shakeEnabled;
+      try {
+        localStorage.setItem(PREF_SHAKE, runtime.shakeEnabled ? "1" : "0");
+      } catch {}
       refreshShakeIcon();
     });
   }

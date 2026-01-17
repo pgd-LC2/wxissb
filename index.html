@@ -1,104 +1,1114 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>bigear - single page</title>
-  <link rel="stylesheet" href="css/styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>大地图肉鸽游戏 - 开始</title>
+    <style>
+        :root {
+            --ui-bg: rgba(0,0,0,.55);
+            --ui-panel: rgba(0,0,0,.72);
+            --ui-border: rgba(255,255,255,.12);
+            --ui-text: rgba(255,255,255,.92);
+            --ui-sub: rgba(255,255,255,.72);
+            --hp: #ff3b30;
+            --exp: #34c759;
+            --rare: #4aa3ff;
+            --legend: #ff9f0a;
+            --valorant-red: #ff4655;
+            --valorant-dark: #0f1923;
+            --valorant-accent: #ff4655;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            height: 100%;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            color: var(--ui-text);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .container {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            overflow: hidden;
+        }
+
+        /* 动态网格背景 */
+        .grid-bg {
+            position: absolute;
+            inset: 0;
+            background-image: 
+                linear-gradient(rgba(255,70,85,.06) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,70,85,.06) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridFloat 30s linear infinite;
+            opacity: 0.5;
+        }
+
+        @keyframes gridFloat {
+            0% { transform: translateY(0) translateX(0); }
+            100% { transform: translateY(40px) translateX(40px); }
+        }
+
+        /* 光晕装饰 */
+        .glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            animation: pulse 8s ease-in-out infinite;
+        }
+
+        .glow1 {
+            width: 600px;
+            height: 600px;
+            background: var(--valorant-red);
+            top: -200px;
+            left: -200px;
+        }
+
+        .glow2 {
+            width: 500px;
+            height: 500px;
+            background: #bd3944;
+            bottom: -150px;
+            right: -150px;
+            animation-delay: 4s;
+        }
+
+        .glow3 {
+            width: 400px;
+            height: 400px;
+            background: var(--valorant-red);
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: 2s;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.12; }
+            50% { transform: scale(1.2); opacity: 0.2; }
+        }
+
+        /* 漂浮粒子 */
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: particleFloat linear infinite;
+        }
+
+        @keyframes particleFloat {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% {
+                transform: translateY(-100vh) translateX(var(--drift));
+                opacity: 0;
+            }
+        }
+
+        /* 主内容 */
+        .content {
+            position: relative;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            padding: 20px;
+        }
+
+        .logo-container {
+            margin-bottom: 2rem;
+            animation: fadeInDown 1s ease-out;
+            position: relative;
+            padding: 2rem 0;
+        }
+
+        /* 标题装饰框架 */
+        .logo-container::before,
+        .logo-container::after {
+            content: '';
+            position: absolute;
+            width: 120px;
+            height: 3px;
+            background: linear-gradient(90deg, var(--valorant-red), transparent);
+            box-shadow: 0 0 10px var(--valorant-red);
+        }
+
+        .logo-container::before {
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .logo-container::after {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%) scaleX(-1);
+        }
+
+        /* 标题角落装饰 */
+        .title-frame {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border: 2px solid var(--valorant-red);
+            opacity: 0.6;
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        .title-frame.tl {
+            top: -10px;
+            left: -60px;
+            border-right: none;
+            border-bottom: none;
+            clip-path: polygon(0 0, 100% 0, 100% 3px, 3px 3px, 3px 100%, 0 100%);
+        }
+
+        .title-frame.tr {
+            top: -10px;
+            right: -60px;
+            border-left: none;
+            border-bottom: none;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 3px) 100%, calc(100% - 3px) 3px, 0 3px);
+        }
+
+        .title-frame.bl {
+            bottom: -10px;
+            left: -60px;
+            border-right: none;
+            border-top: none;
+            clip-path: polygon(0 0, 3px 0, 3px calc(100% - 3px), 100% calc(100% - 3px), 100% 100%, 0 100%);
+        }
+
+        .title-frame.br {
+            bottom: -10px;
+            right: -60px;
+            border-left: none;
+            border-top: none;
+            clip-path: polygon(0 calc(100% - 3px), calc(100% - 3px) calc(100% - 3px), calc(100% - 3px) 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        .title {
+            font-size: 5rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 
+                0 0 30px rgba(255,70,85,0.8),
+                0 0 60px rgba(255,70,85,0.5),
+                0 0 100px rgba(255,70,85,0.3),
+                0 4px 20px rgba(0,0,0,0.9);
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.15em;
+            animation: titleGlow 3s ease-in-out infinite;
+            text-transform: uppercase;
+        }
+
+        @keyframes titleGlow {
+            0%, 100% { 
+                text-shadow: 
+                    0 0 30px rgba(255,70,85,0.8),
+                    0 0 60px rgba(255,70,85,0.5),
+                    0 0 100px rgba(255,70,85,0.3),
+                    0 4px 20px rgba(0,0,0,0.9);
+                filter: brightness(1);
+            }
+            50% { 
+                text-shadow: 
+                    0 0 40px rgba(255,70,85,1),
+                    0 0 80px rgba(255,70,85,0.7),
+                    0 0 120px rgba(255,70,85,0.5),
+                    0 4px 20px rgba(0,0,0,0.9);
+                filter: brightness(1.2);
+            }
+        }
+
+        .subtitle {
+            font-size: 1.3rem;
+            color: var(--ui-sub);
+            font-weight: 500;
+            letter-spacing: 0.15em;
+            animation: fadeInDown 1s ease-out 0.2s both;
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* 按钮组 */
+        .menu {
+            margin-top: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn {
+            position: relative;
+            padding: 1.2rem 3.5rem;
+            min-width: 320px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            color: #ffffff;
+            background: rgba(15,25,35,0.9);
+            border: 2px solid rgba(255,70,85,0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            overflow: visible;
+            text-transform: uppercase;
+            letter-spacing: 0.15em;
+            clip-path: polygon(25px 0, 100% 0, 100% calc(100% - 25px), calc(100% - 25px) 100%, 0 100%, 0 25px);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,70,85,0.4), transparent);
+            transition: left 0.6s;
+            z-index: 1;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border: 2px solid transparent;
+            opacity: 0;
+            transition: opacity 0.3s;
+            clip-path: polygon(25px 0, 100% 0, 100% calc(100% - 25px), calc(100% - 25px) 100%, 0 100%, 0 25px);
+            background: 
+                linear-gradient(var(--valorant-red), var(--valorant-red)) padding-box,
+                linear-gradient(135deg, var(--valorant-red), transparent 30%, transparent 70%, var(--valorant-red)) border-box;
+            z-index: -1;
+        }
+
+        /* 装饰线条 */
+        .menu {
+            margin-top: 3rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            animation: fadeInUp 1s ease-out 0.4s both;
+            position: relative;
+        }
+
+        .menu::before,
+        .menu::after {
+            content: '';
+            position: absolute;
+            background: var(--valorant-red);
+            opacity: 0.6;
+        }
+
+        .menu::before {
+            width: 2px;
+            height: 40px;
+            left: -20px;
+            top: 0;
+            box-shadow: 0 0 10px var(--valorant-red);
+        }
+
+        .menu::after {
+            width: 2px;
+            height: 40px;
+            right: -20px;
+            bottom: 0;
+            box-shadow: 0 0 10px var(--valorant-red);
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn:hover::after {
+            opacity: 1;
+        }
+
+        .btn:hover {
+            background: rgba(255,70,85,0.15);
+            border-color: var(--valorant-red);
+            transform: translateY(-3px);
+            box-shadow: 
+                0 0 40px rgba(255,70,85,0.5),
+                0 8px 24px rgba(0,0,0,0.6),
+                inset 0 0 30px rgba(255,70,85,0.15),
+                inset 0 -2px 0 rgba(255,70,85,0.5);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn.disabled,
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            border-color: rgba(255,255,255,.2);
+            box-shadow: none;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0,0,0,0.7);
+            z-index: 50;
+            padding: 20px;
+        }
+
+        .modal.show {
+            display: flex;
+        }
+
+        .modal-panel {
+            width: min(720px, 92vw);
+            background: rgba(10,10,10,0.95);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 22px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 0.08em;
+        }
+
+        .modal-close {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        .modal-body {
+            color: var(--ui-sub);
+            line-height: 1.7;
+            font-size: 14px;
+        }
+
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            inset: 0;
+            background: rgba(255,255,255,0.2);
+            transition: .2s;
+            border-radius: 999px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            top: 3px;
+            background: #fff;
+            transition: .2s;
+            border-radius: 50%;
+        }
+
+        .switch input:checked + .slider {
+            background: var(--valorant-red);
+        }
+
+        .switch input:checked + .slider:before {
+            transform: translateX(20px);
+        }
+
+        /* 按钮内部扫描效果 */
+        .btn-scan {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, transparent 45%, rgba(255,70,85,0.1) 50%, transparent 55%);
+            animation: btnScan 3s linear infinite;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .btn:hover .btn-scan {
+            opacity: 1;
+        }
+
+        @keyframes btnScan {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100%); }
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--valorant-red) 0%, #bd3944 100%);
+            border-color: var(--valorant-red);
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 1.4rem;
+            box-shadow: 
+                0 0 40px rgba(255,70,85,0.6),
+                0 8px 30px rgba(0,0,0,0.7),
+                inset 0 1px 0 rgba(255,255,255,0.2);
+            position: relative;
+            overflow: visible;
+        }
+
+        .btn-primary::after {
+            opacity: 0;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #ff5865 0%, #d94450 100%);
+            border-color: #ff6674;
+            box-shadow: 
+                0 0 60px rgba(255,70,85,0.9),
+                0 12px 40px rgba(0,0,0,0.8),
+                inset 0 1px 0 rgba(255,255,255,0.3);
+            transform: translateY(-5px) scale(1.02);
+        }
+
+        /* 按钮角落装饰 */
+        .btn-decorator {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--valorant-red);
+            pointer-events: none;
+            opacity: 0.8;
+        }
+
+        .btn-decorator.tl {
+            top: -6px;
+            left: 12px;
+            border-right: none;
+            border-bottom: none;
+            clip-path: polygon(0 0, 100% 0, 100% 2px, 2px 2px, 2px 100%, 0 100%);
+        }
+
+        .btn-decorator.tr {
+            top: -6px;
+            right: 12px;
+            border-left: none;
+            border-bottom: none;
+            clip-path: polygon(0 0, 100% 0, 100% 100%, calc(100% - 2px) 100%, calc(100% - 2px) 2px, 0 2px);
+        }
+
+        .btn-decorator.bl {
+            bottom: -6px;
+            left: 12px;
+            border-right: none;
+            border-top: none;
+            clip-path: polygon(0 0, 2px 0, 2px calc(100% - 2px), 100% calc(100% - 2px), 100% 100%, 0 100%);
+        }
+
+        .btn-decorator.br {
+            bottom: -6px;
+            right: 12px;
+            border-left: none;
+            border-top: none;
+            clip-path: polygon(0 calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 0, 100% 0, 100% 100%, 0 100%);
+        }
+
+        .btn:hover .btn-decorator {
+            opacity: 1;
+            box-shadow: 0 0 8px var(--valorant-red);
+        }
+
+        /* 提示信息 */
+        .hint {
+            position: absolute;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.8rem 1.5rem;
+            background: rgba(15,25,35,0.85);
+            border: 2px solid rgba(255,70,85,0.3);
+            font-size: 0.85rem;
+            color: var(--ui-sub);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            animation: fadeInUp 1s ease-out 0.8s both;
+            white-space: nowrap;
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            letter-spacing: 0.05em;
+            box-shadow: 0 0 20px rgba(255,70,85,0.2);
+        }
+
+        .hint::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60%;
+            background: var(--valorant-red);
+            box-shadow: 0 0 8px var(--valorant-red);
+            opacity: 0.6;
+        }
+
+        /* 加载动画 */
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        .loading-overlay.show {
+            display: flex;
+        }
+
+        .loading-content {
+            text-align: center;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255,70,85,0.2);
+            border-top-color: var(--valorant-red);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+            box-shadow: 0 0 20px rgba(255,70,85,0.3);
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.2rem;
+            color: var(--ui-text);
+            font-weight: 700;
+        }
+
+        /* 响应式 */
+        @media (max-width: 640px) {
+            .title {
+                font-size: 3rem;
+            }
+            .subtitle {
+                font-size: 1rem;
+            }
+            .btn {
+                min-width: 260px;
+                padding: 1rem 2.5rem;
+                font-size: 1rem;
+            }
+            .btn-primary {
+                font-size: 1.15rem;
+            }
+            .hint {
+                font-size: 0.75rem;
+                padding: 0.5rem 1rem;
+            }
+            .menu::before,
+            .menu::after {
+                display: none;
+            }
+            .title-frame {
+                display: none;
+            }
+        }
+
+        /* 扫描线效果 */
+        .scanline {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--valorant-red), transparent);
+            box-shadow: 0 0 10px var(--valorant-red);
+            animation: scan 4s linear infinite;
+            opacity: 0.4;
+            pointer-events: none;
+        }
+
+        @keyframes scan {
+            0% {
+                top: 0;
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.6;
+            }
+            90% {
+                opacity: 0.6;
+            }
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+
+        /* 侧边装饰线 */
+        .side-accent {
+            position: absolute;
+            width: 3px;
+            height: 80px;
+            background: linear-gradient(180deg, transparent, var(--valorant-red), transparent);
+            box-shadow: 0 0 15px var(--valorant-red);
+            opacity: 0.5;
+        }
+
+        .side-accent.left {
+            left: 5%;
+            top: 30%;
+            animation: slideDown 3s ease-in-out infinite;
+        }
+
+        .side-accent.right {
+            right: 5%;
+            top: 50%;
+            animation: slideDown 3s ease-in-out infinite 1.5s;
+        }
+
+        @keyframes slideDown {
+            0%, 100% {
+                transform: translateY(0);
+                opacity: 0.3;
+            }
+            50% {
+                transform: translateY(100px);
+                opacity: 0.8;
+            }
+        }
+
+        /* 版本信息 */
+        .version {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            background: rgba(15,25,35,0.9);
+            border: 2px solid rgba(255,70,85,0.4);
+            font-size: 0.75rem;
+            color: var(--valorant-red);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            box-shadow: 0 0 20px rgba(255,70,85,0.3);
+        }
+
+        .version::before,
+        .version::after {
+            content: '';
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            border: 2px solid var(--valorant-red);
+        }
+
+        .version::before {
+            top: -5px;
+            left: 3px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .version::after {
+            bottom: -5px;
+            right: 3px;
+            border-left: none;
+            border-top: none;
+        }
+
+        /* 对角线装饰 */
+        .diagonal-accent {
+            position: absolute;
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--valorant-red), transparent);
+            box-shadow: 0 0 10px var(--valorant-red);
+            opacity: 0.4;
+            transform: rotate(-45deg);
+        }
+
+        .diagonal-accent.d1 {
+            top: 20%;
+            left: 10%;
+            animation: pulse 4s ease-in-out infinite;
+        }
+
+        .diagonal-accent.d2 {
+            top: 60%;
+            right: 10%;
+            animation: pulse 4s ease-in-out infinite 2s;
+        }
+    </style>
 </head>
 <body>
-  <div id="root">
-    <canvas id="c"></canvas>
+    <div class="container">
+        <!-- 背景效果 -->
+        <div class="grid-bg"></div>
+        <div class="glow glow1"></div>
+        <div class="glow glow2"></div>
+        <div class="glow glow3"></div>
+        
+        <!-- 粒子容器 -->
+        <div id="particles"></div>
 
-    <div id="hud">
-        <div id="levelBadge">Lv.1</div>
-        <div id="bars">
-          <div class="bar"><div id="hpFill" class="fill hp"></div></div>
-          <div class="bar"><div id="expFill" class="fill exp"></div></div>
-          <div id="skillCount">技能: 0</div>
-          <div id="powerBadge">战力: 0</div>
+        <!-- 版本信息 -->
+        <div class="version">v1.0.0</div>
+
+        <!-- 主内容 -->
+        <div class="content">
+            <div class="logo-container">
+                <div class="title-frame tl"></div>
+                <div class="title-frame tr"></div>
+                <div class="title-frame bl"></div>
+                <div class="title-frame br"></div>
+                <h1 class="title">BIGEAR</h1>
+                <p class="subtitle">大地图肉鸽冒险</p>
+            </div>
+
+            <div class="menu">
+                <button class="btn btn-primary" onclick="startGame()">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    🎮 开始游戏
+                </button>
+                <button class="btn disabled" disabled>
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    🤝 多人联机（敬请期待）
+                </button>
+                <button class="btn" onclick="showLeaderboard()">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    🏆 排行榜
+                </button>
+                <button class="btn" onclick="showHelp()">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    ❓ 游戏说明
+                </button>
+                <button class="btn" onclick="showSettings()">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    ⚙️ 设置
+                </button>
+            </div>
+
+            <div class="hint">
+                按 ENTER 开始 · WASD 移动 · M 静音
+            </div>
+        </div>
+
+        <!-- 通用弹窗 -->
+        <div class="modal" id="modal">
+            <div class="modal-panel">
+                <div class="modal-header">
+                    <div class="modal-title" id="modalTitle">标题</div>
+                    <button class="modal-close" onclick="closeModal()">×</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+
+        <!-- 扫描线 -->
+        <div class="scanline"></div>
+        
+        <!-- 侧边装饰 -->
+        <div class="side-accent left"></div>
+        <div class="side-accent right"></div>
+        
+        <!-- 对角线装饰 -->
+        <div class="diagonal-accent d1"></div>
+        <div class="diagonal-accent d2"></div>
+
+        <!-- 加载界面 -->
+        <div class="loading-overlay" id="loading">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <div class="loading-text">正在进入游戏...</div>
+            </div>
         </div>
     </div>
 
-    <div id="joystick">
-      <div id="joyBase"></div>
-      <div id="joyKnob"></div>
-    </div>
+    <script>
+        // 创建粒子效果
+        function createParticles() {
+            const container = document.getElementById('particles');
+            const count = 30;
+            
+            for (let i = 0; i < count; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.setProperty('--drift', (Math.random() - 0.5) * 100 + 'px');
+                particle.style.animationDuration = (15 + Math.random() * 15) + 's';
+                particle.style.animationDelay = Math.random() * 10 + 's';
+                container.appendChild(particle);
+            }
+        }
 
-    <div id="overlay">
-      <div id="panel">
-        <h1 id="overlayTitle">LEVEL UP!</h1>
-        <p id="overlaySubtitle">选择一个技能升级</p>
+        const PREF_MUTED = "bigear_pref_muted"; // "1" = muted
+        const PREF_SHAKE = "bigear_pref_shake"; // "1" = enabled
 
-        <div id="choices"></div>
+        function navigateTo(url) {
+            const loading = document.getElementById('loading');
+            if (loading) loading.classList.add('show');
+            playSound('start');
+            setTimeout(() => {
+                window.location.href = url;
+            }, 800);
+        }
 
-        <div id="gameoverStats"></div>
-        <div id="restartRow"><button id="restartBtn">重新开始</button></div>
-      </div>
-    </div>
+        // 开始游戏
+        function startGame() {
+            navigateTo('pages/game.html?play=1');
+        }
 
-    <button id="soundToggle" title="声音（点击静音/开声音）" aria-label="sound">🔊</button>
-    <button id="shakeToggle" title="屏幕震动（点击开关）" aria-label="shake">📳</button>
-    <button id="pauseBtn" title="暂停游戏" aria-label="pause">⏸️</button>
-    <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级 · M 静音</div>
-    
-    <!-- 暂停菜单 -->
-    <div id="pauseOverlay" class="hidden">
-      <div id="pausePanel">
-        <h2>游戏暂停</h2>
-        <div id="pauseStats"></div>
-        <div class="pause-submit-section">
-          <input type="text" id="pauseSubmitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" />
-          <button id="pauseSubmitScoreBtn">提交当前分数</button>
-          <div id="pauseSubmitStatus" class="submit-status"></div>
-        </div>
-        <div class="pause-buttons">
-          <button id="resumeBtn">继续游戏</button>
-          <button id="quitBtn">退出游戏</button>
-        </div>
-      </div>
-    </div>
+        // 显示排行榜（跳转到游戏内排行榜）
+        function showLeaderboard() {
+            playSound('click');
+            navigateTo('pages/leaderboard.html');
+        }
 
-    <button id="leaderboardToggle" title="全球排行榜">🏆</button>
-    <div id="globalLeaderboard" class="hidden">
-      <div class="lb-header">
-        <span>全球排行榜</span>
-        <button id="closeLeaderboard">×</button>
-      </div>
-      <div id="globalLeaderboardContent"></div>
-    </div>
-  </div>
+        function openModal(title, html) {
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            if (!modal || !modalTitle || !modalBody) return;
+            modalTitle.textContent = title;
+            modalBody.innerHTML = html;
+            modal.classList.add('show');
+        }
 
-  <script src="js/utils.js"></script>
-  <script src="js/sfx.js"></script>
-  <script src="js/skills.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/config.js"></script>
-  <script src="js/supabase.js"></script>
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            if (modal) modal.classList.remove('show');
+        }
 
-  <script src="js/core/deps.js"></script>
-  <script src="js/core/dom.js"></script>
-  <script src="js/core/runtime.js"></script>
-  <script src="js/core/helpers.js"></script>
-  <script src="js/core/gameFactory.js"></script>
+        // 显示帮助
+        function showHelp() {
+            playSound('click');
+            openModal('游戏说明', `
+                <div>
+                    <strong>操作方式</strong><br>
+                    • WASD 或 摇杆移动<br>
+                    • 自动射击最近的敌人<br>
+                    • M 键静音/取消静音<br><br>
+                    <strong>游戏目标</strong><br>
+                    • 击败敌人获得经验值<br>
+                    • 升级时选择强大技能<br>
+                    • 尽可能存活更长时间<br>
+                    • 挑战全球排行榜<br><br>
+                    <strong>肉鸽特色</strong><br>
+                    • 每局技能随机<br>
+                    • 永久死亡机制<br>
+                    • 策略搭配技能
+                </div>
+            `);
+        }
 
-  <script src="js/render/renderWithCssSize.js"></script>
-  <script src="js/canvas/resize.js"></script>
+        function getPref(key, fallback) {
+            try {
+                const v = localStorage.getItem(key);
+                if (v === null || v === undefined || v === '') return fallback;
+                return v;
+            } catch {
+                return fallback;
+            }
+        }
 
-  <script src="js/ui/skillsOverlay.js"></script>
-  <script src="js/ui/gameover.js"></script>
-  <script src="js/ui/hud.js"></script>
-  <script src="js/ui/sound.js"></script>
-  <script src="js/ui/shake.js"></script>
-  <script src="js/ui/pause.js"></script>
-  <script src="js/ui/leaderboard.js"></script>
+        function setPref(key, value) {
+            try {
+                localStorage.setItem(key, value);
+            } catch {}
+        }
 
-  <script src="js/input/joystick.js"></script>
-  <script src="js/input/keyboard.js"></script>
+        // 显示设置
+        function showSettings() {
+            playSound('click');
+            openModal('设置', `
+                <div class="setting-row">
+                    <span>音效</span>
+                    <label class="switch">
+                        <input type="checkbox" id="settingSound">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <span>屏幕震动</span>
+                    <label class="switch">
+                        <input type="checkbox" id="settingShake">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div style="margin-top:10px; font-size:12px; opacity:.7;">
+                    设置将同步到游戏内（可在游戏里随时修改）。
+                </div>
+            `);
 
-  <script src="js/loop/tick.js"></script>
-  <script src="js/bootstrap.js"></script>
-  <script src="js/main.js"></script>
+            const soundToggle = document.getElementById('settingSound');
+            const shakeToggle = document.getElementById('settingShake');
+            const muted = getPref(PREF_MUTED, "0") === "1";
+            const shakeEnabled = getPref(PREF_SHAKE, "1") === "1";
+
+            if (soundToggle) {
+                soundToggle.checked = !muted;
+                soundToggle.addEventListener('change', () => {
+                    const isMuted = !soundToggle.checked;
+                    setPref(PREF_MUTED, isMuted ? "1" : "0");
+                });
+            }
+
+            if (shakeToggle) {
+                shakeToggle.checked = shakeEnabled;
+                shakeToggle.addEventListener('change', () => {
+                    setPref(PREF_SHAKE, shakeToggle.checked ? "1" : "0");
+                });
+            }
+        }
+
+        // 简单音效函数
+        function playSound(type) {
+            // 这里可以添加音效播放逻辑
+            try {
+                const audio = new Audio();
+                // 根据type播放不同音效
+            } catch (e) {
+                // 忽略音效错误
+            }
+        }
+
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                startGame();
+            }
+        });
+
+        // 初始化
+        window.addEventListener('load', () => {
+            createParticles();
+            
+            // 预加载游戏资源
+            setTimeout(() => {
+                const img = new Image();
+                img.src = 'pages/game.html?play=1'; // 预加载主页面
+            }, 100);
+        });
+
+        // 点击遮罩关闭弹窗
+        const modal = document.getElementById('modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+        }
+    </script>
 </body>
 </html>

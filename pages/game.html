@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>bigear - single page</title>
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="root">
+    <canvas id="c"></canvas>
+
+    <div id="hud">
+        <div id="levelBadge">Lv.1</div>
+        <div id="bars">
+          <div class="bar"><div id="hpFill" class="fill hp"></div></div>
+          <div class="bar"><div id="expFill" class="fill exp"></div></div>
+          <div id="skillCount">技能: 0</div>
+          <div id="powerBadge">战力: 0</div>
+        </div>
+    </div>
+
+    <div id="joystick">
+      <div id="joyBase"></div>
+      <div id="joyKnob"></div>
+    </div>
+
+    <div id="overlay">
+      <div id="panel">
+        <h1 id="overlayTitle">LEVEL UP!</h1>
+        <p id="overlaySubtitle">选择一个技能升级</p>
+
+        <div id="choices"></div>
+
+        <div id="gameoverStats"></div>
+        <div id="restartRow"><button id="restartBtn">重新开始</button></div>
+      </div>
+    </div>
+
+    <button id="soundToggle" title="声音（点击静音/开声音）" aria-label="sound">🔊</button>
+    <button id="shakeToggle" title="屏幕震动（点击开关）" aria-label="shake">📳</button>
+    <button id="pauseBtn" title="暂停游戏" aria-label="pause">⏸️</button>
+    <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级 · M 静音</div>
+    
+    <!-- 暂停菜单 -->
+    <div id="pauseOverlay" class="hidden">
+      <div id="pausePanel">
+        <h2>游戏暂停</h2>
+        <div id="pauseStats"></div>
+        <div class="pause-submit-section">
+          <input type="text" id="pauseSubmitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" />
+          <button id="pauseSubmitScoreBtn">提交当前分数</button>
+          <div id="pauseSubmitStatus" class="submit-status"></div>
+        </div>
+        <div class="pause-buttons">
+          <button id="resumeBtn">继续游戏</button>
+          <button id="quitBtn">退出游戏</button>
+        </div>
+      </div>
+    </div>
+
+    <button id="leaderboardToggle" title="全球排行榜">🏆</button>
+    <div id="globalLeaderboard" class="hidden">
+      <div class="lb-header">
+        <span>全球排行榜</span>
+        <button id="closeLeaderboard">×</button>
+      </div>
+      <div id="globalLeaderboardContent"></div>
+    </div>
+  </div>
+
+  <script src="../js/utils.js"></script>
+  <script src="../js/sfx.js"></script>
+  <script src="../js/skills.js"></script>
+  <script src="../js/game.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+
+  <script src="../js/core/deps.js"></script>
+  <script src="../js/core/dom.js"></script>
+  <script src="../js/core/runtime.js"></script>
+  <script src="../js/core/helpers.js"></script>
+  <script src="../js/core/gameFactory.js"></script>
+
+  <script src="../js/render/renderWithCssSize.js"></script>
+  <script src="../js/canvas/resize.js"></script>
+
+  <script src="../js/ui/skillsOverlay.js"></script>
+  <script src="../js/ui/gameover.js"></script>
+  <script src="../js/ui/hud.js"></script>
+  <script src="../js/ui/sound.js"></script>
+  <script src="../js/ui/shake.js"></script>
+  <script src="../js/ui/pause.js"></script>
+  <script src="../js/ui/leaderboard.js"></script>
+
+  <script src="../js/input/joystick.js"></script>
+  <script src="../js/input/keyboard.js"></script>
+
+  <script src="../js/loop/tick.js"></script>
+  <script src="../js/bootstrap.js"></script>
+  <script src="../js/main.js"></script>
+</body>
+</html>

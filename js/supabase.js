@@ -65,6 +65,29 @@ const SupabaseAPI = {
     }
 
     return { data: data || [] };
+  },
+
+  async getLeaderboardPage(limit = 50, offset = 0) {
+    const client = getSupabaseClient();
+    if (!client) {
+      console.error('Supabase client not initialized');
+      return { error: 'Supabase client not initialized', data: [] };
+    }
+
+    const from = Math.max(0, offset);
+    const to = from + Math.max(0, limit) - 1;
+    const { data, error } = await client
+      .from('leaderboard')
+      .select('*')
+      .order('score', { ascending: false })
+      .range(from, to);
+
+    if (error) {
+      console.error('Error fetching leaderboard page:', error);
+      return { error, data: [] };
+    }
+
+    return { data: data || [] };
   }
 
 };

@@ -115,10 +115,7 @@
     quitBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       hidePauseOverlay();
-      if (game) {
-        game.playerHealth = 0;
-        game.isGameOver = true;
-      }
+      window.location.href = "../index.html";
     });
   }
 
