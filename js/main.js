@@ -24,6 +24,15 @@
     const joystickEl = document.getElementById("joystick");
     const joyKnob = document.getElementById("joyKnob");
     const soundToggle = document.getElementById("soundToggle");
+    const shakeToggle = document.getElementById("shakeToggle");
+    const pauseBtn = document.getElementById("pauseBtn");
+    const pauseOverlay = document.getElementById("pauseOverlay");
+    const pauseStats = document.getElementById("pauseStats");
+    const pauseSubmitNameInput = document.getElementById("pauseSubmitNameInput");
+    const pauseSubmitScoreBtn = document.getElementById("pauseSubmitScoreBtn");
+    const pauseSubmitStatus = document.getElementById("pauseSubmitStatus");
+    const resumeBtn = document.getElementById("resumeBtn");
+    const quitBtn = document.getElementById("quitBtn");
 
     // ============================================================
     // 1. 从外部模块导入工具函数
@@ -2878,8 +2887,25 @@ g.showDodgeEffect = (t) => {
 
     function renderGlobalLeaderboardRows(list, highlightName){
       if (!list || list.length === 0) return "";
+      
+      // 对于重名玩家，找出最新的那条记录的索引
+      let latestIndexForName = -1;
+      if (highlightName) {
+        let latestTime = null;
+        list.forEach((r, idx) => {
+          if (r.player_name === highlightName) {
+            const createdAt = r.created_at ? new Date(r.created_at).getTime() : 0;
+            if (latestTime === null || createdAt > latestTime) {
+              latestTime = createdAt;
+              latestIndexForName = idx;
+            }
+          }
+        });
+      }
+      
       return list.map((r, idx) => {
-        const hi = highlightName && r.player_name === highlightName;
+        // 只高亮重名玩家中最新的那条记录
+        const hi = highlightName && r.player_name === highlightName && idx === latestIndexForName;
         const rowClass = hi ? "highlight" : "";
         return `
           <tr class="${rowClass}">
@@ -3210,6 +3236,18 @@ g.showDodgeEffect = (t) => {
 
       // initial spawn loop timer
       _spawnTimer = nowSec();
+
+      // 重置暂停菜单提交按钮状态
+      if (pauseSubmitScoreBtn) {
+        pauseSubmitScoreBtn.disabled = false;
+        pauseSubmitScoreBtn.textContent = "提交当前分数";
+      }
+      if (pauseSubmitStatus) {
+        pauseSubmitStatus.textContent = "";
+        pauseSubmitStatus.className = "submit-status";
+      }
+      pauseScoreSubmitted = false;
+      isPausedByUser = false;
     }
 
     restartBtn.addEventListener("click", () => {
@@ -3243,6 +3281,221 @@ g.showDodgeEffect = (t) => {
 
     // first user gesture unlock (for autoplay policies)
     window.addEventListener("pointerdown", () => { SFX.unlock(); }, { once:true, passive:true });
+
+    // ============================================================
+    // 5.6 Shake toggle (screen shake on/off)
+    // ============================================================
+    let shakeEnabled = true;
+    
+    function refreshShakeIcon(){
+      if (!shakeToggle) return;
+      if (shakeEnabled) {
+        shakeToggle.classList.remove("disabled");
+        shakeToggle.textContent = "📳";
+        shakeToggle.title = "屏幕震动：开启（点击关闭）";
+      } else {
+        shakeToggle.classList.add("disabled");
+        shakeToggle.textContent = "📴";
+        shakeToggle.title = "屏幕震动：关闭（点击开启）";
+      }
+    }
+    refreshShakeIcon();
+
+    if (shakeToggle) {
+      shakeToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        shakeEnabled = !shakeEnabled;
+        refreshShakeIcon();
+      });
+    }
+
+    function isShakeEnabled() {
+      return shakeEnabled;
+    }
+
+    // ============================================================
+    // 5.7 Pause functionality
+    // ============================================================
+    let isPausedByUser = false;
+    let pauseScoreSubmitted = false;
+
+    function showPauseOverlay() {
+      if (!game || game.isGameOver || game.isLevelingUp) return;
+      
+      isPausedByUser = true;
+      game.isPausedGame = true;
+      clearMovementInputs();
+      
+      // 计算当前分数
+      const t = nowSec();
+      const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
+      const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
+      const avg = Math.round((game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
+      const score = Math.round(0.72 * avg + 0.28 * peak);
+      const tierObj = (game._combatTierFromScore ? game._combatTierFromScore(score) : { tier: "", color: "#fff" });
+      const kills = (game.stats && game.stats.kills) ? game.stats.kills : 0;
+      
+      // 显示当前游戏状态
+      if (pauseStats) {
+        pauseStats.innerHTML = `
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <div>战力评分: <strong>${score}</strong></div>
+            <div>段位: <strong style="color:${tierObj.color}">${tierObj.tier}</strong></div>
+            <div>存活时间: <strong>${formatTime(timeAlive)}</strong></div>
+            <div>等级: <strong>Lv.${game.level}</strong></div>
+            <div>击杀: <strong>${kills}</strong></div>
+            <div>技能: <strong>${game.acquiredSkills.length}</strong></div>
+          </div>
+        `;
+      }
+      
+      // 设置输入框默认值
+      if (pauseSubmitNameInput) {
+        pauseSubmitNameInput.value = getStoredPlayerName();
+      }
+      
+      // 重置提交状态
+      if (pauseSubmitStatus) {
+        pauseSubmitStatus.textContent = "";
+        pauseSubmitStatus.className = "submit-status";
+      }
+      
+      // 显示暂停菜单
+      if (pauseOverlay) {
+        pauseOverlay.classList.remove("hidden");
+      }
+    }
+
+    function hidePauseOverlay() {
+      isPausedByUser = false;
+      if (game) game.isPausedGame = false;
+      if (pauseOverlay) {
+        pauseOverlay.classList.add("hidden");
+      }
+    }
+
+    // 暂停按钮点击事件
+    if (pauseBtn) {
+      pauseBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (!game || game.isGameOver) return;
+        
+        if (isPausedByUser) {
+          hidePauseOverlay();
+        } else {
+          showPauseOverlay();
+        }
+      });
+    }
+
+    // 继续游戏按钮
+    if (resumeBtn) {
+      resumeBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hidePauseOverlay();
+      });
+    }
+
+    // 退出游戏按钮
+    if (quitBtn) {
+      quitBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        hidePauseOverlay();
+        if (game) {
+          game.playerHealth = 0;
+          game.isGameOver = true;
+        }
+      });
+    }
+
+    // 暂停菜单中提交分数
+    if (pauseSubmitScoreBtn) {
+      pauseSubmitScoreBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        
+        if (!game || !window.SupabaseAPI) {
+          if (pauseSubmitStatus) {
+            pauseSubmitStatus.textContent = "无法连接到服务器";
+            pauseSubmitStatus.className = "submit-status error";
+          }
+          return;
+        }
+        
+        const playerName = pauseSubmitNameInput ? pauseSubmitNameInput.value.trim() : "";
+        if (!playerName) {
+          if (pauseSubmitStatus) {
+            pauseSubmitStatus.textContent = "请输入你的名字";
+            pauseSubmitStatus.className = "submit-status error";
+          }
+          return;
+        }
+        
+        // 保存玩家名字
+        storePlayerName(playerName);
+        
+        // 计算当前分数
+        const t = nowSec();
+        const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
+        const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
+        const avg = Math.round((game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
+        const score = Math.round(0.72 * avg + 0.28 * peak);
+        const tierObj = (game._combatTierFromScore ? game._combatTierFromScore(score) : { tier: "", color: "#fff" });
+        const kills = (game.stats && game.stats.kills) ? game.stats.kills : 0;
+        
+        if (pauseSubmitStatus) {
+          pauseSubmitStatus.textContent = "提交中...";
+          pauseSubmitStatus.className = "submit-status";
+        }
+        
+        try {
+          const result = await window.SupabaseAPI.submitScore(
+            playerName,
+            score,
+            game.level,
+            kills,
+            Math.round(timeAlive),
+            tierObj.tier
+          );
+          
+          if (result.error) {
+            if (pauseSubmitStatus) {
+              pauseSubmitStatus.textContent = "提交失败，请重试";
+              pauseSubmitStatus.className = "submit-status error";
+            }
+          } else {
+            pauseScoreSubmitted = true;
+            if (pauseSubmitStatus) {
+              pauseSubmitStatus.textContent = "提交成功！";
+              pauseSubmitStatus.className = "submit-status success";
+            }
+            // 禁用提交按钮
+            if (pauseSubmitScoreBtn) {
+              pauseSubmitScoreBtn.disabled = true;
+              pauseSubmitScoreBtn.textContent = "已提交";
+            }
+          }
+        } catch (err) {
+          if (pauseSubmitStatus) {
+            pauseSubmitStatus.textContent = "提交失败，请重试";
+            pauseSubmitStatus.className = "submit-status error";
+          }
+        }
+      });
+    }
+
+    // ESC 键暂停/继续
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        if (!game || game.isGameOver || game.isLevelingUp) return;
+        
+        if (isPausedByUser) {
+          hidePauseOverlay();
+        } else {
+          showPauseOverlay();
+        }
+        e.preventDefault();
+      }
+    });
 
     // ============================================================
     // 6. Input (Joystick + WASD)
@@ -3405,10 +3658,10 @@ g.showDodgeEffect = (t) => {
     };
 
     function renderWithCssSize(g, t, w, h){
-      // camera shake
+      // camera shake (only if shake is enabled)
       let camX = g.camera.x;
       let camY = g.camera.y;
-      if (t < g.camera.shakeEnd) {
+      if (shakeEnabled && t < g.camera.shakeEnd) {
         const amp = g.camera.shakeAmp;
         camX += rand(-amp, amp);
         camY += rand(-amp, amp);
