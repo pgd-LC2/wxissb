@@ -394,6 +394,57 @@
             box-shadow: none;
         }
 
+        .btn-mini {
+            padding: 6px 10px;
+            font-size: 12px;
+            letter-spacing: 0.08em;
+        }
+
+        .music-list {
+            margin-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+            padding-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .music-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .music-item.active {
+            border-color: var(--valorant-red);
+            box-shadow: 0 0 14px rgba(255,70,85,0.25);
+        }
+
+        .music-name {
+            font-weight: 700;
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .music-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .range {
+            width: 160px;
+        }
+
         /* Modal */
         .modal {
             position: fixed;
@@ -936,6 +987,7 @@
         </div>
     </div>
 
+    <script src="js/music.js"></script>
     <script>
         // 创建粒子效果
         function createParticles() {
@@ -1047,6 +1099,25 @@
                         <span class="slider"></span>
                     </label>
                 </div>
+                <div class="setting-row">
+                    <span>背景音乐</span>
+                    <label class="switch">
+                        <input type="checkbox" id="settingMusic">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="setting-row">
+                    <span>音乐音量</span>
+                    <input type="range" class="range" id="settingMusicVolume" min="0" max="100" value="60">
+                </div>
+                <div class="setting-row">
+                    <span>播放控制</span>
+                    <div class="music-actions">
+                        <button class="btn btn-mini" id="musicPrev">上一首</button>
+                        <button class="btn btn-mini" id="musicNext">下一首</button>
+                    </div>
+                </div>
+                <div class="music-list" id="musicList"></div>
                 <div style="margin-top:10px; font-size:12px; opacity:.7;">
                     设置将同步到游戏内（可在游戏里随时修改）。
                 </div>
@@ -1059,17 +1130,101 @@
 
             if (soundToggle) {
                 soundToggle.checked = !muted;
-                soundToggle.addEventListener('change', () => {
+                soundToggle.onchange = () => {
                     const isMuted = !soundToggle.checked;
                     setPref(PREF_MUTED, isMuted ? "1" : "0");
-                });
+                };
             }
 
             if (shakeToggle) {
                 shakeToggle.checked = shakeEnabled;
-                shakeToggle.addEventListener('change', () => {
+                shakeToggle.onchange = () => {
                     setPref(PREF_SHAKE, shakeToggle.checked ? "1" : "0");
-                });
+                };
+            }
+
+            setupMusicSettings();
+        }
+
+        let musicSettingsBound = false;
+        function setupMusicSettings() {
+            const player = window.MusicPlayer;
+            const musicToggle = document.getElementById('settingMusic');
+            const musicVolume = document.getElementById('settingMusicVolume');
+            const musicList = document.getElementById('musicList');
+            const musicPrev = document.getElementById('musicPrev');
+            const musicNext = document.getElementById('musicNext');
+
+            if (!musicList) return;
+            if (!player) {
+                musicList.innerHTML = '<div style="opacity:.6;">音乐系统未初始化</div>';
+                return;
+            }
+
+            function renderList() {
+                const list = player.getList();
+                const current = player.getIndex();
+                if (musicToggle) musicToggle.checked = player.isEnabled();
+                if (musicVolume) musicVolume.value = Math.round(player.getVolume() * 100);
+                if (!list.length) {
+                    musicList.innerHTML = '<div style="opacity:.6;">未找到音乐文件</div>';
+                    return;
+                }
+                musicList.innerHTML = list.map((name, i) => {
+                    const display = name.replace(/\.[^/.]+$/, '');
+                    const active = i === current ? ' active' : '';
+                    const disableUp = i === 0 ? 'disabled' : '';
+                    const disableDown = i === list.length - 1 ? 'disabled' : '';
+                    return `
+                        <div class="music-item${active}">
+                            <div class="music-name">#${i + 1} ${display}</div>
+                            <div class="music-actions">
+                                <button class="btn btn-mini" data-action="play" data-index="${i}">播放</button>
+                                <button class="btn btn-mini" data-action="up" data-index="${i}" ${disableUp}>↑</button>
+                                <button class="btn btn-mini" data-action="down" data-index="${i}" ${disableDown}>↓</button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            if (musicToggle) {
+                musicToggle.checked = player.isEnabled();
+                musicToggle.onchange = () => {
+                    player.toggle();
+                };
+            }
+
+            if (musicVolume) {
+                musicVolume.value = Math.round(player.getVolume() * 100);
+                musicVolume.oninput = () => {
+                    const v = Math.max(0, Math.min(100, Number(musicVolume.value || 0)));
+                    player.setVolume(v / 100);
+                };
+            }
+
+            if (musicPrev) {
+                musicPrev.onclick = () => player.prev();
+            }
+
+            if (musicNext) {
+                musicNext.onclick = () => player.next();
+            }
+
+            musicList.onclick = (e) => {
+                const btn = e.target.closest('button[data-action]');
+                if (!btn) return;
+                const idx = Number(btn.dataset.index || 0);
+                const action = btn.dataset.action;
+                if (action === 'play') player.playIndex(idx);
+                if (action === 'up') player.moveTrack(idx, idx - 1);
+                if (action === 'down') player.moveTrack(idx, idx + 1);
+            };
+
+            renderList();
+            if (!musicSettingsBound) {
+                player.onUpdate(renderList);
+                musicSettingsBound = true;
             }
         }
 
