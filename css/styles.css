@@ -6,10 +6,10 @@
   --ui-sub: rgba(255,255,255,.72);
   --hp: #ff3b30;
   --exp: #34c759;
-  --uncommon: #34c759;
-  --rare: #4aa3ff;
+  --uncommon: #4aa3ff;
+  --rare: #34c759;
   --epic: #bf5af2;
-  --legend: #ff9f0a;
+  --legend: #ffd60a;
 }
 html, body {
   margin: 0;

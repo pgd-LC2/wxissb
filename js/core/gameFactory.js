@@ -795,8 +795,10 @@
 
     g.processKillQueue = (t) => {
       let guard = 0;
-      while (g._killQueue.length > 0 && guard < 20000) {
-        const item = g._killQueue.shift();
+      let idx = 0;
+      const q = g._killQueue;
+      while (idx < q.length && guard < 20000) {
+        const item = q[idx++];
         const e = item.enemy;
         if (!e || e._killed) { guard++; continue; }
 
@@ -808,6 +810,10 @@
         g.killEnemy(e, item.t);
 
         guard++;
+      }
+      if (idx > 0) {
+        if (idx >= q.length) q.length = 0;
+        else q.splice(0, idx);
       }
       if (guard >= 20000) {
         console.warn("processKillQueue: guard tripped, clearing queue to prevent freeze.");
@@ -932,13 +938,7 @@
       }
 
       // 清场/人海
-      let nearbyEnemies = 0;
-      for (let i = 0; i < g.enemies.length; i++) {
-        const e = g.enemies[i];
-        if (e._dead) continue;
-        const dx = e.x - g.player.x, dy = e.y - g.player.y;
-        if (dx*dx + dy*dy < 300*300) nearbyEnemies++;
-      }
+      const nearbyEnemies = (g._nearbyEnemyCount == null) ? 0 : g._nearbyEnemyCount;
       if (g.clearingBonus && nearbyEnemies < 5) damage *= 1.5;
       if (g.crowdControl && nearbyEnemies > 10) {
         // Swift 里留空，这里保持不实现
@@ -1052,7 +1052,11 @@
         g.queueKill(enemy, t);
       } else {
         // Swift: colorize flash（这里用一个短特效代替）
-        g.effects.push({ kind:"enemyHit", x: enemy.x, y: enemy.y, start:t, end:t+0.10 });
+        const lastFx = enemy._lastHitFx || 0;
+        if ((t - lastFx) > 0.08 && g.effects.length < 1200) {
+          enemy._lastHitFx = t;
+          g.effects.push({ kind:"enemyHit", x: enemy.x, y: enemy.y, start:t, end:t+0.10 });
+        }
       }
     };
 
@@ -1959,11 +1963,11 @@
 
         const tier = sk.tier || 1;
         let weight = 1;
-        if (tier === 1) weight = Math.max(1, 12 - Math.floor(g.level / 3));
-        else if (tier === 2) weight = Math.min(9, 3 + Math.floor(g.level / 3));
-        else if (tier === 3) weight = Math.min(7, 2 + Math.floor(g.level / 4));
-        else if (tier === 4) weight = Math.min(5, Math.floor(g.level / 5));
-        else if (tier === 5) weight = Math.min(3, Math.floor(g.level / 8));
+        if (tier === 1) weight = Math.max(2, 14 - Math.floor(g.level / 3));
+        else if (tier === 2) weight = Math.min(8, 3 + Math.floor(g.level / 4));
+        else if (tier === 3) weight = Math.min(5, 1 + Math.floor(g.level / 5));
+        else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
+        else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
 
         for (let w = 0; w < weight; w++) pool.push(sk);
       }
@@ -2017,6 +2021,18 @@
 
       // time warp end
       if (g.timeWarpActive && t > g.timeWarpEndTime) g.timeWarpActive = false;
+
+      // cache nearby enemies (used by clearing/crowd damage logic)
+      let nearby = 0;
+      const px = g.player.x, py = g.player.y;
+      const range2 = 300 * 300;
+      for (let i = 0; i < g.enemies.length; i++) {
+        const e = g.enemies[i];
+        if (e._dead) continue;
+        const dx = e.x - px, dy = e.y - py;
+        if (dx * dx + dy * dy < range2) nearby++;
+      }
+      g._nearbyEnemyCount = nearby;
 
       const timeScale = g.timeWarpActive ? 0.5 : 1.0;
 
