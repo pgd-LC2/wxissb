@@ -1,4 +1,4 @@
-#  wxissb 游戏 Agent 指南
+# wxissb 游戏 Agent 指南
 
 ## Supabase 项目信息
 
@@ -29,6 +29,7 @@
 - 使用中文创建 PR 和与用户沟通
 - 本地测试: `python -m http.server 8000`
 - 访问: http://localhost:8000
+- 可以创建scripts文件夹用于执行python脚本操作 记得用完删了
 
 ### 文件编码要求
 
@@ -37,4 +38,6 @@
 - 如果需要在 PowerShell 中操作文件，请确保使用 `Get-Content` 和 `Set-Content` 等 cmdlet 时指定 `-Encoding UTF8` 参数。
   在遇到文件乱码的时候需要及时使用git回滚到上一个版本，避免文件内容被损坏。
 
-### 可以创建scripts文件夹用于执行python脚本操作 记得用完删了
+在每次工作完给用户一个commit留言
+
+commit

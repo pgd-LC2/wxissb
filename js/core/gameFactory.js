@@ -354,9 +354,11 @@
       const meta = g.acquiredSkillMeta || [];
       if (!meta || meta.length === 0) return safeNonNeg(g.acquiredSkills.length, 0) * 1.0;
       let score = 0;
+      const tierScore = [0, 1.0, 1.6, 2.3, 3.2, 4.2];
       for (let i = 0; i < meta.length; i++) {
         const tier = meta[i].tier || 1;
-        score += (tier === 3) ? 4.0 : (tier === 2 ? 2.3 : 1.0);
+        const t = Math.max(1, Math.min(5, tier));
+        score += tierScore[t] || 1.0;
       }
       return safeNonNeg(score, 0);
     };
@@ -1955,10 +1957,13 @@
         // 额外飞刀升级：只有已有飞刀后才进池（避免一开始污染原版）
         if (sk._requiresBlades && g.bladeOrbitCount <= 0) continue;
 
+        const tier = sk.tier || 1;
         let weight = 1;
-        if (sk.tier === 1) weight = Math.max(1, 10 - Math.floor(g.level / 3));
-        else if (sk.tier === 2) weight = Math.min(10, 3 + Math.floor(g.level / 2));
-        else if (sk.tier === 3) weight = Math.min(5, Math.floor(g.level / 5));
+        if (tier === 1) weight = Math.max(1, 12 - Math.floor(g.level / 3));
+        else if (tier === 2) weight = Math.min(9, 3 + Math.floor(g.level / 3));
+        else if (tier === 3) weight = Math.min(7, 2 + Math.floor(g.level / 4));
+        else if (tier === 4) weight = Math.min(5, Math.floor(g.level / 5));
+        else if (tier === 5) weight = Math.min(3, Math.floor(g.level / 8));
 
         for (let w = 0; w < weight; w++) pool.push(sk);
       }

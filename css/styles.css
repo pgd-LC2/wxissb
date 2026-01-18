@@ -6,7 +6,9 @@
   --ui-sub: rgba(255,255,255,.72);
   --hp: #ff3b30;
   --exp: #34c759;
+  --uncommon: #34c759;
   --rare: #4aa3ff;
+  --epic: #bf5af2;
   --legend: #ff9f0a;
 }
 html, body {
@@ -237,8 +239,10 @@ canvas {
   line-height: 1.25;
 }
 .tier1 { color: rgba(255,255,255,.95); }
-.tier2 { color: var(--rare); }
-.tier3 { color: var(--legend); }
+.tier2 { color: var(--uncommon); }
+.tier3 { color: var(--rare); }
+.tier4 { color: var(--epic); }
+.tier5 { color: var(--legend); }
 
 #gameoverStats{
   margin-top: 10px;
