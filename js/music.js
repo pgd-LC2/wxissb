@@ -5,12 +5,15 @@
   const PREF_VOLUME = "bigear_music_volume"; // "0.0~1.0"
   const PREF_ORDER = "bigear_music_order";
   const PREF_CURRENT = "bigear_music_current";
+  const PREF_TIME = "bigear_music_time"; // seconds
+  const PREF_UNLOCKED = "bigear_music_unlocked"; // "1" = user interacted
 
   const basePath = "/public/assest/";
   const manifestUrl = `${basePath}playlist.json`;
 
   const audio = new Audio();
   audio.preload = "auto";
+  audio.autoplay = true;
 
   const state = {
     list: [],
@@ -19,8 +22,11 @@
     volume: 0.6,
     ready: false,
     pendingPlay: false,
+    resumeTime: 0,
     listeners: []
   };
+
+  let lastSaveTs = 0;
 
   function safeGet(key, fallback) {
     try {
@@ -36,6 +42,15 @@
     try {
       localStorage.setItem(key, value);
     } catch {}
+  }
+
+  function saveTime(force) {
+    if (!state.list.length) return;
+    const now = (typeof performance !== "undefined" && performance.now) ? performance.now() : Date.now();
+    if (!force && now - lastSaveTs < 1000) return;
+    lastSaveTs = now;
+    const t = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+    safeSet(PREF_TIME, String(t));
   }
 
   function notify() {
@@ -96,7 +111,7 @@
     return `${basePath}${encodeURIComponent(name)}`;
   }
 
-  function setTrack(idx, autoplay) {
+  function setTrack(idx, autoplay, preserveTime) {
     if (!state.list.length) return;
     const len = state.list.length;
     state.index = ((idx % len) + len) % len;
@@ -104,6 +119,7 @@
     audio.src = toUrl(name);
     audio.volume = state.volume;
     safeSet(PREF_CURRENT, name);
+    if (!preserveTime) safeSet(PREF_TIME, "0");
     if (autoplay && state.enabled) {
       tryPlay();
     }
@@ -115,9 +131,31 @@
     audio.volume = state.volume;
     audio.play().then(() => {
       state.pendingPlay = false;
+      safeSet(PREF_UNLOCKED, "1");
     }).catch(() => {
       state.pendingPlay = true;
     });
+  }
+
+  function applyResumeTime() {
+    if (!state.resumeTime) return false;
+    const target = state.resumeTime;
+    const setTime = () => {
+      const dur = Number.isFinite(audio.duration) ? audio.duration : null;
+      let t = target;
+      if (dur && t > dur - 0.5) t = 0;
+      try { audio.currentTime = Math.max(0, t); } catch {}
+      state.resumeTime = 0;
+    };
+    if (audio.readyState >= 1) {
+      setTime();
+      return false;
+    }
+    audio.addEventListener("loadedmetadata", () => {
+      setTime();
+      if (state.enabled) tryPlay();
+    }, { once: true });
+    return true;
   }
 
   function next() {
@@ -204,20 +242,23 @@
     state.ready = true;
 
     const savedCurrent = safeGet(PREF_CURRENT, "");
+    const savedTime = parseFloat(safeGet(PREF_TIME, "0"));
     if (savedCurrent && state.list.includes(savedCurrent)) {
       state.index = state.list.indexOf(savedCurrent);
+      state.resumeTime = Number.isFinite(savedTime) && savedTime > 0 ? savedTime : 0;
     } else if (state.list.length) {
       state.index = 0;
+      state.resumeTime = 0;
     }
-
-    setTrack(state.index, false);
-    if (state.enabled) tryPlay();
+    setTrack(state.index, false, state.resumeTime > 0);
+    const deferred = applyResumeTime();
+    if (state.enabled && !deferred) tryPlay();
     notify();
   }
 
   function init() {
-    const enabledPref = safeGet(PREF_ENABLED, "1");
-    state.enabled = enabledPref !== "0";
+    state.enabled = true;
+    safeSet(PREF_ENABLED, "1");
     const volumePref = parseFloat(safeGet(PREF_VOLUME, "0.6"));
     state.volume = Number.isFinite(volumePref) ? Math.max(0, Math.min(1, volumePref)) : 0.6;
     audio.volume = state.volume;
@@ -225,8 +266,16 @@
   }
 
   audio.addEventListener("ended", () => next());
+  audio.addEventListener("timeupdate", () => saveTime(false));
+  audio.addEventListener("pause", () => saveTime(true));
+  audio.addEventListener("play", () => {
+    safeSet(PREF_UNLOCKED, "1");
+  });
+  window.addEventListener("pagehide", () => saveTime(true));
+  window.addEventListener("beforeunload", () => saveTime(true));
 
   function unlockAutoPlay() {
+    safeSet(PREF_UNLOCKED, "1");
     if (state.pendingPlay && state.enabled) {
       tryPlay();
     } else if (state.enabled) {
@@ -236,6 +285,9 @@
 
   window.addEventListener("pointerdown", unlockAutoPlay, { once: true, passive: true });
   window.addEventListener("keydown", unlockAutoPlay, { once: true });
+  window.addEventListener("load", () => {
+    if (state.enabled) tryPlay();
+  }, { once: true });
 
   const api = {
     init,

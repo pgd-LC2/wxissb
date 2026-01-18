@@ -23,6 +23,7 @@
     gameoverStatsEl: document.getElementById("gameoverStats"),
     restartRow: document.getElementById("restartRow"),
     restartBtn: document.getElementById("restartBtn"),
+    homeBtn: document.getElementById("homeBtn"),
 
     joystickEl: document.getElementById("joystick"),
     joyKnob: document.getElementById("joyKnob"),

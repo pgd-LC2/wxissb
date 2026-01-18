@@ -252,8 +252,10 @@ canvas {
   margin-top: 18px;
   display: none;
   justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
 }
-#restartBtn{
+#restartRow .gameover-btn{
   border: none;
   background: rgba(255,255,255,.92);
   color: #000;
@@ -263,7 +265,13 @@ canvas {
   border-radius: 12px;
   cursor: pointer;
 }
-#restartBtn:hover { background: #fff; }
+#restartRow .gameover-btn.primary:hover { background: #fff; }
+#restartRow .gameover-btn.secondary{
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.25);
+}
+#restartRow .gameover-btn.secondary:hover { background: rgba(255,255,255,.2); }
 
 /* Small help badge */
 #help {

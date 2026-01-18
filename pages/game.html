@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>bigear - single page</title>
+  <link rel="icon" href="/favicon.ico" />
   <link rel="stylesheet" href="../css/styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -34,7 +35,10 @@
         <div id="choices"></div>
 
         <div id="gameoverStats"></div>
-        <div id="restartRow"><button id="restartBtn">重新开始</button></div>
+        <div id="restartRow">
+          <button id="homeBtn" class="gameover-btn secondary">返回主页</button>
+          <button id="restartBtn" class="gameover-btn primary">重新开始</button>
+        </div>
       </div>
     </div>
 
@@ -54,8 +58,8 @@
           <div id="pauseSubmitStatus" class="submit-status"></div>
         </div>
         <div class="pause-buttons">
-          <button id="resumeBtn">继续游戏</button>
           <button id="quitBtn">退出游戏</button>
+          <button id="resumeBtn">继续游戏</button>
         </div>
       </div>
     </div>

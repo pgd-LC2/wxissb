@@ -3,7 +3,7 @@
 
   const GameApp = window.GameApp = window.GameApp || {};
   const { nowSec } = GameApp.Deps.utils;
-  const { overlay, restartBtn } = GameApp.DOM;
+  const { overlay, restartBtn, homeBtn } = GameApp.DOM;
   const runtime = GameApp.Runtime;
 
   function resetGame() {
@@ -49,6 +49,12 @@
       restartBtn.addEventListener("click", () => {
         overlay.classList.remove("show");
         resetGame();
+      });
+    }
+
+    if (homeBtn) {
+      homeBtn.addEventListener("click", () => {
+        window.location.href = "../index.html";
       });
     }
 

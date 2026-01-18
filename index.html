@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>大地图肉鸽游戏 - 开始</title>
+    <link rel="icon" href="/favicon.ico" />
     <style>
         :root {
             --ui-bg: rgba(0,0,0,.55);
@@ -43,6 +44,31 @@
             inset: 0;
             background: #000;
             overflow: hidden;
+        }
+
+        .video-wall {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background: radial-gradient(800px 420px at 50% 30%, rgba(255,70,85,0.18), transparent 60%),
+                        linear-gradient(135deg, rgba(5,8,12,0.98), rgba(10,14,20,0.95));
+        }
+
+        .video-wall::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.65));
+            pointer-events: none;
+        }
+
+        .bg-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            filter: saturate(1.1) contrast(1.05) brightness(0.7);
+            opacity: 0.65;
         }
 
         /* 动态网格背景 */
@@ -111,6 +137,8 @@
             background: rgba(255,255,255,0.6);
             border-radius: 50%;
             pointer-events: none;
+            opacity: 0;
+            transform: translateY(100vh);
             animation: particleFloat linear infinite;
         }
 
@@ -400,39 +428,109 @@
             letter-spacing: 0.08em;
         }
 
-        .music-list {
-            margin-top: 12px;
-            border-top: 1px solid rgba(255,255,255,0.08);
-            padding-top: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            max-height: 240px;
-            overflow-y: auto;
-        }
-
-        .music-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.03);
-        }
-
-        .music-item.active {
-            border-color: var(--valorant-red);
-            box-shadow: 0 0 14px rgba(255,70,85,0.25);
-        }
-
-        .music-name {
+        .music-current {
             font-weight: 700;
             font-size: 13px;
+            color: var(--ui-text);
+            text-align: right;
+            max-width: 260px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        /* 进入游戏遮罩 */
+        .entry-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 120;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(800px 420px at 50% 30%, rgba(255,70,85,0.18), transparent 60%),
+                linear-gradient(135deg, rgba(5,8,12,0.98), rgba(10,14,20,0.95));
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .entry-gate.hide {
+            opacity: 0;
+            transform: scale(1.02);
+            pointer-events: none;
+        }
+
+        .entry-panel {
+            position: relative;
+            padding: 40px 60px;
+            border: 2px solid rgba(255,70,85,0.65);
+            background: rgba(10,10,10,0.55);
+            clip-path: polygon(30px 0, 100% 0, 100% calc(100% - 30px), calc(100% - 30px) 100%, 0 100%, 0 30px);
+            box-shadow:
+                0 0 40px rgba(255,70,85,0.45),
+                0 30px 80px rgba(0,0,0,0.7);
+            text-align: center;
+        }
+
+        .entry-title {
+            font-size: 2.1rem;
+            font-weight: 900;
+            letter-spacing: 0.25em;
+            color: #fff;
+            text-transform: uppercase;
+            text-shadow:
+                0 0 20px rgba(255,70,85,0.9),
+                0 0 60px rgba(255,70,85,0.6);
+        }
+
+        .entry-sub {
+            margin-top: 12px;
+            font-size: 0.95rem;
+            letter-spacing: 0.35em;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+        }
+
+        .entry-prompt {
+            margin-top: 20px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.15em;
+            color: #ffffff;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .entry-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--valorant-red);
+            box-shadow: 0 0 16px var(--valorant-red);
+            animation: entryPulse 1.2s ease-in-out infinite;
+        }
+
+        .entry-ring {
+            position: absolute;
+            inset: -18px;
+            border: 1px solid rgba(255,70,85,0.35);
+            clip-path: polygon(35px 0, 100% 0, 100% calc(100% - 35px), calc(100% - 35px) 100%, 0 100%, 0 35px);
+            filter: drop-shadow(0 0 10px rgba(255,70,85,0.35));
+            animation: entryScan 6s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes entryPulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.6); opacity: 1; }
+        }
+
+        @keyframes entryScan {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; }
+            100% { opacity: 0.5; }
         }
 
         .music-actions {
@@ -885,6 +983,21 @@
 </head>
 <body>
     <div class="container">
+        <!-- 进入游戏遮罩 -->
+        <div class="entry-gate" id="entryGate">
+            <div class="entry-panel">
+                <div class="entry-ring"></div>
+                <div class="entry-title">点击屏幕 进入游戏</div>
+                <div class="entry-sub">click to enter</div>
+                <div class="entry-prompt">
+                    <span class="entry-dot"></span>
+                    ENTER / SPACE
+                </div>
+            </div>
+        </div>
+        <div class="video-wall" aria-hidden="true">
+            <video id="bgVideo" class="bg-video" muted autoplay playsinline preload="auto"></video>
+        </div>
         <!-- 背景效果 -->
         <div class="grid-bg"></div>
         <div class="glow glow1"></div>
@@ -1100,11 +1213,8 @@
                     </label>
                 </div>
                 <div class="setting-row">
-                    <span>背景音乐</span>
-                    <label class="switch">
-                        <input type="checkbox" id="settingMusic">
-                        <span class="slider"></span>
-                    </label>
+                    <span>当前歌曲</span>
+                    <span class="music-current" id="musicCurrent">-</span>
                 </div>
                 <div class="setting-row">
                     <span>音乐音量</span>
@@ -1117,7 +1227,6 @@
                         <button class="btn btn-mini" id="musicNext">下一首</button>
                     </div>
                 </div>
-                <div class="music-list" id="musicList"></div>
                 <div style="margin-top:10px; font-size:12px; opacity:.7;">
                     设置将同步到游戏内（可在游戏里随时修改）。
                 </div>
@@ -1149,50 +1258,25 @@
         let musicSettingsBound = false;
         function setupMusicSettings() {
             const player = window.MusicPlayer;
-            const musicToggle = document.getElementById('settingMusic');
             const musicVolume = document.getElementById('settingMusicVolume');
-            const musicList = document.getElementById('musicList');
             const musicPrev = document.getElementById('musicPrev');
             const musicNext = document.getElementById('musicNext');
+            const musicCurrent = document.getElementById('musicCurrent');
 
-            if (!musicList) return;
             if (!player) {
-                musicList.innerHTML = '<div style="opacity:.6;">音乐系统未初始化</div>';
+                if (musicCurrent) musicCurrent.textContent = '音乐系统未初始化';
                 return;
             }
 
-            function renderList() {
-                const list = player.getList();
-                const current = player.getIndex();
-                if (musicToggle) musicToggle.checked = player.isEnabled();
+            function renderNow() {
+                const state = player.getState();
                 if (musicVolume) musicVolume.value = Math.round(player.getVolume() * 100);
-                if (!list.length) {
-                    musicList.innerHTML = '<div style="opacity:.6;">未找到音乐文件</div>';
+                if (!musicCurrent) return;
+                if (!state.list.length || !state.current) {
+                    musicCurrent.textContent = '未找到音乐文件';
                     return;
                 }
-                musicList.innerHTML = list.map((name, i) => {
-                    const display = name.replace(/\.[^/.]+$/, '');
-                    const active = i === current ? ' active' : '';
-                    const disableUp = i === 0 ? 'disabled' : '';
-                    const disableDown = i === list.length - 1 ? 'disabled' : '';
-                    return `
-                        <div class="music-item${active}">
-                            <div class="music-name">#${i + 1} ${display}</div>
-                            <div class="music-actions">
-                                <button class="btn btn-mini" data-action="play" data-index="${i}">播放</button>
-                                <button class="btn btn-mini" data-action="up" data-index="${i}" ${disableUp}>↑</button>
-                                <button class="btn btn-mini" data-action="down" data-index="${i}" ${disableDown}>↓</button>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            if (musicToggle) {
-                musicToggle.checked = player.isEnabled();
-                musicToggle.onchange = () => {
-                    player.toggle();
-                };
+                musicCurrent.textContent = state.current.replace(/\.[^/.]+$/, '');
             }
 
             if (musicVolume) {
@@ -1211,19 +1295,9 @@
                 musicNext.onclick = () => player.next();
             }
 
-            musicList.onclick = (e) => {
-                const btn = e.target.closest('button[data-action]');
-                if (!btn) return;
-                const idx = Number(btn.dataset.index || 0);
-                const action = btn.dataset.action;
-                if (action === 'play') player.playIndex(idx);
-                if (action === 'up') player.moveTrack(idx, idx - 1);
-                if (action === 'down') player.moveTrack(idx, idx + 1);
-            };
-
-            renderList();
+            renderNow();
             if (!musicSettingsBound) {
-                player.onUpdate(renderList);
+                player.onUpdate(renderNow);
                 musicSettingsBound = true;
             }
         }
@@ -1239,16 +1313,87 @@
             }
         }
 
+        function enterSite() {
+            const gate = document.getElementById('entryGate');
+            if (!gate || gate.classList.contains('hide')) return;
+            gate.classList.add('hide');
+            playBackgroundVideo();
+            if (window.MusicPlayer && typeof window.MusicPlayer.play === 'function') {
+                window.MusicPlayer.play();
+            }
+            setTimeout(() => {
+                gate.remove();
+            }, 700);
+        }
+
+        const BG_PLAYBACK_RATE = 0.7;
+        const BG_VIDEOS = [
+            '/public/background/HomeScreen_CN_OB.mp4',
+            '/public/background/Contract%20Glitches.webm'
+        ];
+        let bgVideoIndex = 0;
+        let bgVideoEl = null;
+
+        function setBackgroundVideo(index, autoplay) {
+            if (!bgVideoEl || BG_VIDEOS.length === 0) return;
+            bgVideoIndex = ((index % BG_VIDEOS.length) + BG_VIDEOS.length) % BG_VIDEOS.length;
+            bgVideoEl.src = BG_VIDEOS[bgVideoIndex];
+            bgVideoEl.load();
+            if (autoplay) playBackgroundVideo();
+        }
+
+        function playBackgroundVideo() {
+            if (!bgVideoEl) initBackgroundVideo();
+            if (!bgVideoEl) return;
+            bgVideoEl.playbackRate = BG_PLAYBACK_RATE;
+            const p = bgVideoEl.play();
+            if (p && typeof p.then === 'function') {
+                p.then(() => {
+                    bgVideoEl.dataset.playing = '1';
+                }).catch(() => {});
+            }
+        }
+
+        function nextBackgroundVideo() {
+            setBackgroundVideo(bgVideoIndex + 1, true);
+        }
+
+        function initBackgroundVideo() {
+            bgVideoEl = document.getElementById('bgVideo');
+            if (!bgVideoEl) return;
+            bgVideoEl.addEventListener('loadedmetadata', () => {
+                bgVideoEl.playbackRate = BG_PLAYBACK_RATE;
+            });
+            bgVideoEl.addEventListener('ended', () => {
+                nextBackgroundVideo();
+            });
+            bgVideoEl.addEventListener('error', () => {
+                nextBackgroundVideo();
+            });
+            setBackgroundVideo(0, false);
+        }
+
         // 键盘事件
         document.addEventListener('keydown', (e) => {
+            const gate = document.getElementById('entryGate');
+            const gateVisible = gate && !gate.classList.contains('hide');
             if (e.key === 'Enter') {
+                if (gateVisible) {
+                    enterSite();
+                    return;
+                }
                 startGame();
+            }
+            if ((e.code === 'Space' || e.key === ' ') && gateVisible) {
+                enterSite();
             }
         });
 
         // 初始化
         window.addEventListener('load', () => {
             createParticles();
+            initBackgroundVideo();
+            playBackgroundVideo();
             
             // 预加载游戏资源
             setTimeout(() => {
@@ -1256,6 +1401,12 @@
                 img.src = 'pages/game.html?play=1'; // 预加载主页面
             }, 100);
         });
+
+        const entryGate = document.getElementById('entryGate');
+        if (entryGate) {
+            entryGate.addEventListener('click', enterSite);
+            entryGate.addEventListener('touchstart', enterSite, { passive: true });
+        }
 
         // 点击遮罩关闭弹窗
         const modal = document.getElementById('modal');
