@@ -1987,11 +1987,16 @@
         seen.add(p.name);
         unique.push(p);
       }
-      while (unique.length < 3 && pool.length > unique.length) {
-        const cand = pool[unique.length];
-        if (!cand) break;
-        if (!seen.has(cand.name)) { seen.add(cand.name); unique.push(cand); }
-        else break;
+      // 如果去重后不足3个，从整个池子中继续寻找不重复的技能
+      let poolIdx = 0;
+      while (unique.length < 3 && poolIdx < pool.length) {
+        const cand = pool[poolIdx];
+        poolIdx++;
+        if (!cand) continue;
+        if (!seen.has(cand.name)) {
+          seen.add(cand.name);
+          unique.push(cand);
+        }
       }
 
       g.skillChoices = unique.slice(0,3);
