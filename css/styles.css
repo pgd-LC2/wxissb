@@ -127,12 +127,21 @@ canvas {
 /* Joystick */
 #joystick {
   position: absolute;
-  left: 18px;
-  bottom: 18px;
-  width: 140px;
-  height: 140px;
+  left: 3vw;
+  bottom: 3vw;
+  /* 使用 vmin 使摇杆大小根据屏幕较小边的百分比自适应 */
+  width: min(25vmin, 180px);
+  height: min(25vmin, 180px);
   z-index: 11;
   touch-action: none;
+  /* 默认在电脑端隐藏（通过 JS 检测触摸设备后显示） */
+  display: none;
+}
+/* 触摸设备显示摇杆 */
+@media (pointer: coarse), (hover: none) {
+  #joystick {
+    display: block;
+  }
 }
 #joyBase{
   position: absolute;
@@ -146,8 +155,9 @@ canvas {
 }
 #joyKnob{
   position: absolute;
-  width: 44px;
-  height: 44px;
+  /* 摇杆手柄大小也根据屏幕百分比自适应 */
+  width: min(8vmin, 56px);
+  height: min(8vmin, 56px);
   left: 50%;
   top: 50%;
   transform: translate(-50%, -50%);
@@ -468,7 +478,7 @@ canvas {
 #overlay.mode-levelup #overlayTitle{ animation: levelGlow .9s ease-in-out infinite; }
 @media (max-width: 420px){
   .bar { width: 180px; }
-  #joystick { width: 128px; height: 128px; }
+  /* 摇杆大小已由 vmin 自动适配，无需额外设置 */
 }
 
 /* Leaderboard Toggle */

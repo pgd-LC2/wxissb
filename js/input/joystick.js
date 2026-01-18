@@ -12,11 +12,27 @@
   let joyActive = false;
   let joyPointerId = null;
   let joyCenter = { x: 0, y: 0 };
-  const joyRadius = 70; // px
+
+  // 动态获取摇杆半径（基于元素实际大小）
+  function getJoyRadius() {
+    if (!joystickEl) return 70;
+    const rect = joystickEl.getBoundingClientRect();
+    return rect.width / 2;
+  }
+
+  // 动态获取手柄大小（基于 joyKnob 实际大小）
+  function getKnobSize() {
+    if (!joyKnob) return 22;
+    const rect = joyKnob.getBoundingClientRect();
+    return rect.width / 2;
+  }
 
   function setJoyKnob(dx, dy) {
-    const px = dx * (joyRadius - 22);
-    const py = dy * (joyRadius - 22);
+    const joyRadius = getJoyRadius();
+    const knobSize = getKnobSize();
+    const maxMove = joyRadius - knobSize;
+    const px = dx * maxMove;
+    const py = dy * maxMove;
     joyKnob.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%)`;
   }
 
@@ -41,6 +57,7 @@
         setJoyKnob(0, 0);
         return;
       }
+      const joyRadius = getJoyRadius();
       const factor = Math.min(dist, joyRadius) / dist;
       const ndx = (dx * factor) / joyRadius;
       const ndy = (dy * factor) / joyRadius;
