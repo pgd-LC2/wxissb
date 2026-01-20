@@ -480,18 +480,28 @@
     };
 
     g.directorStep = (t) => {
-      if (g.isPausedGame || g.isGameOver) {
-        g.director.lastT = t;
-        return;
-      }
-
+      // Use real delta time even when paused, so the director doesn't "burst-spawn" after resuming.
       const d = g.director;
+      let dtBase = 0.016;
+      if (d.lastT) {
+        dtBase = t - d.lastT;
+        if (!Number.isFinite(dtBase) || dtBase <= 0) dtBase = 0.016;
+      }
+      dtBase = clamp(dtBase, 0.001, 0.05);
       d.lastT = t;
+
+      if (g.isPausedGame || g.isGameOver) return;
 
       // keep director in sync with simulation time scaling
       const timeScale = (g.timeWarpActive && t < g.timeWarpEndTime) ? 0.55 : 1.0;
-      const hitScale = (g.hitStopEnd && t < g.hitStopEnd) ? (g.hitStopScale || 0.25) : 1.0;
-      const dt = 0.016 * timeScale * hitScale;
+
+      // hit stop: optional (see GameConfig.hitStopEnabled)
+      let hitScale = 1.0;
+      if (GameConfig.hitStopEnabled) {
+        hitScale = (g.hitStopEnd && t < g.hitStopEnd) ? (g.hitStopScale || 0.25) : 1.0;
+      }
+
+      const dt = dtBase * timeScale * hitScale;
 
       // update combat rating first (so spawns react to current performance)
       g.updateCombatRating(t);
@@ -837,13 +847,25 @@
 
     g.hitStop = (duration, scale, t) => {
       // scale < 1 => slow motion (hit stop)
+      // 注意：默认关闭“减速时间”的 hit stop，避免出现“移动卡一下”（FPS 仍然 60）的错觉。
+      // 需要时可在 GameConfig.hitStopEnabled 打开。
+      if (!GameConfig.hitStopEnabled) return;
       g.hitStopEnd = Math.max(g.hitStopEnd || 0, t + duration);
       g.hitStopScale = Math.min(g.hitStopScale || 1.0, scale);
     };
 
     g.emitBurst = (pos, count, color, t, speed = 420) => {
-      if (g.particles.length > 900) return;
-      for (let i = 0; i < count; i++) {
+      // Budget particles per-frame to avoid kill spikes freezing the main thread.
+      const totalCap = 900;
+      const frameCap = 240;
+      const remainTotal = totalCap - g.particles.length;
+      const remainFrame = frameCap - (g._fxParticlesThisFrame || 0);
+      const n = Math.min(count || 0, remainTotal, remainFrame);
+      if (n <= 0) return;
+
+      g._fxParticlesThisFrame = (g._fxParticlesThisFrame || 0) + n;
+
+      for (let i = 0; i < n; i++) {
         const ang = rand(0, TAU);
         const sp = rand(speed * 0.35, speed);
         const life = rand(0.18, 0.42);
@@ -863,8 +885,17 @@
     };
 
     g.emitSparks = (pos, count, color, t, baseAngle = null) => {
-      if (g.particles.length > 900) return;
-      for (let i = 0; i < count; i++) {
+      // Budget particles per-frame to avoid kill spikes freezing the main thread.
+      const totalCap = 900;
+      const frameCap = 240;
+      const remainTotal = totalCap - g.particles.length;
+      const remainFrame = frameCap - (g._fxParticlesThisFrame || 0);
+      const n = Math.min(count || 0, remainTotal, remainFrame);
+      if (n <= 0) return;
+
+      g._fxParticlesThisFrame = (g._fxParticlesThisFrame || 0) + n;
+
+      for (let i = 0; i < n; i++) {
         const ang = (baseAngle == null) ? rand(0, TAU) : (baseAngle + rand(-0.9, 0.9));
         const sp = rand(260, 680);
         const life = rand(0.10, 0.24);
@@ -1118,9 +1149,8 @@
         g.spawnMinions(enemy, enemy.splitCount, t);
       }
 
-      // Remove enemy
-      const idx = g.enemies.indexOf(enemy);
-      if (idx >= 0) g.enemies.splice(idx, 1);
+      // Note: we no longer splice the enemies array here (that caused O(n) shifts + frame hitches).
+      // Actual removal happens in the main cleanup pass (swap-remove).
     };
 
     g.triggerChainLightning = (fromEnemy, damage, remaining, t) => {
@@ -1179,7 +1209,7 @@
         pierceLeft: (override && override.pierceLeft != null) ? override.pierceLeft : g.pierceCount,
         bounceLeft: g.bounceCount,
         chargeBonus: (override && override.chargeBonus != null) ? override.chargeBonus : bonusDamage,
-        hitSet: new Set()
+        hitIds: []
       };
       g.bullets.push(bullet);
     };
@@ -1200,7 +1230,7 @@
         pierceLeft: 0,
         bounceLeft: 0,
         chargeBonus: 1.0,
-        hitSet: new Set()
+        hitIds: []
       };
       g.bullets.push(b);
     };
@@ -1224,7 +1254,7 @@
         pierceLeft: 0,
         bounceLeft: 0,
         chargeBonus: 1.0,
-        hitSet: new Set(),
+        hitIds: [],
         droneBullet: true
       };
       g.bullets.push(b);
@@ -1571,15 +1601,51 @@
     g.spawnEnemy = (t) => {
       const def = g.pickEnemyDef(t);
 
-      const half = GameConfig.mapSize * 0.5 - 40;
-      const ang = rand(0, TAU);
-      const dist = rand(520, 820);
+      // Spawn enemies **outside** the current viewport so they don't pop in as a "wall".
+      // This also removes the old mapSize clamp (it created spawn lines / invisible boundaries
+      // when the player moved far from the origin).
+      let w = 800, h = 600;
+      try {
+        if (GameApp.Canvas && GameApp.Canvas.getCssSize) {
+          const sz = GameApp.Canvas.getCssSize();
+          w = sz.w || w;
+          h = sz.h || h;
+        } else {
+          const rect = canvas.getBoundingClientRect();
+          w = rect.width || w;
+          h = rect.height || h;
+        }
+      } catch (e) { /* ignore */ }
 
-      let x = g.player.x + Math.cos(ang) * dist;
-      let y = g.player.y + Math.sin(ang) * dist;
+      const pad = 160; // spawn padding outside the screen
+      const halfW = w * 0.5 + pad;
+      const halfH = h * 0.5 + pad;
 
-      x = clamp(x, -half, half);
-      y = clamp(y, -half, half);
+      const r = Math.random();
+      let x = g.player.x;
+      let y = g.player.y;
+
+      if (r < 0.25) {
+        // left
+        x = g.player.x - halfW;
+        y = g.player.y + rand(-halfH, halfH);
+      } else if (r < 0.50) {
+        // right
+        x = g.player.x + halfW;
+        y = g.player.y + rand(-halfH, halfH);
+      } else if (r < 0.75) {
+        // top
+        x = g.player.x + rand(-halfW, halfW);
+        y = g.player.y - halfH;
+      } else {
+        // bottom
+        x = g.player.x + rand(-halfW, halfW);
+        y = g.player.y + halfH;
+      }
+
+      // small jitter to avoid perfect lines
+      x += rand(-40, 40);
+      y += rand(-40, 40);
 
       g.createEnemyFromDef(def, x, y, t);
     };
@@ -1774,57 +1840,66 @@
     };
 
     g.updateOrbitals = (dt, t) => {
-      // Ensure counts
-      const shields = g.orbitals.filter(o => o.type === "shield");
-      const blades = g.orbitals.filter(o => o.type === "blade");
-
-      while (shields.length + g.orbitals.filter(o=>o.type==="shield").length < g.orbitalShieldCount) {
-        // (this branch never hits due to above), keep simple
-        g.createOrbitalShield();
+      // Ensure counts (single scan, no Array.filter allocations each frame)
+      let shieldCount = 0;
+      let bladeCount = 0;
+      for (let i = 0; i < g.orbitals.length; i++) {
+        const o = g.orbitals[i];
+        if (o.type === "shield") shieldCount++;
+        else if (o.type === "blade") bladeCount++;
       }
-      while (g.orbitals.filter(o=>o.type==="shield").length < g.orbitalShieldCount) g.createOrbitalShield();
-      while (g.orbitals.filter(o=>o.type==="blade").length < g.bladeOrbitCount) g.createOrbitalBlade();
+      while (shieldCount < g.orbitalShieldCount) { g.createOrbitalShield(); shieldCount++; }
+      while (bladeCount < g.bladeOrbitCount) { g.createOrbitalBlade(); bladeCount++; }
 
-      const shieldList = g.orbitals.filter(o=>o.type==="shield");
-      const bladeList = g.orbitals.filter(o=>o.type==="blade");
+      const shieldStep = TAU / Math.max(1, g.orbitalShieldCount);
+      const bladeStep  = TAU / Math.max(1, g.bladeOrbitCount);
 
       // Update positions
-      for (let i = 0; i < shieldList.length; i++) {
-        const o = shieldList[i];
-        const angle = (t * 2 * g.orbitalShieldSpeed) + i * (TAU / Math.max(1, g.orbitalShieldCount));
-        o.x = g.player.x + Math.cos(angle) * 70;
-        o.y = g.player.y + Math.sin(angle) * 70;
-        o.rot = angle;
-      }
-      for (let i = 0; i < bladeList.length; i++) {
-        const o = bladeList[i];
-        const angle = (t * 3 * g.bladeOrbitSpeed) + i * (TAU / Math.max(1, g.bladeOrbitCount));
-        o.x = g.player.x + Math.cos(angle) * g.bladeOrbitRadius;
-        o.y = g.player.y + Math.sin(angle) * g.bladeOrbitRadius;
-        o.rot = angle;
-        o.w = 30 * g.bladeOrbitScale;
-        o.h = 6 * g.bladeOrbitScale;
+      let sIdx = 0;
+      let bIdx = 0;
+      for (let i = 0; i < g.orbitals.length; i++) {
+        const o = g.orbitals[i];
+        if (o.type === "shield") {
+          const angle = (t * 2 * g.orbitalShieldSpeed) + sIdx * shieldStep;
+          o.x = g.player.x + Math.cos(angle) * 70;
+          o.y = g.player.y + Math.sin(angle) * 70;
+          o.rot = angle;
+          sIdx++;
+        } else if (o.type === "blade") {
+          const angle = (t * 3 * g.bladeOrbitSpeed) + bIdx * bladeStep;
+          o.x = g.player.x + Math.cos(angle) * g.bladeOrbitRadius;
+          o.y = g.player.y + Math.sin(angle) * g.bladeOrbitRadius;
+          o.rot = angle;
+          o.w = 30 * g.bladeOrbitScale;
+          o.h = 6 * g.bladeOrbitScale;
+          bIdx++;
+        }
       }
 
-      // Orbital vs enemy contact begin
+      // Orbital vs enemy contact begin (reuse Sets to avoid per-frame GC)
       for (let oi = 0; oi < g.orbitals.length; oi++) {
         const o = g.orbitals[oi];
-        const current = new Set();
+        const prev = o.colliding || (o.colliding = new Set());
+        let next = o._collidingNext;
+        if (!next) { next = new Set(); o._collidingNext = next; }
+        next.clear();
 
         for (let ei = 0; ei < g.enemies.length; ei++) {
           const e = g.enemies[ei];
           if (e._dead) continue;
           const dx = e.x - o.x, dy = e.y - o.y;
-          const rr = (o.type === "shield" ? (o.r + Math.max(e.w,e.h)/2) : (Math.max(o.w,o.h)/2 + Math.max(e.w,e.h)/2));
+          const rr = (o.type === "shield")
+            ? (o.r + Math.max(e.w, e.h) / 2)
+            : (Math.max(o.w, o.h) / 2 + Math.max(e.w, e.h) / 2);
           if (dx*dx + dy*dy <= rr*rr) {
-            current.add(e.id);
-            if (!o.colliding.has(e.id)) {
-              g.handleOrbitalHit(o, e, t);
-            }
+            next.add(e.id);
+            if (!prev.has(e.id)) g.handleOrbitalHit(o, e, t);
           }
         }
 
-        o.colliding = current;
+        // swap buffers
+        o.colliding = next;
+        o._collidingNext = prev;
       }
     };
 
@@ -1913,15 +1988,18 @@
       }
     };
 
-    g.updateLightningAura = (t) => {
+    g.updateLightningAura = (dt, t) => {
       if (!g.lightningAuraEnabled) return;
+      const r2 = g.lightningAuraRadius * g.lightningAuraRadius;
+      const dps = g.lightningAuraDamage;
 
       for (let i = 0; i < g.enemies.length; i++) {
         const e = g.enemies[i];
         if (e._dead) continue;
         const dx = e.x - g.player.x, dy = e.y - g.player.y;
-        if (dx*dx + dy*dy < g.lightningAuraRadius*g.lightningAuraRadius) {
-          g.applyDamageToEnemy(e, g.lightningAuraDamage * 0.016, t);
+        if (dx*dx + dy*dy < r2) {
+          // lightningAuraDamage is treated as DPS => scale by real dt
+          g.applyDamageToEnemy(e, dps * dt, t);
         }
       }
     };
@@ -1954,12 +2032,53 @@
     // Skills: generate choices (mirrors Swift weighting)
     // ------------------------------
     g.generateSkills = () => {
-      const pool = [];
+      // True randomness (weighted), but **do not** offer already-owned skills.
+      // This fixes the "always刷到已拥有技能" problem.
+      const acquired = new Set(g.acquiredSkills || []);
+      const candidates = [];
+
+      // Lazy-init fallback repeatable skills (so level-up can never softlock)
+      if (!g._fallbackSkills) {
+        g._fallbackSkills = [
+          {
+            name: "训练：伤害 +5%",
+            description: "可重复。基础伤害提升 5%",
+            tier: 1,
+            icon: "bolt.fill",
+            _repeatable: true,
+            effect: (gg) => { gg.bulletDamage *= 1.05; }
+          },
+          {
+            name: "训练：射速 +5%",
+            description: "可重复。攻击间隔降低 5%（射速更快）",
+            tier: 1,
+            icon: "timer",
+            _repeatable: true,
+            effect: (gg) => { gg.shootInterval *= 0.95; }
+          },
+          {
+            name: "训练：生命 +10",
+            description: "可重复。最大生命 +10，并立刻回复 +10",
+            tier: 1,
+            icon: "heart.fill",
+            _repeatable: true,
+            effect: (gg) => {
+              gg.playerMaxHealth += 10;
+              gg.playerHealth = Math.min(gg.playerMaxHealth, gg.playerHealth + 10);
+              gg.updateHealthUI();
+            }
+          }
+        ];
+      }
+
       for (let i = 0; i < g.allSkills.length; i++) {
         const sk = g.allSkills[i];
 
-        // 额外飞刀升级：只有已有飞刀后才进池（避免一开始污染原版）
+        // Extra blade upgrades: only if blades exist
         if (sk._requiresBlades && g.bladeOrbitCount <= 0) continue;
+
+        // No repeats
+        if (acquired.has(sk.name)) continue;
 
         const tier = sk.tier || 1;
         let weight = 1;
@@ -1969,43 +2088,72 @@
         else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
         else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
 
-        for (let w = 0; w < weight; w++) pool.push(sk);
+        weight = safeNonNeg(weight, 0);
+        if (weight <= 0) continue;
+        candidates.push({ sk, w: weight });
       }
-      // Swift: shuffled().prefix(3)
-      // 这里保持相同行为：允许重复（但 UI 会去重显示一次以免选择冲突）
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [pool[i], pool[j]] = [pool[j], pool[i]];
-      }
-      const picks = pool.slice(0, 3);
 
-      // UI 去重（同名技能重复会导致点选体验差）
+      function pickIndexWeighted(list) {
+        let total = 0;
+        for (let i = 0; i < list.length; i++) total += list[i].w;
+        if (total <= 0) return -1;
+        let r = Math.random() * total;
+        for (let i = 0; i < list.length; i++) {
+          r -= list[i].w;
+          if (r <= 0) return i;
+        }
+        return list.length - 1;
+      }
+
+      const chosen = [];
+      const tmp = candidates.slice();
+      while (chosen.length < 3 && tmp.length > 0) {
+        const idx = pickIndexWeighted(tmp);
+        if (idx < 0) break;
+        chosen.push(tmp[idx].sk);
+        tmp[idx] = tmp[tmp.length - 1];
+        tmp.pop();
+      }
+
+      // If we can't provide 3 unique skills (very late game), fill with safe repeatable training.
+      while (chosen.length < 3) {
+        chosen.push(g._fallbackSkills[chosen.length % g._fallbackSkills.length]);
+      }
+
+      // Defensive: unique by name for the UI
       const seen = new Set();
       const unique = [];
-      for (const p of picks) {
-        if (seen.has(p.name)) continue;
-        seen.add(p.name);
-        unique.push(p);
+      for (let i = 0; i < chosen.length; i++) {
+        const sk = chosen[i];
+        if (!sk || seen.has(sk.name)) continue;
+        seen.add(sk.name);
+        unique.push(sk);
       }
-      // 如果去重后不足3个，从整个池子中继续寻找不重复的技能
-      let poolIdx = 0;
-      while (unique.length < 3 && poolIdx < pool.length) {
-        const cand = pool[poolIdx];
-        poolIdx++;
-        if (!cand) continue;
-        if (!seen.has(cand.name)) {
-          seen.add(cand.name);
-          unique.push(cand);
+
+      // If de-dupe reduced options, fill again with fallback
+      let f = 0;
+      while (unique.length < 3) {
+        const sk = g._fallbackSkills[f % g._fallbackSkills.length];
+        f++;
+        if (!seen.has(sk.name)) {
+          seen.add(sk.name);
+          unique.push(sk);
         }
       }
 
-      g.skillChoices = unique.slice(0,3);
+      g.skillChoices = unique;
     };
 
     g.selectSkill = (skill) => {
       skill.effect(g);
-      g.acquiredSkills.push(skill.name);
-      if (g.acquiredSkillMeta) g.acquiredSkillMeta.push({ name: skill.name, tier: skill.tier || 1 });
+
+      // Default behavior: one-time skills are recorded and will not appear again.
+      // Repeatable skills (our fallback training) are NOT added to acquiredSkills.
+      if (!skill._repeatable) {
+        g.acquiredSkills.push(skill.name);
+        if (g.acquiredSkillMeta) g.acquiredSkillMeta.push({ name: skill.name, tier: skill.tier || 1 });
+      }
+
       g.isLevelingUp = false;
       g.isPausedGame = false;
       g.updateUI();
@@ -2019,6 +2167,21 @@
     // Main update loop (ported from Swift update)
     // ------------------------------
     g.update = (t) => {
+      // --- frame delta (real dt) ---
+      // Use real dt to keep movement consistent and reduce stutter sensitivity.
+      // (Old code used a fixed 0.016 which made long frames feel worse.)
+      let dtBase = 0.016;
+      if (g._lastUpdateT != null) {
+        dtBase = t - g._lastUpdateT;
+        if (!Number.isFinite(dtBase) || dtBase <= 0) dtBase = 0.016;
+      }
+      dtBase = clamp(dtBase, 0.001, 0.05);
+      g._lastUpdateT = t;
+
+      // Per-frame FX budget reset
+      g._frameId = (g._frameId || 0) + 1;
+      g._fxParticlesThisFrame = 0;
+
       // Always process queued kills to keep state consistent
       if (g._killQueue && g._killQueue.length) g.processKillQueue(t);
 
@@ -2041,15 +2204,19 @@
 
       const timeScale = g.timeWarpActive ? 0.5 : 1.0;
 
-      // hit stop: small slow-motion when hits happen (more "juicy")
+      // hit stop: optional slow-motion on hit/kill (for "juicy" feel)
+      // 默认关闭：否则会出现“敌人一死移动就卡一下”（FPS 仍然 60）
+      // 如需开启：把 GameConfig.hitStopEnabled 改成 true
       let hitScale = 1.0;
-      if (t < (g.hitStopEnd || 0)) {
-        hitScale = g.hitStopScale || 0.25;
-      } else {
-        g.hitStopScale = 1.0;
+      if (GameConfig.hitStopEnabled) {
+        if (t < (g.hitStopEnd || 0)) {
+          hitScale = g.hitStopScale || 0.25;
+        } else {
+          g.hitStopScale = 1.0;
+        }
       }
 
-      const dt = 0.016 * timeScale * hitScale;
+      const dt = dtBase * timeScale * hitScale;
 
       // pending death (last stand)
       if (g._pendingDeathAt != null && t >= g._pendingDeathAt) {
@@ -2152,7 +2319,7 @@
       g.updateDrones(t);
       g.updateGhosts(t);
       g.updateBulletHoming(dt, t);
-      g.updateLightningAura(t);
+      g.updateLightningAura(dt, t);
 
       // Move bullets (physics)
       for (let i = 0; i < g.bullets.length; i++) {
@@ -2256,13 +2423,21 @@
         for (let ei = 0; ei < g.enemies.length; ei++) {
           const e = g.enemies[ei];
           if (e._dead) continue;
-          if (b.hitSet.has(e.id)) continue;
+          // Prevent multi-hit on the same enemy for piercing projectiles (cheap small array scan)
+          if (b.hitIds && b.hitIds.length) {
+            let already = false;
+            for (let hi = 0; hi < b.hitIds.length; hi++) {
+              if (b.hitIds[hi] === e.id) { already = true; break; }
+            }
+            if (already) continue;
+          }
 
           // rough collision: circle vs circle
           const dx = e.x - b.x, dy = e.y - b.y;
           const rr = (Math.max(e.w,e.h)/2 + Math.max(b.w,b.h)/2);
           if (dx*dx + dy*dy <= rr*rr) {
-            b.hitSet.add(e.id);
+            if (!b.hitIds) b.hitIds = [];
+            b.hitIds.push(e.id);
             g.handleBulletHit(b, e, t);
             if (b._dead) break;
           }
@@ -2309,16 +2484,70 @@
         if (t > p.die) p._dead = true;
       }
 
-      // Cleanup
-      g.bullets = g.bullets.filter(b => !b._dead);
-      g.expOrbs = g.expOrbs.filter(o => !o._dead);
-      g.mines = g.mines.filter(m => !m._dead);
-      g.fireTrails = g.fireTrails.filter(ft => !ft._dead);
-      g.warnings = g.warnings.filter(w => !w._dead);
-      g.blackHoles = g.blackHoles.filter(bh => !bh._dead);
-      g.poisonClouds = g.poisonClouds.filter(pc => !pc._dead);
-      g.particles = g.particles.filter(p => !p._dead);
-      g.effects = g.effects.filter(eff => t < eff.end);
+      // Cleanup (in-place, avoid GC spikes from Array.filter allocations)
+      // enemies
+      for (let i = g.enemies.length - 1; i >= 0; i--) {
+        const e = g.enemies[i];
+        if (e._dead || e._removed) {
+          g.enemies[i] = g.enemies[g.enemies.length - 1];
+          g.enemies.pop();
+        }
+      }
+
+      for (let i = g.bullets.length - 1; i >= 0; i--) {
+        if (g.bullets[i]._dead) {
+          g.bullets[i] = g.bullets[g.bullets.length - 1];
+          g.bullets.pop();
+        }
+      }
+      for (let i = g.expOrbs.length - 1; i >= 0; i--) {
+        if (g.expOrbs[i]._dead) {
+          g.expOrbs[i] = g.expOrbs[g.expOrbs.length - 1];
+          g.expOrbs.pop();
+        }
+      }
+      for (let i = g.mines.length - 1; i >= 0; i--) {
+        if (g.mines[i]._dead) {
+          g.mines[i] = g.mines[g.mines.length - 1];
+          g.mines.pop();
+        }
+      }
+      for (let i = g.fireTrails.length - 1; i >= 0; i--) {
+        if (g.fireTrails[i]._dead) {
+          g.fireTrails[i] = g.fireTrails[g.fireTrails.length - 1];
+          g.fireTrails.pop();
+        }
+      }
+      for (let i = g.warnings.length - 1; i >= 0; i--) {
+        if (g.warnings[i]._dead) {
+          g.warnings[i] = g.warnings[g.warnings.length - 1];
+          g.warnings.pop();
+        }
+      }
+      for (let i = g.blackHoles.length - 1; i >= 0; i--) {
+        if (g.blackHoles[i]._dead) {
+          g.blackHoles[i] = g.blackHoles[g.blackHoles.length - 1];
+          g.blackHoles.pop();
+        }
+      }
+      for (let i = g.poisonClouds.length - 1; i >= 0; i--) {
+        if (g.poisonClouds[i]._dead) {
+          g.poisonClouds[i] = g.poisonClouds[g.poisonClouds.length - 1];
+          g.poisonClouds.pop();
+        }
+      }
+      for (let i = g.particles.length - 1; i >= 0; i--) {
+        if (g.particles[i]._dead) {
+          g.particles[i] = g.particles[g.particles.length - 1];
+          g.particles.pop();
+        }
+      }
+      for (let i = g.effects.length - 1; i >= 0; i--) {
+        if (t >= g.effects[i].end) {
+          g.effects[i] = g.effects[g.effects.length - 1];
+          g.effects.pop();
+        }
+      }
     };
 
     // ------------------------------

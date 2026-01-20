@@ -30,6 +30,8 @@
 - 本地测试: `python -m http.server 8000`
 - 访问: http://localhost:8000
 - 可以创建scripts文件夹用于执行python脚本操作 记得用完删了
+- 在每次工作完给用户一个commit留言
+- 在每次更新完游戏功能 将version.txt的小版本 加1
 
 ### 文件编码要求
 
@@ -37,7 +39,3 @@
 - Windows PowerShell 的默认写入编码不是 UTF-8（通常为 ANSI 或 UTF-16），因此不得使用 PowerShell 操作相关文件。会导致文件内容乱码。
 - 如果需要在 PowerShell 中操作文件，请确保使用 `Get-Content` 和 `Set-Content` 等 cmdlet 时指定 `-Encoding UTF8` 参数。
   在遇到文件乱码的时候需要及时使用git回滚到上一个版本，避免文件内容被损坏。
-
-在每次工作完给用户一个commit留言
-
-commit

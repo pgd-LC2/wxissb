@@ -809,3 +809,24 @@ canvas {
     padding: 5px 6px;
   }
 }
+
+
+/* FPS counter (top-right) */
+#fpsCounter {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 30;
+  padding: 6px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.35);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}

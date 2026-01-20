@@ -15,6 +15,8 @@
     expFill: document.getElementById("expFill"),
     skillCountEl: document.getElementById("skillCount"),
     powerBadgeEl: document.getElementById("powerBadge"),
+    fpsCounter: document.getElementById("fpsCounter"),
+
 
     overlay: document.getElementById("overlay"),
     overlayTitle: document.getElementById("overlayTitle"),

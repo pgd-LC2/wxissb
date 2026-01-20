@@ -9,7 +9,16 @@ const GameConfig = {
   baseBulletSpeed: 600,
   baseEnemySpeed: 80,
   mapSize: 3000,
-  difficultyScaling: 0.15
+  difficultyScaling: 0.15,
+
+  // ------------------------------
+  // 反馈/手感
+  // ------------------------------
+  // 命中停顿（Hit Stop）会在击中/击杀时短暂“减速时间”，
+  // 这是一个爽感特效，但会让“移动感觉卡一下”，即使 FPS 仍然是 60。
+  // 为了保证操作丝滑 & 不会出现你描述的“敌人一死就卡”的问题，默认关闭。
+  // 如果你后续想要更强的打击感，可以改成 true 自行体验。
+  hitStopEnabled: false
 };
 
 // ID 序列生成器
