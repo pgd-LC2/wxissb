@@ -90,8 +90,6 @@
       critDamageMulti: 2.0,
       damageReduction: 0,
       expMultiplier: 1.0,
-      luckBonus: 0,
-      moveShootPenalty: true,
       regenRate: 0,
 
       // MARK: 属性系统 - 子弹变体
@@ -100,7 +98,6 @@
       lifestealPercent: 0.2,
       areaDamageRadius: 0,
       homingStrength: 0,
-      bounceCount: 0,
       splitOnHit: false,
       splitCount: 0,
       freezeChance: 0,
@@ -117,7 +114,6 @@
       chainCount: 0,
       chainDamageDecay: 0.7,
       explosionKnockback: false,
-      bulletGravityPull: 0,
       blackHoleOnDeath: false,
 
       // MARK: 属性系统 - 防御
@@ -138,7 +134,6 @@
       phoenixRevive: false,
       phoenixChance: 0,
       damageCap: 1.0,
-      adaptiveArmor: false,
       lastStand: false,
       blockChance: 0,
       perfectBlockCounter: false,
@@ -152,9 +147,6 @@
       mineDropInterval: 2.0,
       mineDamage: 50,
       mineRadius: 60,
-      turretCount: 0,
-      turretDamage: 15,
-      turretAOE: false,
       bladeOrbitCount: 0,
       bladeOrbitRadius: 120,
       bladeOrbitDamage: 12,
@@ -170,8 +162,6 @@
       lightningAuraEnabled: false,
       lightningAuraRadius: 0,
       lightningAuraDamage: 5,
-      shadowCloneCount: 0,
-      shadowCloneDuration: 5.0,
       blackHoleAbility: false,
       blackHolePower: 1.0,
 
@@ -182,10 +172,8 @@
       killStreak: 0,
       lastKillTime: 0,
       killHealAmount: 0,
-      killAttackSpeedBoost: false,
       deathExplosion: false,
       deathExplosionRadius: 50,
-      chainExplosion: false,
       rageOnHit: false,
       rageDamageBonus: 0,
       rageEndTime: 0,
@@ -207,14 +195,6 @@
       chargeSpeed: 1.0,
       chargeMaxBonus: 2.0,
       currentCharge: 0,
-      dashEnabled: false,
-      dashCooldown: 3.0,
-      dashDamage: false,
-      lastDashTime: 0,
-      ammoRecoveryChance: 0,
-      freeAttackChance: 0,
-      meleeCounterEnabled: false,
-      lastMeleeCounter: 0,
       allDirectionFire: false,
       recoilPush: false,
       suppressionEnabled: false,
@@ -1207,7 +1187,6 @@
         born: t,
         die: t + (override && override.life != null ? override.life : g.bulletLifetime),
         pierceLeft: (override && override.pierceLeft != null) ? override.pierceLeft : g.pierceCount,
-        bounceLeft: g.bounceCount,
         chargeBonus: (override && override.chargeBonus != null) ? override.chargeBonus : bonusDamage,
         hitIds: []
       };
@@ -1228,7 +1207,6 @@
         born: t,
         die: t + 0.8,
         pierceLeft: 0,
-        bounceLeft: 0,
         chargeBonus: 1.0,
         hitIds: []
       };
@@ -1252,7 +1230,6 @@
         born: t,
         die: t + 1.5,
         pierceLeft: 0,
-        bounceLeft: 0,
         chargeBonus: 1.0,
         hitIds: [],
         droneBullet: true
@@ -1560,7 +1537,7 @@
       }
 
       val = safeNonNeg(val, 0);
-      const gained = val * boost;
+      const gained = val * boost * g.expMultiplier;
 
       // stats / combat window
       if (g.stats) g.stats.expGained = safeNonNeg((g.stats.expGained || 0) + gained, 0);
