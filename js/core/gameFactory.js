@@ -98,7 +98,6 @@
       lifestealPercent: 0.2,
       areaDamageRadius: 0,
       homingStrength: 0,
-      bounceCount: 0,
       splitOnHit: false,
       splitCount: 0,
       freezeChance: 0,
@@ -1188,7 +1187,6 @@
         born: t,
         die: t + (override && override.life != null ? override.life : g.bulletLifetime),
         pierceLeft: (override && override.pierceLeft != null) ? override.pierceLeft : g.pierceCount,
-        bounceLeft: g.bounceCount,
         chargeBonus: (override && override.chargeBonus != null) ? override.chargeBonus : bonusDamage,
         hitIds: []
       };
@@ -1209,7 +1207,6 @@
         born: t,
         die: t + 0.8,
         pierceLeft: 0,
-        bounceLeft: 0,
         chargeBonus: 1.0,
         hitIds: []
       };
@@ -1233,7 +1230,6 @@
         born: t,
         die: t + 1.5,
         pierceLeft: 0,
-        bounceLeft: 0,
         chargeBonus: 1.0,
         hitIds: [],
         droneBullet: true

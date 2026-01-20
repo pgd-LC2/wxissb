@@ -42,7 +42,6 @@ function iconFallback(iconStr) {
     "arrow.right.to.line": "⇥",
     "arrow.triangle.branch": "⎇",
     "location.north.fill": "📍",
-    "arrow.uturn.right": "↩",
     "snowflake": "❄",
     "flame.fill": "🔥",
     "leaf.fill": "☘",
@@ -103,8 +102,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"分裂弹", description:"子弹击中敌人后分裂成 2 发", tier:4, icon:"arrow.triangle.branch", effect:(s)=>{ s.splitOnHit = true; s.splitCount = 2; }});
   skills.push({ name:"追踪导弹", description:"子弹会轻微追踪敌人", tier:2, icon:"location.north.fill", effect:(s)=>{ s.homingStrength += 0.3; }});
   skills.push({ name:"强力追踪", description:"大幅增强子弹追踪能力", tier:3, icon:"location.north.line.fill", effect:(s)=>{ s.homingStrength += 0.7; }});
-  skills.push({ name:"反弹弹", description:"子弹撞墙后反弹 1 次", tier:2, icon:"arrow.uturn.right", effect:(s)=>{ s.bounceCount += 1; }});
-  skills.push({ name:"超级反弹", description:"子弹可反弹 3 次", tier:4, icon:"arrow.triangle.2.circlepath", effect:(s)=>{ s.bounceCount += 3; }});
   skills.push({ name:"冰冻弹", description:"子弹有 20% 几率冰冻敌人 1秒", tier:3, icon:"snowflake", effect:(s)=>{ s.freezeChance += 0.2; s.freezeDuration = Math.max(s.freezeDuration, 1.0); }});
   skills.push({ name:"寒冰大师", description:"冰冻几率 +30%，持续 +1秒", tier:4, icon:"snowflake.circle.fill", effect:(s)=>{ s.freezeChance += 0.3; s.freezeDuration += 1.0; }});
   skills.push({ name:"燃烧弹", description:"子弹点燃敌人，3秒内造成额外伤害", tier:3, icon:"flame.fill", effect:(s)=>{ s.burnChance = 1.0; s.burnDamage = 5; s.burnDuration = 3.0; }});
