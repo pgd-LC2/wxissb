@@ -1537,7 +1537,7 @@
       }
 
       val = safeNonNeg(val, 0);
-      const gained = val * boost;
+      const gained = val * boost * g.expMultiplier;
 
       // stats / combat window
       if (g.stats) g.stats.expGained = safeNonNeg((g.stats.expGained || 0) + gained, 0);
