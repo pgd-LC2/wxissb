@@ -64,11 +64,7 @@ function iconFallback(iconStr) {
     "flame": "🔥",
     "globe.americas.fill": "☄",
     "sparkles": "✨",
-    "person.2.fill": "👥",
     "gearshape.fill": "⚙",
-    "figure.run": "🏃",
-    "repeat.circle.fill": "⟲",
-    "waveform": "〰",
     "circle.and.line.horizontal.fill": "⦿",
     "dice.fill": "🎲",
     "crown.fill": "👑",
@@ -96,8 +92,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"万有引力", description:"自动吸取所有经验球，无需靠近", tier:3, icon:"sparkles", effect:(s)=>{ s.expMagnetAll = true; }});
   skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
   skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
-  skills.push({ name:"幸运星", description:"稀有掉落率 +10%", tier:2, icon:"star.fill", effect:(s)=>{ s.luckBonus += 0.1; }});
-  skills.push({ name:"轻量化", description:"移动时不降低射速", tier:2, icon:"wind", effect:(s)=>{ s.moveShootPenalty = false; }});
   skills.push({ name:"快速恢复", description:"每秒恢复 0.5 生命", tier:2, icon:"cross.fill", effect:(s)=>{ s.regenRate += 0.5; }});
 
   // ------------------------------
@@ -121,7 +115,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"超导闪电", description:"闪电跳跃 +2 次，伤害不衰减", tier:5, icon:"bolt.circle.fill", effect:(s)=>{ s.chainCount += 2; s.chainDamageDecay = 1.0; }});
   skills.push({ name:"爆炸弹头", description:"子弹击中产生小范围爆炸", tier:3, icon:"burst.fill", effect:(s)=>{ s.areaDamageRadius = 30; }});
   skills.push({ name:"核爆", description:"爆炸范围 +100%，击退敌人", tier:4, icon:"sun.max.fill", effect:(s)=>{ s.areaDamageRadius *= 2; s.explosionKnockback = true; }});
-  skills.push({ name:"引力弹", description:"子弹吸引附近敌人靠近弹道", tier:3, icon:"tornado", effect:(s)=>{ s.bulletGravityPull = 50; }});
   skills.push({ name:"黑洞弹", description:"子弹消失时产生吸引敌人的黑洞", tier:4, icon:"circle.hexagongrid.fill", effect:(s)=>{ s.blackHoleOnDeath = true; }});
 
   // ------------------------------
@@ -143,7 +136,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"紧急修复", description:"生命低于 25% 时每秒回复 5%", tier:3, icon:"cross.circle.fill", effect:(s)=>{ s.emergencyHealActive = true; }});
   skills.push({ name:"不死鸟", description:"死亡时有 50% 几率复活并回复 30% 血量", tier:5, icon:"bird.fill", effect:(s)=>{ s.phoenixRevive = true; s.phoenixChance = 0.5; }});
   skills.push({ name:"坚韧", description:"单次伤害上限为最大生命的 25%", tier:5, icon:"figure.strengthtraining.traditional", effect:(s)=>{ s.damageCap = 0.25; }});
-  skills.push({ name:"适应性护甲", description:"连续受到相同类型伤害时减伤增加", tier:3, icon:"circle.dotted", effect:(s)=>{ s.adaptiveArmor = true; }});
   skills.push({ name:"回光返照", description:"致命伤害时有3秒无敌但之后必死", tier:4, icon:"sparkle", effect:(s)=>{ s.lastStand = true; }});
   skills.push({ name:"格挡", description:"正面受击有 15% 几率完全格挡", tier:2, icon:"hand.raised.fill", effect:(s)=>{ s.blockChance += 0.15; }});
   skills.push({ name:"完美格挡", description:"格挡成功时反击造成 200% 伤害", tier:4, icon:"hand.raised.circle.fill", effect:(s)=>{ s.perfectBlockCounter = true; }});
@@ -155,8 +147,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"无人机编队", description:"无人机 +2，攻击力提升", tier:4, icon:"airplane.circle.fill", effect:(s)=>{ s.droneCount += 2; s.droneDamage *= 1.5; }});
   skills.push({ name:"地雷部署", description:"移动时留下地雷，敌人踩中爆炸", tier:3, icon:"circle.hexagongrid", effect:(s)=>{ s.mineDropEnabled = true; s.mineDropInterval = 2.0; }});
   skills.push({ name:"地雷专家", description:"地雷伤害 +100%，爆炸范围 +50%", tier:4, icon:"circle.hexagongrid.fill", effect:(s)=>{ s.mineDamage *= 2; s.mineRadius *= 1.5; }});
-  skills.push({ name:"自动炮塔", description:"召唤固定炮塔持续攻击", tier:3, icon:"building.columns.fill", effect:(s)=>{ s.turretCount += 1; }});
-  skills.push({ name:"重型炮塔", description:"炮塔攻击造成范围伤害", tier:4, icon:"building.2.fill", effect:(s)=>{ s.turretAOE = true; s.turretDamage *= 1.5; }});
   skills.push({ name:"刃旋", description:"环绕玩家的旋转刀片", tier:3, icon:"fan.fill", effect:(s)=>{ s.bladeOrbitCount += 2; }});
   skills.push({ name:"死亡之舞", description:"刀片数量 +4，范围扩大", tier:4, icon:"fan.and.light.ceiling.fill", effect:(s)=>{ s.bladeOrbitCount += 4; s.bladeOrbitRadius *= 1.5; }});
   skills.push({ name:"幽灵", description:"召唤幽灵自动攻击最近敌人", tier:3, icon:"moon.fill", effect:(s)=>{ s.ghostCount += 1; }});
@@ -167,8 +157,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"流星雨", description:"陨石数量 x3，间隔减半", tier:4, icon:"sparkles", effect:(s)=>{ s.meteorCount *= 3; s.meteorInterval *= 0.5; }});
   skills.push({ name:"闪电光环", description:"周围敌人持续受到闪电伤害", tier:3, icon:"bolt.ring.closed", effect:(s)=>{ s.lightningAuraEnabled = true; s.lightningAuraRadius = 100; }});
   skills.push({ name:"雷神", description:"光环范围 +100%，伤害 +50%", tier:4, icon:"bolt.shield.fill", effect:(s)=>{ s.lightningAuraRadius *= 2; s.lightningAuraDamage *= 1.5; }});
-  skills.push({ name:"影子克隆", description:"召唤 1 个复制你攻击的影子", tier:4, icon:"person.2.fill", effect:(s)=>{ s.shadowCloneCount += 1; }});
-  skills.push({ name:"分身术", description:"影子克隆 +2，持续时间增加", tier:5, icon:"person.3.fill", effect:(s)=>{ s.shadowCloneCount += 2; s.shadowCloneDuration *= 1.5; }});
   skills.push({ name:"黑洞", description:"每 15秒 生成黑洞吸引并伤害敌人", tier:4, icon:"circle.dotted.circle", effect:(s)=>{ s.blackHoleAbility = true; }});
   skills.push({ name:"奇点", description:"黑洞吸引力和伤害提升 100%", tier:5, icon:"circle.circle.fill", effect:(s)=>{ s.blackHolePower *= 2; }});
 
@@ -178,9 +166,8 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"连杀奖励", description:"连续击杀增加临时伤害加成", tier:2, icon:"flame.circle", effect:(s)=>{ s.killStreakEnabled = true; }});
   skills.push({ name:"杀戮狂欢", description:"连杀奖励上限提高，衰减减慢", tier:4, icon:"flame.circle.fill", effect:(s)=>{ s.killStreakMaxBonus *= 2; s.killStreakDecay *= 0.5; }});
   skills.push({ name:"击杀回血", description:"击杀敌人回复 2 点生命", tier:2, icon:"heart.text.square.fill", effect:(s)=>{ s.killHealAmount = 2; }});
-  skills.push({ name:"噬魂", description:"击杀回复 5 生命，暂时提升攻速", tier:4, icon:"person.crop.circle.badge.checkmark", effect:(s)=>{ s.killHealAmount = 5; s.killAttackSpeedBoost = true; }});
+  skills.push({ name:"噬魂", description:"击杀回复 5 生命", tier:4, icon:"person.crop.circle.badge.checkmark", effect:(s)=>{ s.killHealAmount = 5; }});
   skills.push({ name:"击杀爆炸", description:"敌人死亡时爆炸伤害周围敌人", tier:3, icon:"burst", effect:(s)=>{ s.deathExplosion = true; s.deathExplosionRadius = 50; }});
-  skills.push({ name:"连锁爆炸", description:"爆炸可以触发其他敌人爆炸", tier:5, icon:"waveform.path.ecg", effect:(s)=>{ s.chainExplosion = true; }});
   skills.push({ name:"暴怒", description:"受到伤害后 3秒 内攻击力 +25%", tier:3, icon:"exclamationmark.octagon.fill", effect:(s)=>{ s.rageOnHit = true; s.rageDamageBonus = 0.25; }});
   skills.push({ name:"复仇", description:"受伤后下一次攻击必定暴击", tier:4, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.revengeEnabled = true; }});
   skills.push({ name:"幸运一击", description:"5% 几率造成 10倍 伤害", tier:4, icon:"star.circle.fill", effect:(s)=>{ s.luckyCritChance = 0.05; s.luckyCritMulti = 10.0; }});
@@ -200,11 +187,6 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"霰弹模式", description:"+5 子弹，大散布，短射程", tier:4, icon:"list.bullet", effect:(s)=>{ s.bulletCount += 5; s.spreadAngle = 0.8; s.bulletLifetime *= 0.5; }});
   skills.push({ name:"蓄力攻击", description:"站立不动时积攒能量，下次攻击伤害提升", tier:3, icon:"bolt.fill", effect:(s)=>{ s.chargeAttackEnabled = true; }});
   skills.push({ name:"超级蓄力", description:"蓄力速度 +100%，最大加成提升", tier:4, icon:"bolt.batteryblock.fill", effect:(s)=>{ s.chargeSpeed *= 2; s.chargeMaxBonus *= 1.5; }});
-  skills.push({ name:"冲刺", description:"双击方向可以冲刺", tier:3, icon:"figure.run", effect:(s)=>{ s.dashEnabled = true; s.dashCooldown = 3.0; }});
-  skills.push({ name:"闪电冲刺", description:"冲刺伤害路径上的敌人", tier:4, icon:"figure.run.circle.fill", effect:(s)=>{ s.dashDamage = true; }});
-  skills.push({ name:"弹药回收", description:"未击中的子弹有 30% 几率返还", tier:2, icon:"arrow.uturn.backward", effect:(s)=>{ s.ammoRecoveryChance = 0.3; }});
-  skills.push({ name:"永动机", description:"击中敌人时有几率不消耗射击间隔", tier:3, icon:"repeat.circle.fill", effect:(s)=>{ s.freeAttackChance = 0.2; }});
-  skills.push({ name:"近战反击", description:"敌人近身时自动释放冲击波", tier:3, icon:"waveform", effect:(s)=>{ s.meleeCounterEnabled = true; }});
   skills.push({ name:"弹幕", description:"同时向所有方向射击", tier:5, icon:"circle.and.line.horizontal.fill", effect:(s)=>{ s.bulletCount += 8; s.spreadAngle = TAU / s.bulletCount; s.allDirectionFire = true; }});
   skills.push({ name:"后座力", description:"射击时向后推动自己，增加灵活性", tier:2, icon:"arrow.backward.to.line", effect:(s)=>{ s.recoilPush = true; }});
   skills.push({ name:"压制射击", description:"射击方向的敌人移动速度降低", tier:2, icon:"arrow.down.to.line.compact", effect:(s)=>{ s.suppressionEnabled = true; }});
