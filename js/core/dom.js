@@ -39,6 +39,9 @@
     pauseSubmitStatus: document.getElementById("pauseSubmitStatus"),
     resumeBtn: document.getElementById("resumeBtn"),
     quitBtn: document.getElementById("quitBtn"),
+    quitConfirmDialog: document.getElementById("quitConfirmDialog"),
+    quitCancelBtn: document.getElementById("quitCancelBtn"),
+    quitConfirmBtn: document.getElementById("quitConfirmBtn"),
 
     leaderboardToggle: document.getElementById("leaderboardToggle"),
     globalLeaderboard: document.getElementById("globalLeaderboard"),
