@@ -1796,6 +1796,11 @@
               SFX.hit(t, false);
               g.shakeCamera(0.15, 8, t);
               g.emitBurst({x: g.player.x, y: g.player.y}, 10, "#ff3b30", t, 400);
+              
+              // Rage (same as handlePlayerHit)
+              if (g.rageOnHit) g.rageEndTime = t + 3.0;
+              // Revenge (same as handlePlayerHit)
+              if (g.revengeEnabled) g.revengeNextCrit = true;
             }
           }
           g.enemyBullets.splice(i, 1);
