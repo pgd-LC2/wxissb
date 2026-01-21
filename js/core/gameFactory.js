@@ -463,7 +463,7 @@
       dmgMul: 1.0,         // used as enemy contact damage scaling
       speedMul: 1.0,       // NEW: enemy speed scaling
       targetEnemies: 15,   // increased from 12
-      maxEnemies: 80,      // increased from 60
+      // maxEnemies removed - no limit on enemy count
       eliteChance: 0.06,   // increased from 0.04
       progress: 0.0,
     };
@@ -509,15 +509,15 @@
       // NEW: speed multiplier - enemies get faster over time
       d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
-      // desired on-screen enemies - INCREASED for more pressure
-      d.targetEnemies = Math.round(clamp(12 + g.level * 1.0 + strength * 20, 12, 120));
-      d.maxEnemies = Math.round(clamp(d.targetEnemies + 30 + strength * 20, 50, 160));
+      // desired on-screen enemies - NO MAX LIMIT
+      d.targetEnemies = Math.round(12 + g.level * 1.0 + strength * 20);
+      // maxEnemies removed - enemies can spawn infinitely
 
-      // spawn rate (enemies/sec), with density feedback to avoid runaway - INCREASED
+      // spawn rate (enemies/sec), with density feedback - NO HARD CAP
       let rate = clamp(1.2 + g.level * 0.08 + strength * 2.4, 0.8, 8.0);
       if (g.enemies.length < d.targetEnemies * 0.75) rate *= 1.35;
       if (g.enemies.length > d.targetEnemies * 1.10) rate *= 0.25;
-      if (g.enemies.length >= d.maxEnemies) rate = 0;
+      // No rate = 0 condition - always allow spawning
 
       d.spawnRate = rate;
 
@@ -529,7 +529,8 @@
 
       let spawned = 0;
       const maxLoop = 10;
-      while (d.spawnBudget >= 1 && spawned < maxLoop && g.enemies.length < d.maxEnemies) {
+      // No maxEnemies limit - spawn as long as budget allows
+      while (d.spawnBudget >= 1 && spawned < maxLoop) {
         g.spawnEnemy(t);
         d.spawnBudget -= 1;
         spawned++;
