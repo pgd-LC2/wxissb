@@ -10,7 +10,10 @@
     pauseSubmitScoreBtn,
     pauseSubmitStatus,
     resumeBtn,
-    quitBtn
+    quitBtn,
+    quitConfirmDialog,
+    quitCancelBtn,
+    quitConfirmBtn
   } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
   const { formatTime, getStoredPlayerName, storePlayerName } = GameApp.Helpers;
@@ -55,10 +58,19 @@
       pauseSubmitNameInput.value = getStoredPlayerName();
     }
 
-    // 重置提交状态
+    // 每次打开暂停界面都重置提交状态，允许再次提交
     if (pauseSubmitStatus) {
       pauseSubmitStatus.textContent = "";
       pauseSubmitStatus.className = "submit-status";
+    }
+    if (pauseSubmitScoreBtn) {
+      pauseSubmitScoreBtn.disabled = false;
+      pauseSubmitScoreBtn.textContent = "提交当前分数";
+    }
+
+    // 隐藏退出确认对话框
+    if (quitConfirmDialog) {
+      quitConfirmDialog.classList.add("hidden");
     }
 
     // 显示暂停菜单
@@ -110,9 +122,29 @@
     });
   }
 
-  // 退出游戏按钮
+  // 退出游戏按钮 - 显示确认对话框
   if (quitBtn) {
     quitBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (quitConfirmDialog) {
+        quitConfirmDialog.classList.remove("hidden");
+      }
+    });
+  }
+
+  // 退出确认对话框 - 取消按钮
+  if (quitCancelBtn) {
+    quitCancelBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (quitConfirmDialog) {
+        quitConfirmDialog.classList.add("hidden");
+      }
+    });
+  }
+
+  // 退出确认对话框 - 确定退出按钮
+  if (quitConfirmBtn) {
+    quitConfirmBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       hidePauseOverlay();
       window.location.href = "../index.html";

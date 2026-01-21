@@ -830,3 +830,61 @@ canvas {
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
+
+/* Quit Confirm Dialog */
+#quitConfirmDialog {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  border-radius: 16px;
+}
+#quitConfirmDialog.hidden {
+  display: none;
+}
+.quit-confirm-content {
+  background: rgba(30,30,30,.98);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+  padding: 20px 24px;
+  text-align: center;
+  animation: popIn .18s ease-out;
+}
+.quit-confirm-content p {
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(255,255,255,.92);
+}
+.quit-confirm-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+.quit-confirm-buttons button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  min-width: 80px;
+}
+#quitCancelBtn {
+  background: rgba(255,255,255,.15);
+  color: rgba(255,255,255,.9);
+  border: 1px solid rgba(255,255,255,.2);
+}
+#quitCancelBtn:hover {
+  background: rgba(255,255,255,.25);
+}
+#quitConfirmBtn {
+  background: rgba(255,59,48,.85);
+  color: #fff;
+}
+#quitConfirmBtn:hover {
+  background: rgba(255,59,48,1);
+}
