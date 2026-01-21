@@ -1751,7 +1751,8 @@
         damage: damage,
         born: t,
         r: 6,
-        color: enemy.color || "#f472b6"
+        color: enemy.color || "#f472b6",
+        sourceEnemy: enemy  // 存储源敌人引用，用于荆棘伤害和完美格挡反击
       });
     };
 
@@ -1779,6 +1780,10 @@
         if (dist < hitDist) {
           // Hit player - use similar logic to handlePlayerHit but simplified
           if (t - g.player.lastHit >= g.iFrameDuration) {
+            // 获取源敌人引用（用于荆棘伤害和完美格挡反击）
+            const sourceEnemy = b.sourceEnemy;
+            const enemyAlive = sourceEnemy && !sourceEnemy._dead;
+            
             // Dodge check
             if (Math.random() < g.dodgeChance) {
               g.showDodgeEffect(t);
@@ -1786,10 +1791,21 @@
             } else if (Math.random() < g.blockChance) {
               // Block check
               g.showBlockEffect(t);
+              // 完美格挡反击：格挡成功时反应造成200%伤害
+              if (g.perfectBlockCounter && enemyAlive) {
+                g.applyDamageToEnemy(sourceEnemy, g.bulletDamage * 2, t);
+              }
             } else {
               // Take damage
               let damage = b.damage * (1 - g.damageReduction);
               damage = Math.min(damage, g.playerMaxHealth * g.damageCap);
+              
+              // 荆棘伤害：受击时反弹伤害给攻击者
+              if (g.thornsDamagePercent > 0 && enemyAlive) {
+                g.applyDamageToEnemy(sourceEnemy, damage * g.thornsDamagePercent, t);
+                if (g.thornsSlow) sourceEnemy.slowed = true;
+              }
+              
               g.takeDamage(damage, t);
               g.player.lastHit = t;
               g.lastDamageTime = t;
