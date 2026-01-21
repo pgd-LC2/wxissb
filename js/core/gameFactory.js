@@ -509,15 +509,53 @@
       // NEW: speed multiplier - enemies get faster over time
       d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
-      // desired on-screen enemies - NO MAX LIMIT
-      d.targetEnemies = Math.round(12 + g.level * 1.0 + strength * 20);
-      // maxEnemies removed - enemies can spawn infinitely
+      // ========================================
+      // 动态怪物生成公式 - 平衡前期和后期
+      // 使用非线性函数实现平滑的难度曲线
+      // ========================================
+      
+      // 时间因子：使用幂函数让前期增长慢，后期增长快
+      // timeProg: 0~1 (4分钟内)，使用 pow(x, 0.6) 让前期更平缓
+      const timeScale = Math.pow(timeProg, 0.6);
+      
+      // 等级因子：使用平方根减缓等级带来的增长
+      const levelScale = Math.sqrt(Math.max(1, g.level));
+      
+      // 战力因子：使用幂函数让高战力时怪物更多
+      const strengthScale = Math.pow(strength, 1.3);
+      
+      // 目标怪物数量公式：
+      // 前期(timeProg=0, strength=0, level=1): ~6
+      // 中期(timeProg=0.5, strength=0.6, level=10): ~22
+      // 后期(timeProg=1.0, strength=1.5, level=25): ~55+
+      const baseEnemies = 6;
+      d.targetEnemies = Math.round(
+        baseEnemies +
+        timeScale * 18 +           // 时间贡献最多 18
+        levelScale * 2.5 +         // 等级贡献（平方根增长）
+        strengthScale * 22         // 战力贡献（后期加速）
+      );
 
-      // spawn rate (enemies/sec), with density feedback - NO HARD CAP
-      let rate = clamp(1.2 + g.level * 0.08 + strength * 2.4, 0.8, 8.0);
-      if (g.enemies.length < d.targetEnemies * 0.75) rate *= 1.35;
-      if (g.enemies.length > d.targetEnemies * 1.10) rate *= 0.25;
-      // No rate = 0 condition - always allow spawning
+      // 生成速率公式：同样使用非线性增长
+      // 前期: ~0.8/秒，后期: ~7/秒
+      const baseRate = 0.8;
+      const rateTimeScale = Math.pow(timeProg, 0.5);
+      const rateStrengthScale = Math.pow(strength, 0.9);
+      let rate = clamp(
+        baseRate + rateTimeScale * 2.5 + rateStrengthScale * 3.5 + levelScale * 0.15,
+        0.6,
+        10.0
+      );
+      
+      // 密度反馈：根据当前怪物数量动态调整生成速率
+      const densityRatio = g.enemies.length / Math.max(1, d.targetEnemies);
+      if (densityRatio < 0.7) {
+        // 怪物太少，加速生成（使用平滑的乘数）
+        rate *= 1.0 + (0.7 - densityRatio) * 0.8;
+      } else if (densityRatio > 1.15) {
+        // 怪物太多，减速生成（使用平滑的乘数）
+        rate *= Math.max(0.15, 1.0 - (densityRatio - 1.15) * 0.6);
+      }
 
       d.spawnRate = rate;
 
