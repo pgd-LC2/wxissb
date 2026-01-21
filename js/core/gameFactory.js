@@ -68,6 +68,7 @@
       warnings: [],       // meteor warning {x,y, born}
       blackHoles: [],     // {x,y, radius, end, fadeEnd, nextTick, small}
       poisonClouds: [],   // {x,y, born, ticks, nextTick, fadeStart, fadeEnd}
+      enemyBullets: [],   // NEW: enemy projectiles {x,y,vx,vy,damage,born}
       effects: [],        // visuals
       particles: [],      // juicy particles
       screenFlash: null,  // {color, intensity, start, end}
@@ -456,13 +457,14 @@
     g.director = {
       lastT: 0,
       spawnBudget: 0,
-      spawnRate: 1.2,      // enemies / sec
+      spawnRate: 1.8,      // enemies / sec (increased from 1.2)
       strength: 0,         // derived from combat rating
       diff: 1.0,           // used as enemy HP scaling
       dmgMul: 1.0,         // used as enemy contact damage scaling
-      targetEnemies: 12,
-      maxEnemies: 60,
-      eliteChance: 0.04,
+      speedMul: 1.0,       // NEW: enemy speed scaling
+      targetEnemies: 15,   // increased from 12
+      maxEnemies: 80,      // increased from 60
+      eliteChance: 0.06,   // increased from 0.04
       progress: 0.0,
     };
 
@@ -501,24 +503,26 @@
       const timeProg = clamp(timeAlive / 240, 0, 1);  // 0~1 in first 4 minutes
       d.progress = clamp(0.55 * timeProg + 0.45 * clamp(strength / 1.2, 0, 1), 0, 1);
 
-      // difficulty multipliers (bounded)
-      d.diff = clamp(1.0 + (g.level - 1) * 0.11 + strength * 0.90, 1.0, 6.5);
-      d.dmgMul = clamp(1.0 + (g.level - 1) * 0.085 + strength * 0.22, 1.0, 4.0);
+      // difficulty multipliers (bounded) - ENHANCED for more challenge
+      d.diff = clamp(1.0 + (g.level - 1) * 0.13 + strength * 1.1, 1.0, 8.0);
+      d.dmgMul = clamp(1.0 + (g.level - 1) * 0.12 + strength * 0.35, 1.0, 5.0);
+      // NEW: speed multiplier - enemies get faster over time
+      d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
-      // desired on-screen enemies
-      d.targetEnemies = Math.round(clamp(8 + g.level * 0.75 + strength * 16, 8, 95));
-      d.maxEnemies = Math.round(clamp(d.targetEnemies + 22 + strength * 16, 40, 130));
+      // desired on-screen enemies - INCREASED for more pressure
+      d.targetEnemies = Math.round(clamp(12 + g.level * 1.0 + strength * 20, 12, 120));
+      d.maxEnemies = Math.round(clamp(d.targetEnemies + 30 + strength * 20, 50, 160));
 
-      // spawn rate (enemies/sec), with density feedback to avoid runaway
-      let rate = clamp(0.9 + g.level * 0.06 + strength * 1.9, 0.6, 6.2);
+      // spawn rate (enemies/sec), with density feedback to avoid runaway - INCREASED
+      let rate = clamp(1.2 + g.level * 0.08 + strength * 2.4, 0.8, 8.0);
       if (g.enemies.length < d.targetEnemies * 0.75) rate *= 1.35;
       if (g.enemies.length > d.targetEnemies * 1.10) rate *= 0.25;
       if (g.enemies.length >= d.maxEnemies) rate = 0;
 
       d.spawnRate = rate;
 
-      // elite chance grows with strength + progress
-      d.eliteChance = clamp(0.02 + 0.06 * strength + 0.06 * d.progress, 0.02, 0.20);
+      // elite chance grows with strength + progress - INCREASED for more challenge
+      d.eliteChance = clamp(0.04 + 0.08 * strength + 0.08 * d.progress, 0.04, 0.30);
 
       // budgeted spawn
       d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
@@ -537,23 +541,28 @@
     // 简约建模 + 不同参数/行为
     // ------------------------------
     g.enemyDefs = [
-      { id:"grunt",    name:"小兵",   model:"square",      color:"#ff3b30", w:30, h:30, hp:30,  speed:1.00, damage:1.00, exp:1.00, ai:"chase",   weight:52, unlock:0.00 },
-      { id:"runner",   name:"跑者",   model:"diamond",     color:"#34c759", w:24, h:24, hp:22,  speed:1.45, damage:0.90, exp:0.85, ai:"chase",   weight:28, unlock:0.00 },
+      { id:"grunt",    name:"小兵",   model:"square",      color:"#ff3b30", w:30, h:30, hp:30,  speed:1.00, damage:1.00, exp:1.00, ai:"chase",   weight:45, unlock:0.00 },
+      { id:"runner",   name:"跑者",   model:"diamond",     color:"#34c759", w:24, h:24, hp:22,  speed:1.55, damage:0.95, exp:0.85, ai:"chase",   weight:25, unlock:0.00 },
 
-      // ✅ 新增10种
-      { id:"brute",    name:"蛮牛",   model:"rectWide",    color:"#ff9f0a", w:44, h:30, hp:60,  speed:0.80, damage:1.20, exp:1.60, ai:"chase",   weight:12, unlock:0.20 },
-      { id:"tank",     name:"坦克",   model:"squareHeavy", color:"#b91c1c", w:52, h:52, hp:110, speed:0.65, damage:1.35, exp:2.40, ai:"chase",   weight:7,  unlock:0.35 },
-      { id:"shielder", name:"盾兵",   model:"squareShield",color:"#9ca3af", w:34, h:34, hp:48,  speed:0.95, damage:1.05, exp:1.50, ai:"chase",   weight:10, unlock:0.25, armor:0.35 },
-      { id:"zigzag",   name:"游走者", model:"triangle",    color:"#4aa3ff", w:30, h:30, hp:40,  speed:1.05, damage:1.00, exp:1.35, ai:"zigzag",  weight:9,  unlock:0.30 },
-      { id:"orbiter",  name:"环绕者", model:"circle",      color:"#22d3ee", w:30, h:30, hp:42,  speed:1.00, damage:1.00, exp:1.40, ai:"orbit",   weight:8,  unlock:0.35, orbitR:190 },
-      { id:"dasher",   name:"冲锋者", model:"diamondSharp",color:"#ffd60a", w:28, h:28, hp:36,  speed:0.95, damage:1.15, exp:1.45, ai:"dash",    weight:7,  unlock:0.40 },
-      { id:"ranger",   name:"游侠",   model:"capsule",     color:"#60a5fa", w:34, h:22, hp:46,  speed:1.05, damage:1.05, exp:1.50, ai:"kite",    weight:6,  unlock:0.45, keepDist:230 },
-      { id:"spawner",  name:"召唤者", model:"pentagon",    color:"#e5e7eb", w:38, h:38, hp:70,  speed:0.75, damage:1.15, exp:2.20, ai:"spawner", weight:4,  unlock:0.55, spawnMinions:true },
-      { id:"splitter", name:"分裂体", model:"circleDot",   color:"#a855f7", w:40, h:40, hp:78,  speed:0.85, damage:1.20, exp:2.60, ai:"chase",   weight:3,  unlock:0.60, splitOnDeath:true, splitCount:2, splitType:"swarm" },
-      { id:"swarm",    name:"蜂群",   model:"tiny",        color:"#fbbf24", w:18, h:18, hp:14,  speed:1.65, damage:0.75, exp:0.55, ai:"chase",   weight:6,  unlock:0.00, minion:true },
+      // 新增威胁性怪物
+      { id:"brute",    name:"蛮牛",   model:"rectWide",    color:"#ff9f0a", w:44, h:30, hp:60,  speed:0.85, damage:1.30, exp:1.60, ai:"chase",   weight:12, unlock:0.15 },
+      { id:"tank",     name:"坦克",   model:"squareHeavy", color:"#b91c1c", w:52, h:52, hp:110, speed:0.70, damage:1.45, exp:2.40, ai:"chase",   weight:8,  unlock:0.30 },
+      { id:"shielder", name:"盾兵",   model:"squareShield",color:"#9ca3af", w:34, h:34, hp:48,  speed:1.00, damage:1.10, exp:1.50, ai:"chase",   weight:10, unlock:0.20, armor:0.35 },
+      { id:"zigzag",   name:"游走者", model:"triangle",    color:"#4aa3ff", w:30, h:30, hp:40,  speed:1.15, damage:1.05, exp:1.35, ai:"zigzag",  weight:10, unlock:0.25 },
+      { id:"orbiter",  name:"环绕者", model:"circle",      color:"#22d3ee", w:30, h:30, hp:42,  speed:1.10, damage:1.05, exp:1.40, ai:"orbit",   weight:9,  unlock:0.30, orbitR:170 },
+      { id:"dasher",   name:"冲锋者", model:"diamondSharp",color:"#ffd60a", w:28, h:28, hp:36,  speed:1.05, damage:1.25, exp:1.45, ai:"dash",    weight:10, unlock:0.20 },
+      { id:"ranger",   name:"游侠",   model:"capsule",     color:"#60a5fa", w:34, h:22, hp:46,  speed:1.10, damage:1.10, exp:1.50, ai:"kite",    weight:7,  unlock:0.35, keepDist:200 },
+      { id:"spawner",  name:"召唤者", model:"pentagon",    color:"#e5e7eb", w:38, h:38, hp:70,  speed:0.80, damage:1.20, exp:2.20, ai:"spawner", weight:5,  unlock:0.45, spawnMinions:true },
+      { id:"splitter", name:"分裂体", model:"circleDot",   color:"#a855f7", w:40, h:40, hp:78,  speed:0.90, damage:1.25, exp:2.60, ai:"chase",   weight:4,  unlock:0.50, splitOnDeath:true, splitCount:3, splitType:"swarm" },
+      { id:"swarm",    name:"蜂群",   model:"tiny",        color:"#fbbf24", w:18, h:18, hp:14,  speed:1.80, damage:0.80, exp:0.55, ai:"chase",   weight:6,  unlock:0.00, minion:true },
 
-      // 原有精英（依然保留，但生成由 director.eliteChance 控制）
-      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:160, speed:0.90, damage:1.70, exp:3.80, ai:"chase",   weight:2,  unlock:0.65, elite:true }
+      // 新增高威胁怪物类型
+      { id:"predictor",name:"预言者", model:"eye",         color:"#ff6b6b", w:32, h:32, hp:45,  speed:1.20, damage:1.15, exp:1.70, ai:"predict", weight:8,  unlock:0.25 },
+      { id:"flanker",  name:"侧翼者", model:"arrow",       color:"#10b981", w:26, h:26, hp:35,  speed:1.35, damage:1.10, exp:1.40, ai:"flank",   weight:9,  unlock:0.20 },
+      { id:"shooter",  name:"射手",   model:"star",        color:"#f472b6", w:28, h:28, hp:32,  speed:0.75, damage:1.00, exp:1.80, ai:"ranged",  weight:6,  unlock:0.35, shootInterval:1.8, bulletSpeed:280 },
+
+      // 原有精英（依然保留，但生成由 director.eliteChance 控制）- 增强
+      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:180, speed:1.00, damage:1.90, exp:4.20, ai:"chase",   weight:2,  unlock:0.55, elite:true }
     ];
 
     g.getEnemyDef = (id) => {
@@ -605,7 +614,9 @@
       const hpBase = safeNonNeg(def.hp, 30);
       const hp = clamp(hpBase * diff, 1, 200000);
 
-      const speed = safeNonNeg(GameConfig.baseEnemySpeed * safeNonNeg(def.speed, 1.0) * (1 + safeNumber(d.strength, 0) * 0.12), 10);
+      // Apply speed multiplier from director for dynamic difficulty
+      const speedMul = safeNumber(d.speedMul, 1.0);
+      const speed = safeNonNeg(GameConfig.baseEnemySpeed * safeNonNeg(def.speed, 1.0) * speedMul * (1 + safeNumber(d.strength, 0) * 0.18), 10);
 
       const enemy = {
         id: nextId(),
@@ -633,6 +644,11 @@
         splitCount: def.splitCount || 0,
         splitType: def.splitType || "swarm",
 
+        // NEW: ranged attack params for shooter type
+        shootInterval: def.shootInterval || 2.0,
+        bulletSpeed: def.bulletSpeed || 250,
+        nextShot: t + rand(0.5, 1.5),
+
         // runtime
         frozenUntil: 0,
         slowedUntil: 0,
@@ -642,6 +658,11 @@
         dashEnd: 0,
         nextSpawn: 0,
         aiSeed: rand(0, 1000),
+
+        // NEW: prediction and flanking state
+        predictedX: x,
+        predictedY: y,
+        flankAngle: rand(0, TAU),
       };
 
       if (opts && opts.isMinion) enemy._minion = true;
@@ -1708,6 +1729,85 @@
       });
     };
 
+    // NEW: Create enemy bullet (for ranged enemies)
+    g.createEnemyBullet = (enemy, t) => {
+      const dx = g.player.x - enemy.x;
+      const dy = g.player.y - enemy.y;
+      const dist = Math.max(1, hypot(dx, dy));
+      const speed = enemy.bulletSpeed || 250;
+      
+      // Calculate damage based on director
+      const d = g.director || { dmgMul: 1.0 };
+      const baseDmg = 6;
+      const damage = baseDmg * safeNumber(d.dmgMul, 1.0) * safeNumber(enemy.damageMul, 1.0);
+      
+      g.enemyBullets.push({
+        id: nextId(),
+        x: enemy.x,
+        y: enemy.y,
+        vx: (dx / dist) * speed,
+        vy: (dy / dist) * speed,
+        damage: damage,
+        born: t,
+        r: 6,
+        color: enemy.color || "#f472b6"
+      });
+    };
+
+    // NEW: Update enemy bullets
+    g.updateEnemyBullets = (dt, t) => {
+      for (let i = g.enemyBullets.length - 1; i >= 0; i--) {
+        const b = g.enemyBullets[i];
+        
+        // Move bullet
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        
+        // Check lifetime (3 seconds max)
+        if (t - b.born > 3.0) {
+          g.enemyBullets.splice(i, 1);
+          continue;
+        }
+        
+        // Check collision with player
+        const dx = g.player.x - b.x;
+        const dy = g.player.y - b.y;
+        const dist = hypot(dx, dy);
+        const hitDist = g.player.r + b.r;
+        
+        if (dist < hitDist) {
+          // Hit player - use similar logic to handlePlayerHit but simplified
+          if (t - g.player.lastHit >= g.iFrameDuration) {
+            // Dodge check
+            if (Math.random() < g.dodgeChance) {
+              g.showDodgeEffect(t);
+              if (g.dodgeInvincibility) g.player.lastHit = t;
+            } else if (Math.random() < g.blockChance) {
+              // Block check
+              g.showBlockEffect(t);
+            } else {
+              // Take damage
+              let damage = b.damage * (1 - g.damageReduction);
+              damage = Math.min(damage, g.playerMaxHealth * g.damageCap);
+              g.takeDamage(damage, t);
+              g.player.lastHit = t;
+              g.lastDamageTime = t;
+              SFX.hit(t, false);
+              g.shakeCamera(0.15, 8, t);
+              g.emitBurst({x: g.player.x, y: g.player.y}, 10, "#ff3b30", t, 400);
+            }
+          }
+          g.enemyBullets.splice(i, 1);
+          continue;
+        }
+        
+        // Check if bullet is too far from player (cleanup)
+        if (dist > 1500) {
+          g.enemyBullets.splice(i, 1);
+        }
+      }
+    };
+
     // ------------------------------
     // Update Systems (ported)
     // ------------------------------
@@ -1793,6 +1893,68 @@
 
                 const cd = rand(2.2, 3.8) / (1 + s * 0.35);
                 e.nextSpawn = t + cd;
+              }
+              break;
+            }
+            // NEW AI: Predictor - predicts player movement and intercepts
+            case "predict": {
+              // Calculate player velocity based on joystick input
+              const jv = g.joystickVector || { dx: 0, dy: 0 };
+              const playerVelX = jv.dx * GameConfig.basePlayerSpeed * g.playerSpeedMulti;
+              const playerVelY = jv.dy * GameConfig.basePlayerSpeed * g.playerSpeedMulti;
+              
+              // Predict where player will be in ~0.8 seconds
+              const predictTime = 0.8;
+              e.predictedX = g.player.x + playerVelX * predictTime;
+              e.predictedY = g.player.y + playerVelY * predictTime;
+              
+              // Move towards predicted position
+              const pdx = e.predictedX - e.x;
+              const pdy = e.predictedY - e.y;
+              angle = Math.atan2(pdy, pdx);
+              speed *= 1.15; // Slightly faster to intercept
+              break;
+            }
+            // NEW AI: Flanker - tries to approach from the side
+            case "flank": {
+              // Update flank angle slowly to circle around player
+              e.flankAngle = (e.flankAngle || 0) + dt * 0.8;
+              
+              // Target position is offset from player
+              const flankDist = 120;
+              const targetX = g.player.x + Math.cos(e.flankAngle) * flankDist;
+              const targetY = g.player.y + Math.sin(e.flankAngle) * flankDist;
+              
+              // If close to flank position, rush towards player
+              const toTargetDist = hypot(targetX - e.x, targetY - e.y);
+              if (toTargetDist < 50) {
+                // Rush towards player
+                angle = Math.atan2(dy, dx);
+                speed *= 1.4;
+              } else {
+                // Move to flank position
+                angle = Math.atan2(targetY - e.y, targetX - e.x);
+              }
+              break;
+            }
+            // NEW AI: Ranged - keeps distance and shoots projectiles
+            case "ranged": {
+              const keepDist = 180;
+              if (dist < keepDist * 0.7) {
+                // Too close, retreat
+                angle += Math.PI;
+                speed *= 1.1;
+              } else if (dist < keepDist * 1.2) {
+                // Good distance, strafe
+                angle += Math.PI / 2 * (Math.sin(t * 2 + e.aiSeed) > 0 ? 1 : -1);
+                speed *= 0.8;
+              }
+              // else: chase to get in range
+              
+              // Shoot at player
+              if (t >= (e.nextShot || 0)) {
+                g.createEnemyBullet(e, t);
+                e.nextShot = t + (e.shootInterval || 2.0) * rand(0.8, 1.2);
               }
               break;
             }
@@ -2304,6 +2466,7 @@
       g.updateGhosts(t);
       g.updateBulletHoming(dt, t);
       g.updateLightningAura(dt, t);
+      g.updateEnemyBullets(dt, t);  // NEW: update enemy projectiles
 
       // Move bullets (physics)
       for (let i = 0; i < g.bullets.length; i++) {
@@ -2782,6 +2945,55 @@
             ctx.fill();
             break;
           }
+          // NEW: Eye model for predictor enemy
+          case "eye": {
+            const r = Math.max(hw, hh);
+            // Outer eye
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, TAU);
+            ctx.fill();
+            // Inner pupil (dark)
+            ctx.fillStyle = colorWithAlpha("#000000", 0.75);
+            ctx.beginPath();
+            ctx.arc(0, 0, r * 0.45, 0, TAU);
+            ctx.fill();
+            // Highlight
+            ctx.fillStyle = colorWithAlpha("#ffffff", 0.65);
+            ctx.beginPath();
+            ctx.arc(-r * 0.2, -r * 0.2, r * 0.15, 0, TAU);
+            ctx.fill();
+            break;
+          }
+          // NEW: Arrow model for flanker enemy
+          case "arrow": {
+            ctx.beginPath();
+            // Arrow pointing right (will be rotated by e.rot)
+            ctx.moveTo(hw, 0);           // tip
+            ctx.lineTo(-hw * 0.3, -hh);  // top back
+            ctx.lineTo(-hw * 0.1, 0);    // notch
+            ctx.lineTo(-hw * 0.3, hh);   // bottom back
+            ctx.closePath();
+            ctx.fill();
+            break;
+          }
+          // NEW: Star model for shooter enemy
+          case "star": {
+            const r = Math.max(hw, hh);
+            const innerR = r * 0.45;
+            const points = 5;
+            ctx.beginPath();
+            for (let k = 0; k < points * 2; k++) {
+              const a = -Math.PI / 2 + k * (Math.PI / points);
+              const rad = (k % 2 === 0) ? r : innerR;
+              const px = Math.cos(a) * rad;
+              const py = Math.sin(a) * rad;
+              if (k === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.fill();
+            break;
+          }
           default: {
             ctx.fillRect(-hw, -hh, w, h);
           }
@@ -2874,6 +3086,20 @@
         ctx.fillStyle = b.droneBullet ? "rgba(255,149,0,0.95)" : "rgba(255,214,10,0.95)";
         ctx.fillRect(-b.w/2, -b.h/2, b.w, b.h);
         ctx.restore();
+      }
+
+      // NEW: enemy bullets (projectiles from shooter enemies)
+      for (let i = 0; i < g.enemyBullets.length; i++) {
+        const eb = g.enemyBullets[i];
+        ctx.beginPath();
+        ctx.arc(sx(eb.x), sy(eb.y), eb.r, 0, TAU);
+        ctx.fillStyle = eb.color || "#f472b6";
+        ctx.fill();
+        // Add a glow effect
+        ctx.beginPath();
+        ctx.arc(sx(eb.x), sy(eb.y), eb.r * 1.5, 0, TAU);
+        ctx.fillStyle = colorWithAlpha(eb.color || "#f472b6", 0.3);
+        ctx.fill();
       }
 
       // meteor warning circles
