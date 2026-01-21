@@ -344,12 +344,17 @@
     };
 
     g._combatTierFromScore = (score) => {
-      if (score >= 920) return { tier:"SSS", color:"#ff3b30" };
-      if (score >= 820) return { tier:"SS",  color:"#ff9f0a" };
-      if (score >= 700) return { tier:"S",   color:"#ffd60a" };
-      if (score >= 560) return { tier:"A",   color:"#34c759" };
-      if (score >= 420) return { tier:"B",   color:"#4aa3ff" };
-      if (score >= 280) return { tier:"C",   color:"#9ca3af" };
+      // 无限战力段位系统 - 超过1000后继续增加更高段位
+      if (score >= 5000) return { tier:"X",    color:"#ff00ff" };  // 传说级
+      if (score >= 3000) return { tier:"EX",   color:"#00ffff" };  // 超越级
+      if (score >= 2000) return { tier:"SSSS", color:"#ff1493" };  // 神话级
+      if (score >= 1500) return { tier:"SSS+", color:"#ff6b6b" };  // 超凡级
+      if (score >= 920)  return { tier:"SSS",  color:"#ff3b30" };
+      if (score >= 820)  return { tier:"SS",   color:"#ff9f0a" };
+      if (score >= 700)  return { tier:"S",    color:"#ffd60a" };
+      if (score >= 560)  return { tier:"A",    color:"#34c759" };
+      if (score >= 420)  return { tier:"B",    color:"#4aa3ff" };
+      if (score >= 280)  return { tier:"C",    color:"#9ca3af" };
       return { tier:"D", color:"rgba(255,255,255,.92)" };
     };
 
@@ -376,14 +381,15 @@
       const calm = clamp(sinceHit / W, 0, 1);
       const efficiency = dps / Math.max(1, dtps);
 
-      // normalize with log scaling (prevents overflow / runaway)
-      const nK = clamp(Math.log1p(kpm) / Math.log1p(80), 0, 1);
-      const nD = clamp(Math.log1p(dps) / Math.log1p(900), 0, 1);
-      const nB = clamp(Math.log1p(buildDps) / Math.log1p(1200), 0, 1);
-      const nX = clamp(Math.log1p(xps) / Math.log1p(120), 0, 1);
-      const nL = clamp(Math.log1p(lpm) / Math.log1p(10), 0, 1);
-      const nS = clamp(Math.log1p(skillScore) / Math.log1p(120), 0, 1);
-      const nE = clamp(Math.log1p(efficiency) / Math.log1p(12), 0, 1);
+      // normalize with log scaling - 移除上限限制，允许战力无限增长
+      // 当超过基准值时，战力会继续增长但速度变慢（对数增长）
+      const nK = Math.max(0, Math.log1p(kpm) / Math.log1p(80));
+      const nD = Math.max(0, Math.log1p(dps) / Math.log1p(900));
+      const nB = Math.max(0, Math.log1p(buildDps) / Math.log1p(1200));
+      const nX = Math.max(0, Math.log1p(xps) / Math.log1p(120));
+      const nL = Math.max(0, Math.log1p(lpm) / Math.log1p(10));
+      const nS = Math.max(0, Math.log1p(skillScore) / Math.log1p(120));
+      const nE = Math.max(0, Math.log1p(efficiency) / Math.log1p(12));
 
       const raw =
         0.18 * nB +
@@ -396,7 +402,8 @@
         0.05 * calm +
         0.03 * hpRatio;
 
-      const rating = clamp(1000 * raw, 0, 1000);
+      // 移除1000上限，允许战力无限增长
+      const rating = Math.max(0, 1000 * raw);
       const tc = g._combatTierFromScore(rating);
 
       return {
