@@ -516,7 +516,7 @@
       
       // 时间因子：使用幂函数让前期增长慢，后期增长快
       // timeProg: 0~1 (4分钟内)，使用 pow(x, 0.6) 让前期更平缓
-      const timeScale = Math.pow(timeProg, 0.6);
+      const spawnTimeScale = Math.pow(timeProg, 0.6);
       
       // 等级因子：使用平方根减缓等级带来的增长
       const levelScale = Math.sqrt(Math.max(1, g.level));
@@ -531,7 +531,7 @@
       const baseEnemies = 6;
       d.targetEnemies = Math.round(
         baseEnemies +
-        timeScale * 18 +           // 时间贡献最多 18
+        spawnTimeScale * 18 +      // 时间贡献最多 18
         levelScale * 2.5 +         // 等级贡献（平方根增长）
         strengthScale * 22         // 战力贡献（后期加速）
       );
