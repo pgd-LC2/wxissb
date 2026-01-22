@@ -2889,7 +2889,8 @@
       // fire trails
       for (let i = 0; i < g.fireTrails.length; i++) {
         const ft = g.fireTrails[i];
-        const life = clamp((ft.die - t) / 1.5, 0, 1);
+        const duration = ft.die - ft.born;
+        const life = clamp((ft.die - t) / duration, 0, 1);
         ctx.beginPath();
         ctx.arc(sx(ft.x), sy(ft.y), ft.r * (0.5 + 0.5*life), 0, TAU);
         ctx.fillStyle = `rgba(255,149,0,${0.55*life})`;
