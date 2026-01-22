@@ -86,13 +86,20 @@ Deno.serve(async (req: Request) => {
       ? (rawData || [])
       : (rawData || []).filter((r: LeaderboardRecord) => !r.last);
 
-    // Deduplicate by player_name, keeping highest score for each player
+    // Deduplicate by player_name, keeping highest value for the sort field
     const playerMap = new Map<string, LeaderboardRecord>();
     for (const record of filtered) {
       const playerName = record.player_name || "";
       const existing = playerMap.get(playerName);
-      if (!existing || record.score > existing.score) {
+      if (!existing) {
         playerMap.set(playerName, record);
+      } else {
+        // Compare by the sort field to keep the record with highest value
+        const existingValue = (existing[sortField as keyof LeaderboardRecord] as number) || 0;
+        const recordValue = (record[sortField as keyof LeaderboardRecord] as number) || 0;
+        if (recordValue > existingValue) {
+          playerMap.set(playerName, record);
+        }
       }
     }
 
