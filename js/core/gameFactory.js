@@ -2340,11 +2340,15 @@
 
         const tier = sk.tier || 1;
         let weight = 1;
-        if (tier === 1) weight = Math.max(2, 14 - Math.floor(g.level / 3));
-        else if (tier === 2) weight = Math.min(8, 3 + Math.floor(g.level / 4));
-        else if (tier === 3) weight = Math.min(5, 1 + Math.floor(g.level / 5));
-        else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
-        else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
+        if (window.SkillDropRates && window.SkillDropRates.calculateWeight) {
+          weight = window.SkillDropRates.calculateWeight(tier, g.level);
+        } else {
+          if (tier === 1) weight = Math.max(2, 14 - Math.floor(g.level / 3));
+          else if (tier === 2) weight = Math.min(8, 3 + Math.floor(g.level / 4));
+          else if (tier === 3) weight = Math.min(5, 1 + Math.floor(g.level / 5));
+          else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
+          else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
+        }
 
         weight = safeNonNeg(weight, 0);
         if (weight <= 0) continue;
