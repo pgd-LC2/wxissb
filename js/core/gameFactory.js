@@ -560,7 +560,7 @@
       );
       
       // ========================================
-      // 智能生成速率调节 - 接近目标时平滑减速
+      // 智能生成速率调节 - 接近目标时平滑减速，达到目标时停止
       // ========================================
       const currentCount = g.enemies.length;
       const densityRatio = currentCount / Math.max(1, d.targetEnemies);
@@ -570,12 +570,15 @@
         const deficit = (d.minEnemies - currentCount) / d.minEnemies;
         rate *= 1.5 + deficit * 1.5;  // 最多 3x 加速
       }
+      // 当达到或超过目标数量时，完全停止生成
+      else if (currentCount >= d.targetEnemies) {
+        rate = 0;
+      }
       // 当接近目标数量时，开始减速（使用平滑曲线）
       else if (densityRatio > 0.8) {
         // 使用平滑的减速曲线，越接近目标减速越明显
-        // 但不会完全停止，始终保持最低 15% 的生成速率
-        const slowFactor = 1.0 - Math.pow((densityRatio - 0.8) / 0.5, 0.8) * 0.85;
-        rate *= clamp(slowFactor, 0.15, 1.0);
+        const slowFactor = 1.0 - Math.pow((densityRatio - 0.8) / 0.2, 0.8) * 0.85;
+        rate *= clamp(slowFactor, 0.1, 1.0);
       }
 
       d.spawnRate = rate;
