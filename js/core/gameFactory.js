@@ -512,51 +512,46 @@
 
       // ========================================
       // 动态怪物数量系统
-      // 基于玩家战力动态调整最小怪物数量和目标数量
+      // 基于玩家等级动态调整最小怪物数量和目标数量
       // ========================================
       
       // 时间因子：使用幂函数让前期增长慢，后期增长快
       // timeProg: 0~1 (4分钟内)，使用 pow(x, 0.6) 让前期更平缓
       const spawnTimeScale = Math.pow(timeProg, 0.6);
       
-      // 等级因子：使用平方根减缓等级带来的增长
-      const levelScale = Math.sqrt(Math.max(1, g.level));
-      
-      // 战力因子：使用幂函数让高战力时怪物更多
-      const strengthScale = Math.pow(strength, 1.3);
+      // 等级因子：直接使用等级，线性增长
+      const level = g.level;
       
       // ========================================
-      // 动态最小怪物数量 - 基于玩家战力
+      // 动态最小怪物数量 - 基于玩家等级
       // ========================================
       // 最小怪物数量：保证场上始终有一定数量的怪物
-      // 前期: 4, 后期随战力提升: 最高 20
-      d.minEnemies = Math.round(4 + strengthScale * 6 + spawnTimeScale * 5);
-      d.minEnemies = clamp(d.minEnemies, 4, 20);
+      // 等级1: 4, 每升2级增加1，最高 15
+      d.minEnemies = Math.round(4 + (level - 1) * 0.5);
+      d.minEnemies = clamp(d.minEnemies, 4, 15);
       
-      // 目标怪物数量公式：
-      // 前期(timeProg=0, strength=0, level=1): ~6
-      // 中期(timeProg=0.5, strength=0.6, level=10): ~22
-      // 后期(timeProg=1.0, strength=1.5, level=25): ~55+
-      // 无上限，随战力无限增长
+      // 目标怪物数量公式（基于等级）：
+      // 等级1: 6
+      // 等级10: 6 + 13.5 + 5 ≈ 24
+      // 等级25: 6 + 36 + 10 ≈ 52
+      // 无上限，随等级增长
       const baseEnemies = 6;
       let targetRaw = Math.round(
         baseEnemies +
-        spawnTimeScale * 18 +      // 时间贡献最多 18
-        levelScale * 2.5 +         // 等级贡献（平方根增长）
-        strengthScale * 22         // 战力贡献（后期加速）
+        (level - 1) * 1.5 +        // 等级贡献（线性增长）
+        spawnTimeScale * 10        // 时间贡献最多 10
       );
       // 确保目标不低于最小值（无最大值限制）
       d.targetEnemies = Math.max(targetRaw, d.minEnemies);
 
-      // 生成速率公式：同样使用非线性增长
-      // 前期: ~0.8/秒，后期: ~7/秒
+      // 生成速率公式（基于等级）：
+      // 等级1: ~0.8/秒，等级25: ~4/秒
       const baseRate = 0.8;
       const rateTimeScale = Math.pow(timeProg, 0.5);
-      const rateStrengthScale = Math.pow(strength, 0.9);
       let rate = clamp(
-        baseRate + rateTimeScale * 2.5 + rateStrengthScale * 3.5 + levelScale * 0.15,
+        baseRate + rateTimeScale * 1.5 + (level - 1) * 0.12,
         0.6,
-        10.0
+        6.0
       );
       
       // ========================================
