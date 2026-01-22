@@ -154,7 +154,7 @@
       ghostCount: 0,
       ghostSlow: false,
       fireTrailEnabled: false,
-      fireTrailDamage: 8,
+      fireTrailDamage: 15,
       fireTrailSlow: false,
       meteorEnabled: false,
       meteorInterval: 10.0,
@@ -774,6 +774,34 @@
         if (d2 < bestD2) { bestD2 = d2; best = e; }
       }
       return best;
+    };
+
+    g.findEnemyCluster = (searchRadius = 300) => {
+      const aliveEnemies = g.enemies.filter(e => !e._dead && !e._killQueued);
+      if (aliveEnemies.length === 0) return null;
+      if (aliveEnemies.length === 1) return { x: aliveEnemies[0].x, y: aliveEnemies[0].y };
+
+      let bestPos = null;
+      let bestCount = 0;
+
+      for (let i = 0; i < aliveEnemies.length; i++) {
+        const center = aliveEnemies[i];
+        let count = 0;
+        for (let j = 0; j < aliveEnemies.length; j++) {
+          const e = aliveEnemies[j];
+          const dx = e.x - center.x;
+          const dy = e.y - center.y;
+          if (dx * dx + dy * dy < searchRadius * searchRadius) {
+            count++;
+          }
+        }
+        if (count > bestCount) {
+          bestCount = count;
+          bestPos = { x: center.x, y: center.y };
+        }
+      }
+
+      return bestPos;
     };
 
     g.isEnemyInFiringDirection = (enemy) => {
@@ -1630,12 +1658,15 @@
         g.currentExp = safeNonNeg((g.currentExp || 0) - (g.maxExp || 0), 0);
 
         // 经验曲线：前期更平滑更快，后期回归原版 1.2
+        // 经验值上限：达到 500 后不再递增
+        const MAX_EXP_CAP = 500;
         const nextLevel = g.level + 1;
         let mult = 1.20;
         if (nextLevel <= 6) mult = 1.12;
         else if (nextLevel <= 12) mult = 1.16;
 
-        g.maxExp = safeNonNeg((g.maxExp || 0) * mult, 1);
+        const newMaxExp = safeNonNeg((g.maxExp || 0) * mult, 1);
+        g.maxExp = Math.min(newMaxExp, MAX_EXP_CAP);
         g.level = nextLevel;
 
         // 爽感反馈：闪屏 + 抖动 + 短暂停顿 + 金色爆裂
@@ -1744,12 +1775,19 @@
     };
 
     g.createFireTrail = (pos, t) => {
-      g.fireTrails.push({ id: nextId(), x: pos.x, y: pos.y, r: 15, born: t, die: t + 1.5, lastTick: t });
+      g.fireTrails.push({ id: nextId(), x: pos.x, y: pos.y, r: 15, born: t, die: t + 3.0, lastTick: t });
     };
 
     g.summonMeteor = (t) => {
-      const x = g.player.x + rand(-200, 200);
-      const y = g.player.y + rand(-200, 200);
+      const cluster = g.findEnemyCluster(300);
+      let x, y;
+      if (cluster) {
+        x = cluster.x + rand(-50, 50);
+        y = cluster.y + rand(-50, 50);
+      } else {
+        x = g.player.x + rand(-200, 200);
+        y = g.player.y + rand(-200, 200);
+      }
       g.warnings.push({ id: nextId(), x, y, born: t });
     };
 
@@ -2302,11 +2340,15 @@
 
         const tier = sk.tier || 1;
         let weight = 1;
-        if (tier === 1) weight = Math.max(2, 14 - Math.floor(g.level / 3));
-        else if (tier === 2) weight = Math.min(8, 3 + Math.floor(g.level / 4));
-        else if (tier === 3) weight = Math.min(5, 1 + Math.floor(g.level / 5));
-        else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
-        else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
+        if (window.SkillDropRates && window.SkillDropRates.calculateWeight) {
+          weight = window.SkillDropRates.calculateWeight(tier, g.level);
+        } else {
+          if (tier === 1) weight = Math.max(2, 14 - Math.floor(g.level / 3));
+          else if (tier === 2) weight = Math.min(8, 3 + Math.floor(g.level / 4));
+          else if (tier === 3) weight = Math.min(5, 1 + Math.floor(g.level / 5));
+          else if (tier === 4) weight = Math.min(3, Math.floor(g.level / 7));
+          else if (tier === 5) weight = Math.min(1, Math.floor(g.level / 10));
+        }
 
         weight = safeNonNeg(weight, 0);
         if (weight <= 0) continue;
@@ -2524,7 +2566,9 @@
 
       // 6. black hole
       if (g.blackHoleAbility && (t - g.lastBlackHoleTime) > 15.0) {
-        g.createBlackHole({x:g.player.x, y:g.player.y}, t, false);
+        const cluster = g.findEnemyCluster(300);
+        const pos = cluster || { x: g.player.x, y: g.player.y };
+        g.createBlackHole(pos, t, false);
         g.lastBlackHoleTime = t;
       }
 
@@ -2849,7 +2893,8 @@
       // fire trails
       for (let i = 0; i < g.fireTrails.length; i++) {
         const ft = g.fireTrails[i];
-        const life = clamp((ft.die - t) / 1.5, 0, 1);
+        const duration = ft.die - ft.born;
+        const life = clamp((ft.die - t) / duration, 0, 1);
         ctx.beginPath();
         ctx.arc(sx(ft.x), sy(ft.y), ft.r * (0.5 + 0.5*life), 0, TAU);
         ctx.fillStyle = `rgba(255,149,0,${0.55*life})`;
