@@ -13,16 +13,47 @@
 
 存储全球排行榜数据
 
-| 字段          | 类型      | 说明                     |
-| ------------- | --------- | ------------------------ |
-| id            | UUID      | 主键，自动生成           |
-| player_name   | TEXT      | 玩家名称                 |
-| score         | INTEGER   | 战力评分                 |
-| level         | INTEGER   | 到达等级                 |
-| kills         | INTEGER   | 击杀数量                 |
-| survival_time | INTEGER   | 存活时间（秒）           |
-| tier          | TEXT      | 段位（SSS/SS/S/A/B/C/D） |
-| created_at    | TIMESTAMP | 创建时间                 |
+| 字段          | 类型      | 说明                           |
+| ------------- | --------- | ------------------------------ |
+| id            | UUID      | 主键，自动生成                 |
+| player_name   | TEXT      | 玩家名称                       |
+| score         | INTEGER   | 战力评分                       |
+| level         | INTEGER   | 到达等级                       |
+| kills         | INTEGER   | 击杀数量                       |
+| survival_time | INTEGER   | 存活时间（秒）                 |
+| tier          | TEXT      | 段位（SSS/SS/S/A/B/C/D）       |
+| created_at    | TIMESTAMP | 创建时间                       |
+| last          | BOOLEAN   | 是否为旧版本数据（默认 false） |
+
+## Edge Functions
+
+### get-leaderboard
+
+获取排行榜数据的 Edge Function，支持多种排序方式和版本过滤。
+
+**端点**: `https://dhlvrnpjcggtxtarpdhf.supabase.co/functions/v1/get-leaderboard`
+
+**参数**:
+| 参数         | 类型    | 默认值  | 说明                                       |
+| ------------ | ------- | ------- | ------------------------------------------ |
+| sort_by      | string  | "score" | 排序字段：score/level/survival_time/kills  |
+| include_last | boolean | false   | 是否包含旧版本数据（last=true 的记录）     |
+| limit        | number  | 50      | 返回数量限制（最大 100）                   |
+| offset       | number  | 0       | 分页偏移                                   |
+
+**返回格式**:
+```json
+{
+  "data": [...],   // 排行榜记录数组
+  "total": 30,     // 去重后的总记录数
+  "error": null    // 错误信息（如有）
+}
+```
+
+**特性**:
+- 服务端去重：每个玩家只保留最高分记录
+- 支持 CORS：允许浏览器直接调用
+- 无需 JWT 验证：使用 apikey 即可访问
 
 ## 开发说明
 
