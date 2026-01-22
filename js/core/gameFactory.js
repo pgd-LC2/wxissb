@@ -463,7 +463,8 @@
       dmgMul: 1.0,         // used as enemy contact damage scaling
       speedMul: 1.0,       // NEW: enemy speed scaling
       targetEnemies: 15,   // increased from 12
-      // maxEnemies removed - no limit on enemy count
+      // 动态怪物最小数量 - 基于玩家战力动态调整
+      minEnemies: 4,       // 最小怪物数量
       eliteChance: 0.06,   // increased from 0.04
       progress: 0.0,
     };
@@ -510,8 +511,8 @@
       d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
       // ========================================
-      // 动态怪物生成公式 - 平衡前期和后期
-      // 使用非线性函数实现平滑的难度曲线
+      // 动态怪物数量系统
+      // 基于玩家战力动态调整最小怪物数量和目标数量
       // ========================================
       
       // 时间因子：使用幂函数让前期增长慢，后期增长快
@@ -524,17 +525,28 @@
       // 战力因子：使用幂函数让高战力时怪物更多
       const strengthScale = Math.pow(strength, 1.3);
       
+      // ========================================
+      // 动态最小怪物数量 - 基于玩家战力
+      // ========================================
+      // 最小怪物数量：保证场上始终有一定数量的怪物
+      // 前期: 4, 后期随战力提升: 最高 20
+      d.minEnemies = Math.round(4 + strengthScale * 6 + spawnTimeScale * 5);
+      d.minEnemies = clamp(d.minEnemies, 4, 20);
+      
       // 目标怪物数量公式：
       // 前期(timeProg=0, strength=0, level=1): ~6
       // 中期(timeProg=0.5, strength=0.6, level=10): ~22
       // 后期(timeProg=1.0, strength=1.5, level=25): ~55+
+      // 无上限，随战力无限增长
       const baseEnemies = 6;
-      d.targetEnemies = Math.round(
+      let targetRaw = Math.round(
         baseEnemies +
         spawnTimeScale * 18 +      // 时间贡献最多 18
         levelScale * 2.5 +         // 等级贡献（平方根增长）
         strengthScale * 22         // 战力贡献（后期加速）
       );
+      // 确保目标不低于最小值（无最大值限制）
+      d.targetEnemies = Math.max(targetRaw, d.minEnemies);
 
       // 生成速率公式：同样使用非线性增长
       // 前期: ~0.8/秒，后期: ~7/秒
@@ -547,14 +559,23 @@
         10.0
       );
       
-      // 密度反馈：根据当前怪物数量动态调整生成速率
-      const densityRatio = g.enemies.length / Math.max(1, d.targetEnemies);
-      if (densityRatio < 0.7) {
-        // 怪物太少，加速生成（使用平滑的乘数）
-        rate *= 1.0 + (0.7 - densityRatio) * 0.8;
-      } else if (densityRatio > 1.15) {
-        // 怪物太多，减速生成（使用平滑的乘数）
-        rate *= Math.max(0.15, 1.0 - (densityRatio - 1.15) * 0.6);
+      // ========================================
+      // 智能生成速率调节 - 接近目标时平滑减速
+      // ========================================
+      const currentCount = g.enemies.length;
+      const densityRatio = currentCount / Math.max(1, d.targetEnemies);
+      
+      // 当怪物数量低于最小值时，大幅加速生成
+      if (currentCount < d.minEnemies) {
+        const deficit = (d.minEnemies - currentCount) / d.minEnemies;
+        rate *= 1.5 + deficit * 1.5;  // 最多 3x 加速
+      }
+      // 当接近目标数量时，开始减速（使用平滑曲线）
+      else if (densityRatio > 0.8) {
+        // 使用平滑的减速曲线，越接近目标减速越明显
+        // 但不会完全停止，始终保持最低 15% 的生成速率
+        const slowFactor = 1.0 - Math.pow((densityRatio - 0.8) / 0.5, 0.8) * 0.85;
+        rate *= clamp(slowFactor, 0.15, 1.0);
       }
 
       d.spawnRate = rate;
@@ -567,7 +588,7 @@
 
       let spawned = 0;
       const maxLoop = 10;
-      // No maxEnemies limit - spawn as long as budget allows
+      // 无最大值限制，只要有预算就生成
       while (d.spawnBudget >= 1 && spawned < maxLoop) {
         g.spawnEnemy(t);
         d.spawnBudget -= 1;
