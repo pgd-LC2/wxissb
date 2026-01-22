@@ -234,32 +234,36 @@
       font-weight: 600;
     }
 
-    .sort-buttons {
+    .sort-tabs {
       display: flex;
-      gap: 6px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 8px;
+      overflow: hidden;
     }
 
-    .sort-btn {
-      background: rgba(255,255,255,0.08);
-      border: 1px solid rgba(255,255,255,0.15);
+    .sort-tab {
+      background: transparent;
+      border: none;
       color: var(--sub);
-      padding: 8px 14px;
-      border-radius: 8px;
+      padding: 10px 18px;
       font-size: 13px;
       cursor: pointer;
       transition: 0.2s ease;
-      font-weight: 600;
+      font-weight: 500;
+      position: relative;
+      border-left: 3px solid transparent;
     }
 
-    .sort-btn:hover {
-      border-color: var(--accent);
+    .sort-tab:hover {
       color: var(--text);
+      background: rgba(255,255,255,0.04);
     }
 
-    .sort-btn.active {
-      background: var(--accent);
-      border-color: var(--accent);
-      color: #fff;
+    .sort-tab.active {
+      color: var(--accent);
+      background: rgba(255,255,255,0.08);
+      border-left-color: var(--accent);
+      font-weight: 600;
     }
 
     .filter-toggle {
@@ -349,11 +353,11 @@
       <div class="filters">
         <div class="filter-group">
           <span class="filter-label">排序方式</span>
-          <div class="sort-buttons" id="sortButtons">
-            <button class="sort-btn active" data-sort="score">战力</button>
-            <button class="sort-btn" data-sort="level">等级</button>
-            <button class="sort-btn" data-sort="survival_time">存活时间</button>
-            <button class="sort-btn" data-sort="kills">击杀数</button>
+          <div class="sort-tabs" id="sortButtons">
+            <button class="sort-tab active" data-sort="score">战力</button>
+            <button class="sort-tab" data-sort="level">等级</button>
+            <button class="sort-tab" data-sort="survival_time">存活时间</button>
+            <button class="sort-tab" data-sort="kills">击杀数</button>
           </div>
         </div>
         <label class="filter-toggle">
@@ -578,12 +582,12 @@
 
     if (sortButtons) {
       sortButtons.addEventListener('click', (e) => {
-        const btn = e.target.closest('.sort-btn');
+        const btn = e.target.closest('.sort-tab');
         if (!btn) return;
         const sortValue = btn.dataset.sort;
         if (sortValue === currentSortBy) return;
         
-        sortButtons.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        sortButtons.querySelectorAll('.sort-tab').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         currentSortBy = sortValue;
         
