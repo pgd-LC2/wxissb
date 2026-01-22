@@ -234,25 +234,32 @@
       font-weight: 600;
     }
 
-    .filter-select {
+    .sort-buttons {
+      display: flex;
+      gap: 6px;
+    }
+
+    .sort-btn {
       background: rgba(255,255,255,0.08);
       border: 1px solid rgba(255,255,255,0.15);
-      color: var(--text);
-      padding: 8px 12px;
+      color: var(--sub);
+      padding: 8px 14px;
       border-radius: 8px;
       font-size: 13px;
       cursor: pointer;
       transition: 0.2s ease;
+      font-weight: 600;
     }
 
-    .filter-select:hover {
+    .sort-btn:hover {
       border-color: var(--accent);
+      color: var(--text);
     }
 
-    .filter-select:focus {
-      outline: none;
+    .sort-btn.active {
+      background: var(--accent);
       border-color: var(--accent);
-      box-shadow: 0 0 8px rgba(255,70,85,0.3);
+      color: #fff;
     }
 
     .filter-toggle {
@@ -342,12 +349,12 @@
       <div class="filters">
         <div class="filter-group">
           <span class="filter-label">排序方式</span>
-          <select class="filter-select" id="sortSelect">
-            <option value="score">战力</option>
-            <option value="level">等级</option>
-            <option value="survival_time">存活时间</option>
-            <option value="kills">击杀数</option>
-          </select>
+          <div class="sort-buttons" id="sortButtons">
+            <button class="sort-btn active" data-sort="score">战力</button>
+            <button class="sort-btn" data-sort="level">等级</button>
+            <button class="sort-btn" data-sort="survival_time">存活时间</button>
+            <button class="sort-btn" data-sort="kills">击杀数</button>
+          </div>
         </div>
         <label class="filter-toggle">
           <input type="checkbox" id="showOldToggle">
@@ -414,7 +421,7 @@
     const podium2 = document.getElementById('podium2');
     const podium3 = document.getElementById('podium3');
     const loadMoreBtn = document.getElementById('loadMoreBtn');
-    const sortSelect = document.getElementById('sortSelect');
+    const sortButtons = document.getElementById('sortButtons');
     const showOldToggle = document.getElementById('showOldToggle');
 
     const pageSize = 50;
@@ -569,9 +576,17 @@
       loadLeaderboardPage(true);
     });
 
-    if (sortSelect) {
-      sortSelect.addEventListener('change', (e) => {
-        currentSortBy = e.target.value;
+    if (sortButtons) {
+      sortButtons.addEventListener('click', (e) => {
+        const btn = e.target.closest('.sort-btn');
+        if (!btn) return;
+        const sortValue = btn.dataset.sort;
+        if (sortValue === currentSortBy) return;
+        
+        sortButtons.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentSortBy = sortValue;
+        
         if (loadMoreBtn) {
           loadMoreBtn.textContent = "加载更多";
           loadMoreBtn.disabled = false;
