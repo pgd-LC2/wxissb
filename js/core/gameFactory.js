@@ -512,50 +512,45 @@
 
       // ========================================
       // 动态怪物数量系统
-      // 基于玩家等级动态调整最小怪物数量和目标数量
+      // 基于玩家等级（对数增长）+ 战力（小权重）
       // ========================================
       
-      // 时间因子：使用幂函数让前期增长慢，后期增长快
-      // timeProg: 0~1 (4分钟内)，使用 pow(x, 0.6) 让前期更平缓
-      const spawnTimeScale = Math.pow(timeProg, 0.6);
-      
-      // 等级因子：直接使用等级，线性增长
+      // 等级因子
       const level = g.level;
       
       // ========================================
-      // 动态最小怪物数量 - 基于玩家等级
+      // 动态最小怪物数量 - 基于玩家等级（对数增长）
       // ========================================
       // 最小怪物数量：保证场上始终有一定数量的怪物
-      // 等级1: 4, 每升2级增加1，最高 15
-      d.minEnemies = Math.round(4 + (level - 1) * 0.5);
-      d.minEnemies = clamp(d.minEnemies, 4, 15);
+      // 等级1: 4, 等级10: 12, 等级25: 15
+      // 使用对数增长：minEnemies = 4 + 8 * log10(level)
+      d.minEnemies = Math.round(4 + 8 * Math.log10(Math.max(1, level)));
+      d.minEnemies = clamp(d.minEnemies, 4, 20);
       
-      // 目标怪物数量公式（基于等级）：
+      // 目标怪物数量公式（对数增长）：
       // 等级1: 6
-      // 等级10: 6 + 13.5 + 5 ≈ 24
-      // 等级25: 6 + 36 + 10 ≈ 52
-      // 无上限，随等级增长
+      // 等级10: 6 + 44 * log10(10) + 战力 ≈ 50
+      // 等级25: 6 + 44 * log10(25) + 战力 ≈ 67
+      // 等级100: 6 + 44 * 2 + 战力 ≈ 94
       const baseEnemies = 6;
-      let targetRaw = Math.round(
-        baseEnemies +
-        (level - 1) * 1.5 +        // 等级贡献（线性增长）
-        spawnTimeScale * 10        // 时间贡献最多 10
-      );
+      const levelContrib = 44 * Math.log10(Math.max(1, level));  // 对数增长
+      const strengthContrib = strength * 3;  // 战力小权重（最多贡献约5.4）
+      let targetRaw = Math.round(baseEnemies + levelContrib + strengthContrib);
       // 确保目标不低于最小值（无最大值限制）
       d.targetEnemies = Math.max(targetRaw, d.minEnemies);
 
-      // 生成速率公式（基于等级）：
-      // 等级1: ~0.8/秒，等级25: ~4/秒
-      const baseRate = 0.8;
+      // 生成速率公式（基于等级 + 战力小权重）：
+      // 等级1: ~1.0/秒，等级25: ~5/秒
+      const baseRate = 1.0;
       const rateTimeScale = Math.pow(timeProg, 0.5);
       let rate = clamp(
-        baseRate + rateTimeScale * 1.5 + (level - 1) * 0.12,
-        0.6,
-        6.0
+        baseRate + rateTimeScale * 1.5 + (level - 1) * 0.15 + strength * 0.5,
+        0.8,
+        8.0
       );
       
       // ========================================
-      // 智能生成速率调节 - 接近目标时平滑减速，达到目标时停止
+      // 智能生成速率调节 - 接近目标时平滑减速，达到目标时变很慢（但不停止）
       // ========================================
       const currentCount = g.enemies.length;
       const densityRatio = currentCount / Math.max(1, d.targetEnemies);
@@ -565,9 +560,9 @@
         const deficit = (d.minEnemies - currentCount) / d.minEnemies;
         rate *= 1.5 + deficit * 1.5;  // 最多 3x 加速
       }
-      // 当达到或超过目标数量时，完全停止生成
+      // 当达到或超过目标数量时，变得很慢（但不完全停止）
       else if (currentCount >= d.targetEnemies) {
-        rate = 0;
+        rate *= 0.08;  // 保持 8% 的速率，非常慢但不停止
       }
       // 当接近目标数量时，开始减速（使用平滑曲线）
       else if (densityRatio > 0.8) {
