@@ -515,6 +515,197 @@
   display: none !important;
 }
 
+/* 队友选择技能提示覆盖层 */
+.teammate-selecting-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 100;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.teammate-selecting-container {
+  text-align: center;
+  padding: 40px;
+  background: rgba(30, 30, 30, 0.95);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  max-width: 400px;
+}
+
+.teammate-selecting-icon {
+  margin-bottom: 24px;
+}
+
+.teammate-selecting-icon .loading-spinner {
+  width: 60px;
+  height: 60px;
+  margin: 0 auto;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #4aa3ff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.teammate-selecting-container h2 {
+  margin: 0 0 12px 0;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.teammate-selecting-container p {
+  margin: 0;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 技能选择覆盖层 */
+.skill-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.skill-container {
+  text-align: center;
+  padding: 32px;
+  max-width: 600px;
+  width: 90%;
+}
+
+.skill-container h2 {
+  margin: 0 0 24px 0;
+  font-size: 28px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(255, 214, 10, 0.5);
+}
+
+.skill-choices {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.skill-card {
+  width: 160px;
+  padding: 20px 16px;
+  background: rgba(40, 40, 40, 0.95);
+  border-radius: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.skill-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.skill-card.tier1 { border-color: rgba(180, 180, 180, 0.4); }
+.skill-card.tier2 { border-color: rgba(74, 222, 128, 0.4); }
+.skill-card.tier3 { border-color: rgba(74, 163, 255, 0.4); }
+.skill-card.tier4 { border-color: rgba(168, 85, 247, 0.4); }
+.skill-card.tier5 { border-color: rgba(255, 214, 10, 0.4); }
+
+.skill-card.tier1:hover { border-color: rgba(180, 180, 180, 0.8); box-shadow: 0 0 20px rgba(180, 180, 180, 0.2); }
+.skill-card.tier2:hover { border-color: rgba(74, 222, 128, 0.8); box-shadow: 0 0 20px rgba(74, 222, 128, 0.2); }
+.skill-card.tier3:hover { border-color: rgba(74, 163, 255, 0.8); box-shadow: 0 0 20px rgba(74, 163, 255, 0.2); }
+.skill-card.tier4:hover { border-color: rgba(168, 85, 247, 0.8); box-shadow: 0 0 20px rgba(168, 85, 247, 0.2); }
+.skill-card.tier5:hover { border-color: rgba(255, 214, 10, 0.8); box-shadow: 0 0 20px rgba(255, 214, 10, 0.2); }
+
+.skill-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.skill-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 8px;
+}
+
+.skill-desc {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+/* 游戏结束覆盖层 */
+.gameover-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 100;
+}
+
+.gameover-container {
+  text-align: center;
+  padding: 40px;
+  background: rgba(30, 30, 30, 0.95);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  max-width: 500px;
+  width: 90%;
+}
+
+.gameover-container h1 {
+  margin: 0 0 24px 0;
+  font-size: 36px;
+  font-weight: 900;
+  color: #ff4655;
+}
+
+.stats-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 24px;
+}
+
+.player-stats {
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  min-width: 120px;
+}
+
+.player-stats h3 {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+
+.player-stats p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
 /* 响应式调整 */
 @media (max-width: 480px) {
   .lobby-container,
@@ -533,5 +724,15 @@
 
   .waiting-actions {
     flex-direction: column;
+  }
+
+  .skill-choices {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .skill-card {
+    width: 100%;
+    max-width: 200px;
   }
 }

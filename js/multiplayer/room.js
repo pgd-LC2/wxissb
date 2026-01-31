@@ -140,6 +140,9 @@
         .on('broadcast', { event: 'skill_pick' }, (payload) => {
           if (this.onMessage) this.onMessage('skill_pick', payload.payload);
         })
+        .on('broadcast', { event: 'skill_selecting' }, (payload) => {
+          if (this.onMessage) this.onMessage('skill_selecting', payload.payload);
+        })
         .on('broadcast', { event: 'game_start' }, (payload) => {
           if (this.onGameStart) this.onGameStart(payload.payload);
         })
@@ -279,13 +282,27 @@
     }
 
     /**
+     * 发送技能选择状态 (开始/结束选择)
+     * @param {boolean} isSelecting - 是否正在选择技能
+     * @param {string} playerName - 玩家名称
+     */
+    async sendSkillSelecting(isSelecting, playerName) {
+      await this.broadcast('skill_selecting', {
+        type: 'skill_selecting',
+        playerId: this.playerId,
+        playerName: playerName,
+        isSelecting: isSelecting
+      });
+    }
+
+    /**
      * 发送游戏开始信号 (Host only)
      */
     async startGame() {
       if (!this.isHost) return;
       
       const players = Array.from(this.players.values());
-      await this.broadcast('game_start', {
+      const payload = {
         type: 'game_start',
         players: players.map(p => ({
           id: p.id,
@@ -294,7 +311,14 @@
         })),
         hostId: this.playerId,
         startTime: Date.now()
-      });
+      };
+      
+      await this.broadcast('game_start', payload);
+      
+      // Supabase broadcast 不会回传给发送者，所以 Host 需要手动触发自己的回调
+      if (this.onGameStart) {
+        this.onGameStart(payload);
+      }
     }
 
     /**

@@ -421,6 +421,11 @@
       const tick = GameApp.MultiplayerTick;
       tick.init(this.game, rm);
 
+      // 设置技能选择状态变化回调
+      tick.onSkillSelectingChange = (playerId, playerName) => {
+        this.handleTeammateSkillSelecting(playerId, playerName);
+      };
+
       // 设置输入
       this.setupInput();
 
@@ -584,12 +589,15 @@
     /**
      * 显示技能选择界面
      */
-    showSkillSelection(playerId) {
+    async showSkillSelection(playerId) {
       const player = this.game.players[playerId];
       if (!player || !player.skillChoices) return;
 
-      // 暂停游戏
-      this.game.isPausedGame = true;
+      // 广播开始选择技能状态
+      const tick = GameApp.MultiplayerTick;
+      if (tick) {
+        await tick.sendSkillSelecting(true);
+      }
 
       // 创建技能选择 UI
       const overlay = document.createElement('div');
@@ -628,19 +636,42 @@
       const player = this.game.players[playerId];
       if (!player) return;
 
-      // 发送技能选择
+      // 发送技能选择 (sendSkillPick 内部已处理 Host 的本地执行)
       const tick = GameApp.MultiplayerTick;
       if (tick) {
         await tick.sendSkillPick(player.level, skillIndex);
+        // 广播结束选择技能状态
+        await tick.sendSkillSelecting(false);
+      }
+    }
+
+    /**
+     * 处理队友正在选择技能
+     */
+    handleTeammateSkillSelecting(playerId, playerName) {
+      // 移除已有的队友选择技能提示
+      const existingOverlay = document.querySelector('.teammate-selecting-overlay');
+      if (existingOverlay) {
+        existingOverlay.remove();
       }
 
-      // 如果是 Host，直接执行
-      if (this.game.isHost) {
-        this.game.selectSkillForPlayer(playerId, skillIndex);
-      }
+      // 如果没有玩家在选择，不显示提示
+      if (!playerId) return;
 
-      // 恢复游戏
-      this.game.isPausedGame = false;
+      // 创建队友选择技能提示 UI
+      const overlay = document.createElement('div');
+      overlay.className = 'teammate-selecting-overlay';
+      overlay.innerHTML = `
+        <div class="teammate-selecting-container">
+          <div class="teammate-selecting-icon">
+            <div class="loading-spinner"></div>
+          </div>
+          <h2>${this.escapeHtml(playerName)} 正在选择技能...</h2>
+          <p>游戏已暂停，请等待队友完成选择</p>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
     }
 
     /**

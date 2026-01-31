@@ -29,6 +29,11 @@
       
       // 本地输入
       this.localInput = { dx: 0, dy: 0 };
+      
+      // 技能选择暂停状态
+      this.skillSelectingPlayerId = null;
+      this.skillSelectingPlayerName = null;
+      this.onSkillSelectingChange = null; // 回调：通知 UI 显示/隐藏队友选择技能提示
     }
 
     /**
@@ -203,6 +208,9 @@
         case 'skill_pick':
           this.handleSkillPickMessage(payload);
           break;
+        case 'skill_selecting':
+          this.handleSkillSelectingMessage(payload);
+          break;
         case 'event':
           this.handleEventMessage(payload);
           break;
@@ -249,6 +257,39 @@
     }
 
     /**
+     * 处理技能选择状态消息
+     */
+    handleSkillSelectingMessage(payload) {
+      const { playerId, playerName, isSelecting } = payload;
+      
+      // 忽略自己的消息
+      if (playerId === this.roomManager.playerId) return;
+      
+      if (isSelecting) {
+        // 队友开始选择技能
+        this.skillSelectingPlayerId = playerId;
+        this.skillSelectingPlayerName = playerName;
+        // 暂停游戏
+        if (this.game) {
+          this.game.isPausedGame = true;
+        }
+      } else {
+        // 队友完成选择技能
+        this.skillSelectingPlayerId = null;
+        this.skillSelectingPlayerName = null;
+        // 恢复游戏 (只有当本地玩家也不在选择技能时才恢复)
+        if (this.game && !this.game.localPlayerSelecting) {
+          this.game.isPausedGame = false;
+        }
+      }
+      
+      // 通知 UI 更新
+      if (this.onSkillSelectingChange) {
+        this.onSkillSelectingChange(this.skillSelectingPlayerId, this.skillSelectingPlayerName);
+      }
+    }
+
+    /**
      * 发送技能选择
      */
     async sendSkillPick(level, pickIndex) {
@@ -259,6 +300,23 @@
       // 如果是 Host，直接执行
       if (this.game.isHost) {
         this.game.selectSkillForPlayer(this.roomManager.playerId, pickIndex);
+      }
+    }
+
+    /**
+     * 发送技能选择状态
+     * @param {boolean} isSelecting - 是否正在选择技能
+     */
+    async sendSkillSelecting(isSelecting) {
+      if (!this.roomManager) return;
+      
+      const playerName = this.roomManager.playerName;
+      await this.roomManager.sendSkillSelecting(isSelecting, playerName);
+      
+      // 本地也要暂停游戏
+      if (this.game) {
+        this.game.isPausedGame = isSelecting;
+        this.game.localPlayerSelecting = isSelecting;
       }
     }
   }
