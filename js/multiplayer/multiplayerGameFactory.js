@@ -981,8 +981,8 @@
           const dy = p.y - orb.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
           
-          // 磁吸效果
-          if (dist < p.pickupRange || p.expMagnetAll) {
+          // 磁吸效果 (dist > 0 防止除零导致 NaN)
+          if ((dist < p.pickupRange || p.expMagnetAll) && dist > 0) {
             const speed = 300;
             orb.x += (dx / dist) * speed * dt;
             orb.y += (dy / dist) * speed * dt;

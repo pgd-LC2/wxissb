@@ -285,7 +285,7 @@
       if (!this.isHost) return;
       
       const players = Array.from(this.players.values());
-      await this.broadcast('game_start', {
+      const payload = {
         type: 'game_start',
         players: players.map(p => ({
           id: p.id,
@@ -294,7 +294,14 @@
         })),
         hostId: this.playerId,
         startTime: Date.now()
-      });
+      };
+      
+      await this.broadcast('game_start', payload);
+      
+      // Supabase broadcast 不会回传给发送者，所以 Host 需要手动触发自己的回调
+      if (this.onGameStart) {
+        this.onGameStart(payload);
+      }
     }
 
     /**

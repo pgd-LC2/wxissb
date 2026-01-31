@@ -628,15 +628,10 @@
       const player = this.game.players[playerId];
       if (!player) return;
 
-      // 发送技能选择
+      // 发送技能选择 (sendSkillPick 内部已处理 Host 的本地执行)
       const tick = GameApp.MultiplayerTick;
       if (tick) {
         await tick.sendSkillPick(player.level, skillIndex);
-      }
-
-      // 如果是 Host，直接执行
-      if (this.game.isHost) {
-        this.game.selectSkillForPlayer(playerId, skillIndex);
       }
 
       // 恢复游戏
