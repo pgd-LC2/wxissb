@@ -1030,13 +1030,13 @@
                     <span class="btn-decorator br"></span>
                     🎮 开始游戏
                 </button>
-                <button class="btn disabled" disabled>
+                <button class="btn" onclick="startMultiplayer()">
                     <span class="btn-scan"></span>
                     <span class="btn-decorator tl"></span>
                     <span class="btn-decorator tr"></span>
                     <span class="btn-decorator bl"></span>
                     <span class="btn-decorator br"></span>
-                    🤝 多人联机（敬请期待）
+                    🤝 多人联机
                 </button>
                 <button class="btn" onclick="showLeaderboard()">
                     <span class="btn-scan"></span>
@@ -1133,6 +1133,11 @@
         // 开始游戏
         function startGame() {
             navigateTo('pages/game.html?play=1');
+        }
+
+        // 开始多人联机
+        function startMultiplayer() {
+            navigateTo('pages/multiplayer.html');
         }
 
         // 显示排行榜（跳转到游戏内排行榜）

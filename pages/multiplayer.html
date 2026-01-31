@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>bigear - 双人联机</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <link rel="stylesheet" href="../css/multiplayer.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div id="root">
+    <!-- 房间大厅界面 -->
+    <div id="lobbyScreen">
+      <div class="lobby-container">
+        <div class="lobby-header">
+          <h1>双人联机</h1>
+          <p class="lobby-subtitle">与好友一起挑战</p>
+        </div>
+
+        <div class="lobby-content">
+          <!-- 创建房间 -->
+          <div class="lobby-section">
+            <h2>创建房间</h2>
+            <div class="input-group">
+              <input type="text" id="playerNameInput" placeholder="输入你的名字" maxlength="12" />
+            </div>
+            <button id="createRoomBtn" class="lobby-btn primary">创建房间</button>
+          </div>
+
+          <div class="lobby-divider">
+            <span>或</span>
+          </div>
+
+          <!-- 加入房间 -->
+          <div class="lobby-section">
+            <h2>加入房间</h2>
+            <div class="input-group">
+              <input type="text" id="roomCodeInput" placeholder="输入房间代码" maxlength="6" />
+            </div>
+            <button id="joinRoomBtn" class="lobby-btn secondary">加入房间</button>
+          </div>
+        </div>
+
+        <div class="lobby-footer">
+          <button id="backToMenuBtn" class="lobby-btn back">返回主页</button>
+        </div>
+
+        <div id="lobbyStatus" class="lobby-status"></div>
+      </div>
+    </div>
+
+    <!-- 等待房间界面 -->
+    <div id="waitingScreen" class="hidden">
+      <div class="waiting-container">
+        <div class="waiting-header">
+          <h1>房间</h1>
+          <div class="room-code-display">
+            <span>房间代码:</span>
+            <span id="roomCodeDisplay" class="code">------</span>
+            <button id="copyCodeBtn" class="copy-btn" title="复制房间代码">复制</button>
+          </div>
+        </div>
+
+        <div class="players-list">
+          <h2>玩家列表</h2>
+          <div id="playersList">
+            <!-- 玩家列表将动态生成 -->
+          </div>
+        </div>
+
+        <div class="waiting-info">
+          <p id="waitingText">等待另一位玩家加入...</p>
+          <div class="loading-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <div class="waiting-actions">
+          <button id="startGameBtn" class="lobby-btn primary" disabled>开始游戏</button>
+          <button id="leaveRoomBtn" class="lobby-btn secondary">离开房间</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 游戏界面 -->
+    <div id="gameScreen" class="hidden">
+      <canvas id="c"></canvas>
+      <div id="fpsCounter">FPS: --</div>
+
+      <!-- 双人 HUD -->
+      <div id="hud">
+        <div class="player-hud" id="player1Hud">
+          <div class="player-label">P1</div>
+          <div id="levelBadge1">Lv.1</div>
+          <div id="bars1">
+            <div class="bar"><div id="hpFill1" class="fill hp"></div></div>
+            <div class="bar"><div id="expFill1" class="fill exp"></div></div>
+          </div>
+        </div>
+        <div class="player-hud" id="player2Hud">
+          <div class="player-label">P2</div>
+          <div id="levelBadge2">Lv.1</div>
+          <div id="bars2">
+            <div class="bar"><div id="hpFill2" class="fill hp"></div></div>
+            <div class="bar"><div id="expFill2" class="fill exp"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="joystick">
+        <div id="joyBase"></div>
+        <div id="joyKnob"></div>
+      </div>
+
+      <!-- 技能选择覆盖层 -->
+      <div id="overlay">
+        <div id="panel">
+          <h1 id="overlayTitle">LEVEL UP!</h1>
+          <p id="overlaySubtitle">选择一个技能升级</p>
+          <div id="choices"></div>
+          <div id="gameoverStats"></div>
+          <div id="restartRow">
+            <button id="homeBtn" class="gameover-btn secondary">返回主页</button>
+            <button id="restartBtn" class="gameover-btn primary">重新开始</button>
+          </div>
+        </div>
+      </div>
+
+      <button id="soundToggle" title="声音">🔊</button>
+      <button id="shakeToggle" title="屏幕震动">📳</button>
+      <button id="pauseBtn" title="暂停游戏">⏸️</button>
+      <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级</div>
+
+      <!-- 暂停菜单 -->
+      <div id="pauseOverlay" class="hidden">
+        <div id="pausePanel">
+          <h2>游戏暂停</h2>
+          <div id="pauseStats"></div>
+          <div class="pause-buttons">
+            <button id="quitBtn">退出游戏</button>
+            <button id="resumeBtn">继续游戏</button>
+          </div>
+          <div id="quitConfirmDialog" class="hidden">
+            <div class="quit-confirm-content">
+              <p>确定要退出游戏吗？</p>
+              <div class="quit-confirm-buttons">
+                <button id="quitCancelBtn">取消</button>
+                <button id="quitConfirmBtn">确定退出</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 连接状态指示器 -->
+      <div id="connectionStatus" class="connection-status">
+        <span class="status-dot"></span>
+        <span class="status-text">已连接</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 基础脚本 -->
+  <script src="../js/music.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="../js/sfx.js"></script>
+  <script src="../js/skills.js"></script>
+  <script src="../js/skillDropRates.js"></script>
+  <script src="../js/game.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+
+  <!-- 核心模块 -->
+  <script src="../js/core/deps.js"></script>
+  <script src="../js/core/dom.js"></script>
+  <script src="../js/core/runtime.js"></script>
+  <script src="../js/core/helpers.js"></script>
+
+  <!-- 联机专用模块 -->
+  <script src="../js/multiplayer/room.js"></script>
+  <script src="../js/multiplayer/protocol.js"></script>
+  <script src="../js/multiplayer/multiplayerGameFactory.js"></script>
+
+  <!-- 渲染和画布 -->
+  <script src="../js/render/renderWithCssSize.js"></script>
+  <script src="../js/canvas/resize.js"></script>
+
+  <!-- UI 模块 -->
+  <script src="../js/ui/skillsOverlay.js"></script>
+  <script src="../js/ui/gameover.js"></script>
+  <script src="../js/ui/hud.js"></script>
+  <script src="../js/ui/sound.js"></script>
+  <script src="../js/ui/shake.js"></script>
+
+  <!-- 输入模块 -->
+  <script src="../js/input/joystick.js"></script>
+  <script src="../js/input/joystickDialog.js"></script>
+  <script src="../js/input/keyboard.js"></script>
+
+  <!-- 联机主循环和入口 -->
+  <script src="../js/multiplayer/multiplayerTick.js"></script>
+  <script src="../js/multiplayer/lobby.js"></script>
+</body>
+</html>
