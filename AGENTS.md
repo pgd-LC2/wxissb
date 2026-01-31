@@ -34,14 +34,16 @@
 **端点**: `https://dhlvrnpjcggtxtarpdhf.supabase.co/functions/v1/get-leaderboard`
 
 **参数**:
-| 参数         | 类型    | 默认值  | 说明                                       |
-| ------------ | ------- | ------- | ------------------------------------------ |
-| sort_by      | string  | "score" | 排序字段：score/level/survival_time/kills  |
-| include_last | boolean | false   | 是否包含旧版本数据（last=true 的记录）     |
-| limit        | number  | 50      | 返回数量限制（最大 100）                   |
-| offset       | number  | 0       | 分页偏移                                   |
+
+| 参数         | 类型    | 默认值  | 说明                                      |
+| ------------ | ------- | ------- | ----------------------------------------- |
+| sort_by      | string  | "score" | 排序字段：score/level/survival_time/kills |
+| include_last | boolean | false   | 是否包含旧版本数据（last=true 的记录）    |
+| limit        | number  | 50      | 返回数量限制（最大 100）                  |
+| offset       | number  | 0       | 分页偏移                                  |
 
 **返回格式**:
+
 ```json
 {
   "data": [...],   // 排行榜记录数组
@@ -51,6 +53,7 @@
 ```
 
 **特性**:
+
 - 服务端去重：每个玩家只保留最高分记录
 - 支持 CORS：允许浏览器直接调用
 - 无需 JWT 验证：使用 apikey 即可访问
@@ -71,6 +74,7 @@
 **文件命名格式**: `{版本号}.md`，例如 `1.0.5.md`
 
 **文件内容模板**:
+
 ```markdown
 # 版本 {版本号} 更新日志
 
@@ -99,3 +103,4 @@
 - Windows PowerShell 的默认写入编码不是 UTF-8（通常为 ANSI 或 UTF-16），因此不得使用 PowerShell 操作相关文件。会导致文件内容乱码。
 - 如果需要在 PowerShell 中操作文件，请确保使用 `Get-Content` 和 `Set-Content` 等 cmdlet 时指定 `-Encoding UTF8` 参数。
   在遇到文件乱码的时候需要及时使用git回滚到上一个版本，避免文件内容被损坏。
+- 永远使用中文交流、汇报、注释和提交PR

@@ -59,7 +59,16 @@
         
         // HUD
         player1Hud: document.getElementById('player1Hud'),
-        player2Hud: document.getElementById('player2Hud')
+        player2Hud: document.getElementById('player2Hud'),
+
+        // Pause Menu
+        pauseBtn: document.getElementById('pauseBtn'),
+        pauseOverlay: document.getElementById('pauseOverlay'),
+        resumeBtn: document.getElementById('resumeBtn'),
+        quitBtn: document.getElementById('quitBtn'),
+        quitConfirmDialog: document.getElementById('quitConfirmDialog'),
+        quitCancelBtn: document.getElementById('quitCancelBtn'),
+        quitConfirmBtn: document.getElementById('quitConfirmBtn')
       };
     }
 
@@ -70,8 +79,88 @@
       const { 
         createRoomBtn, joinRoomBtn, backToMenuBtn,
         copyCodeBtn, startGameBtn, leaveRoomBtn,
-        playerNameInput, roomCodeInput
+        playerNameInput, roomCodeInput,
+        pauseBtn, pauseOverlay, resumeBtn, quitBtn, 
+        quitCancelBtn, quitConfirmBtn, quitConfirmDialog
       } = this.elements;
+
+      // 暂停按钮
+      if (pauseBtn) {
+        pauseBtn.addEventListener('click', () => {
+          if (this.game) this.game.isPausedGame = true;
+          if (pauseOverlay) pauseOverlay.classList.remove('hidden');
+        });
+      }
+
+      // 继续游戏
+      if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+          if (this.game && !this.game.localPlayerSelecting) this.game.isPausedGame = false;
+          if (pauseOverlay) pauseOverlay.classList.add('hidden');
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
+
+      // 退出游戏 (显示确认)
+      if (quitBtn) {
+        quitBtn.addEventListener('click', () => {
+          if (quitConfirmDialog) quitConfirmDialog.classList.remove('hidden');
+        });
+      }
+
+      // 取消退出
+      if (quitCancelBtn) {
+        quitCancelBtn.addEventListener('click', () => {
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
+
+      // 确认退出
+      if (quitConfirmBtn) {
+        quitConfirmBtn.addEventListener('click', () => {
+          this.leaveRoom();
+          if (pauseOverlay) pauseOverlay.classList.add('hidden');
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
+
+      // 暂停按钮
+      if (pauseBtn) {
+        pauseBtn.addEventListener('click', () => {
+          if (pauseOverlay) pauseOverlay.classList.remove('hidden');
+        });
+      }
+
+      // 继续游戏
+      if (resumeBtn) {
+        resumeBtn.addEventListener('click', () => {
+          if (pauseOverlay) pauseOverlay.classList.add('hidden');
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
+
+      // 退出游戏 (显示确认)
+      if (quitBtn) {
+        quitBtn.addEventListener('click', () => {
+          if (quitConfirmDialog) quitConfirmDialog.classList.remove('hidden');
+        });
+      }
+
+      // 取消退出
+      if (quitCancelBtn) {
+        quitCancelBtn.addEventListener('click', () => {
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
+
+      // 确认退出
+      if (quitConfirmBtn) {
+        quitConfirmBtn.addEventListener('click', () => {
+          this.leaveRoom();
+          if (pauseOverlay) pauseOverlay.classList.add('hidden');
+          if (quitConfirmDialog) quitConfirmDialog.classList.add('hidden');
+        });
+      }
 
       // 创建房间
       if (createRoomBtn) {
@@ -381,6 +470,10 @@
       console.log('游戏开始:', data);
       
       this.showScreen('game');
+      // 确保 Canvas 尺寸正确初始化
+      if (GameApp.Canvas && GameApp.Canvas.resize) {
+        GameApp.Canvas.resize();
+      }
       this.initGame(data);
     }
 
@@ -550,18 +643,18 @@
       
       for (let i = 0; i < players.length && i < 2; i++) {
         const player = players[i];
-        const hudEl = i === 0 ? this.elements.player1Hud : this.elements.player2Hud;
-        if (!hudEl) continue;
-
-        const hpFill = hudEl.querySelector('.hp-fill');
-        const expFill = hudEl.querySelector('.exp-fill');
-        const levelBadge = hudEl.querySelector('.level-badge');
+        
+        // 修正：使用正确的 ID 选择器
+        const idx = i + 1;
+        const hpFill = document.getElementById(`hpFill${idx}`);
+        const expFill = document.getElementById(`expFill${idx}`);
+        const levelBadge = document.getElementById(`levelBadge${idx}`);
 
         if (hpFill) {
-          hpFill.style.width = (player.health / player.maxHealth * 100) + '%';
+          hpFill.style.width = Math.max(0, Math.min(100, (player.health / player.maxHealth * 100))) + '%';
         }
         if (expFill) {
-          expFill.style.width = (player.exp / player.maxExp * 100) + '%';
+          expFill.style.width = Math.max(0, Math.min(100, (player.exp / player.maxExp * 100))) + '%';
         }
         if (levelBadge) {
           levelBadge.textContent = 'Lv.' + player.level;
@@ -608,7 +701,7 @@
           <div class="skill-choices">
             ${player.skillChoices.map((skill, i) => `
               <div class="skill-card tier${skill.tier || 1}" data-index="${i}">
-                <div class="skill-icon">${skill.icon || '?'}</div>
+                <div class="skill-icon">${window.SkillSystem.iconFallback(skill.icon) || '?'}</div>
                 <div class="skill-name">${this.escapeHtml(skill.name)}</div>
                 <div class="skill-desc">${this.escapeHtml(skill.description)}</div>
               </div>

@@ -120,7 +120,7 @@
       // 继续循环
       this.rafId = requestAnimationFrame(() => this.tick());
     }
-
+    
     /**
      * 设置本地输入
      */

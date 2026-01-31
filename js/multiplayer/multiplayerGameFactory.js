@@ -53,7 +53,7 @@
       
       // ========== 属性系统 ==========
       // 基础属性
-      playerSpeedMulti: 1.0,
+      playerSpeedMulti: 1.5,
       bulletDamage: 15,
       shootInterval: 0.6,
       bulletCount: 1,
@@ -426,7 +426,7 @@
         y: y,
         hp: hp,
         maxHp: hp,
-        speed: def.speed * GameConfig.baseEnemySpeed,
+        speed: def.speed * GameConfig.baseEnemySpeed * 1.5,
         w: def.size,
         h: def.size,
         color: def.color,
@@ -816,9 +816,10 @@
         }
       }
       
-      // 相机跟随本地玩家
+      // 相机跟随本地玩家 (如果启用动态相机，这里只是基础值)
       const myPlayer = g.getMyPlayer();
       if (myPlayer) {
+        // 如果没有动态相机逻辑，保持原样；如果有，Render会覆盖视口
         g.camera.x = myPlayer.x;
         g.camera.y = myPlayer.y;
       }
@@ -999,8 +1000,14 @@
     };
 
     // ========== 渲染 ==========
+    g.currentZoom = 1.0; // 初始缩放
+
     g.render = (t) => {
       if (!ctx || !canvas) return;
+
+      // 重置变换矩阵为单位矩阵，确保清屏操作不受任何之前的变换影响
+      // 这是为了解决 "拖尾" 问题，确保每一帧都完全清除
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       
       const W = canvas.width;
       const H = canvas.height;
@@ -1009,26 +1016,120 @@
       ctx.fillStyle = '#0a0a0a';
       ctx.fillRect(0, 0, W, H);
       
-      // 相机变换
-      ctx.save();
-      ctx.translate(W / 2 - g.camera.x, H / 2 - g.camera.y);
+      // 动态相机逻辑
+      const players = Object.values(g.players).filter(p => p.health > 0);
       
-      // 绘制网格
+      let camX = g.camera.x;
+      let camY = g.camera.y;
+      let targetZoom = 1.0;
+      
+      if (players.length > 0) {
+        // 计算包含所有玩家的边界框
+        let minX = Infinity, maxX = -Infinity;
+        let minY = Infinity, maxY = -Infinity;
+        
+        players.forEach(p => {
+          if (p.x < minX) minX = p.x;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.y > maxY) maxY = p.y;
+        });
+        
+        // 中心点
+        camX = (minX + maxX) / 2;
+        camY = (minY + maxY) / 2;
+        
+        // 修正：强制使用较大的内边距，确保玩家即使在边缘也不会贴边
+        // 同时解决 "不会自动缩小页面视角" 的问题
+        // 使用 CSS 像素计算视野，但 W/H 已经是物理像素，所以需要除以 dpr (或者如果 W/H 是物理像素，就保持这样)
+        // 注意：canvas.width 是物理像素
+        
+        const dpr = window.devicePixelRatio || 1;
+        const padding = 300; // 增加 padding 确保边缘有足够空间
+        
+        // 逻辑宽度（游戏世界坐标）
+        const contentW = (maxX - minX) + padding * 2;
+        const contentH = (maxY - minY) + padding * 2;
+        
+        // 屏幕物理宽度 / dpr = 屏幕逻辑宽度
+        // 我们希望 contentW * scale * dpr <= 屏幕物理宽度
+        // 或者简单点：我们将世界坐标系 scale 到物理像素
+        // 基础缩放是 dpr (1个游戏单位 = 1个 CSS 像素 = dpr 个物理像素)
+        
+        if (contentW > 0 && contentH > 0) {
+           // 目标：将 contentW (游戏单位) 放入 W / dpr (CSS像素) 的空间中
+           // 或者直接计算：contentW * scale_factor <= W (物理像素)
+           // scale_factor = (W / contentW)
+           // 这个 scale_factor 包含了 dpr。
+           // 如果我们要维持 1:1 的视觉比例（即 scale=1.0 时，1 unit = 1 css pixel），那么
+           // effective_zoom = scale_factor / dpr
+           
+           const maxScaleW = W / contentW;
+           const maxScaleH = H / contentH;
+           
+           // 计算相对于标准(DPR=1)的缩放比例
+           // 正常情况下，我们希望 world scale = dpr
+           // 如果需要 zoom out，world scale < dpr
+           
+           let rawScale = Math.min(maxScaleW, maxScaleH);
+           
+           // 将 rawScale 转换为相对于 dpr 的倍率
+           let relativeZoom = rawScale / dpr;
+           
+           // 限制范围：最大 1.0 (不放大)，最小 0.2 (缩小)
+           relativeZoom = Math.min(1.0, Math.max(0.2, relativeZoom));
+           
+           targetZoom = relativeZoom;
+        }
+      } else {
+        // 如果没有存活玩家，保持当前位置或默认
+        const myPlayer = g.getMyPlayer();
+        if (myPlayer) {
+             camX = myPlayer.x;
+             camY = myPlayer.y;
+        }
+      }
+      
+      // 平滑插值缩放
+      g.currentZoom = g.currentZoom * 0.9 + targetZoom * 0.1;
+      
+      // 构建变换矩阵
+      // 1. 设置基础 DPR 缩放 (让 1 游戏单位 = 1 CSS 像素)
+      const dpr = window.devicePixelRatio || 1;
+      
+      // 手动应用变换，不依赖 ctx.save/restore 上一帧的状态
+      // 顺序：
+      // 1. 移动到屏幕中心 (物理像素)
+      ctx.translate(W / 2, H / 2);
+      // 2. 应用缩放 (DPR * 动态缩放)
+      const finalScale = dpr * g.currentZoom;
+      ctx.scale(finalScale, finalScale);
+      // 3. 移动世界使摄像机位置对应到中心
+      ctx.translate(-camX, -camY);
+      
+      // 绘制网格 (基于当前可视区域优化绘制范围)
+      const visibleW = W / finalScale;
+      const visibleH = H / finalScale;
       const gridSize = 50;
-      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
       ctx.lineWidth = 1;
-      const startX = Math.floor((g.camera.x - W / 2) / gridSize) * gridSize;
-      const startY = Math.floor((g.camera.y - H / 2) / gridSize) * gridSize;
-      for (let x = startX; x < g.camera.x + W / 2; x += gridSize) {
+      
+      const startX = Math.floor((camX - visibleW / 2) / gridSize) * gridSize;
+      const endX = camX + visibleW / 2;
+      const startY = Math.floor((camY - visibleH / 2) / gridSize) * gridSize;
+      const endY = camY + visibleH / 2;
+      
+      for (let x = startX; x <= endX; x += gridSize) {
         ctx.beginPath();
-        ctx.moveTo(x, g.camera.y - H / 2);
-        ctx.lineTo(x, g.camera.y + H / 2);
+        ctx.moveTo(x, camY - visibleH / 2);
+        ctx.lineTo(x, camY + visibleH / 2);
         ctx.stroke();
       }
-      for (let y = startY; y < g.camera.y + H / 2; y += gridSize) {
+      for (let y = startY; y <= endY; y += gridSize) {
         ctx.beginPath();
-        ctx.moveTo(g.camera.x - W / 2, y);
-        ctx.lineTo(g.camera.x + W / 2, y);
+        ctx.moveTo(camX - visibleW / 2, y);
+        ctx.lineTo(camX + visibleW / 2, y);
         ctx.stroke();
       }
       
@@ -1117,7 +1218,8 @@
         ctx.fillRect(player.x - barW / 2, barY, barW * (player.health / player.maxHealth), barH);
       }
       
-      ctx.restore();
+      // 重置变换矩阵，以免影响下一帧的清屏（虽然开头会再次重置，但为了保险）
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
     };
 
     // ========== 设置输入 ==========
