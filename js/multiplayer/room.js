@@ -140,6 +140,9 @@
         .on('broadcast', { event: 'skill_pick' }, (payload) => {
           if (this.onMessage) this.onMessage('skill_pick', payload.payload);
         })
+        .on('broadcast', { event: 'skill_selecting' }, (payload) => {
+          if (this.onMessage) this.onMessage('skill_selecting', payload.payload);
+        })
         .on('broadcast', { event: 'game_start' }, (payload) => {
           if (this.onGameStart) this.onGameStart(payload.payload);
         })
@@ -275,6 +278,20 @@
         playerId: this.playerId,
         level: level,
         pickIndex: pickIndex
+      });
+    }
+
+    /**
+     * 发送技能选择状态 (开始/结束选择)
+     * @param {boolean} isSelecting - 是否正在选择技能
+     * @param {string} playerName - 玩家名称
+     */
+    async sendSkillSelecting(isSelecting, playerName) {
+      await this.broadcast('skill_selecting', {
+        type: 'skill_selecting',
+        playerId: this.playerId,
+        playerName: playerName,
+        isSelecting: isSelecting
       });
     }
 
