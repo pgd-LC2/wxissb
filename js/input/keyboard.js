@@ -170,4 +170,7 @@
   const input = GameApp.Input = GameApp.Input || {};
   input.recomputeKeyVector = recomputeKeyVector;
   input.clearMovementInputs = clearMovementInputs;
+
+  // 导出作弊状态检查函数
+  input.isCheatActivated = () => cheatActivated;
 })();

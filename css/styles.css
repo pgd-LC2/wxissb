@@ -254,6 +254,26 @@ canvas {
 .tier4 { color: var(--epic); }
 .tier5 { color: var(--legend); }
 
+/* 作弊模式快捷键提示 */
+.cheatShortcut {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #ffd700, #ff8c00);
+  color: #000;
+  font-weight: 900;
+  font-size: 16px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  box-shadow: 0 2px 8px rgba(255,215,0,.4);
+  animation: cheatPulse 1.5s ease-in-out infinite;
+}
+@keyframes cheatPulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 2px 8px rgba(255,215,0,.4); }
+  50% { transform: scale(1.08); box-shadow: 0 4px 16px rgba(255,215,0,.6); }
+}
+
 #gameoverStats{
   margin-top: 10px;
   display: none;
