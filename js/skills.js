@@ -23,6 +23,7 @@ function tierClass(tier) {
 // 图标映射（SF Symbols -> 表情符号）
 function iconFallback(iconStr) {
   const map = {
+    // 基础映射
     "bolt.fill": "⚡",
     "timer": "⏱",
     "hare.fill": "🐇",
@@ -67,6 +68,50 @@ function iconFallback(iconStr) {
     "circle.and.line.horizontal.fill": "⦿",
     "dice.fill": "🎲",
     "crown.fill": "👑",
+    // 科技军械库新增映射
+    "cpu": "💾",
+    "network": "🌐",
+    "atom": "⚛️",
+    "dna": "🧬",
+    "arm": "🦾",
+    "lab": "🧪",
+    "satellite": "🛰️",
+    "chip": "📼",
+    "robot": "🤖",
+    "laser": "⚡",
+    "radioactive": "☢️",
+    "bio": "☣️",
+    "shield_tech": "🛡️",
+    "skull_tech": "☠️",
+    "rocket": "🚀",
+    "ufo": "🛸",
+    "battery": "🔋",
+    "plug": "🔌",
+    "magnet_tech": "🧲",
+    "gear_tech": "⚙️",
+    "eye": "👁️",
+    "syringe": "💉",
+    "pill": "💊",
+    "explosion": "💥",
+    "ghost": "👻",
+    "wave": "〰️",
+    "lock": "🔒",
+    "key": "🔑",
+    "cloud": "☁️",
+    "recycle": "♻️",
+    "trash": "🗑️",
+    "infinity": "∞",
+    "display": "🖥️",
+    "hammer": "🔨",
+    "scribble": "➰",
+    "questionmark": "❓",
+    "ant": "🐜",
+    "cube": "🧊",
+    "wifi": "📶",
+    "lock_shield": "🔐",
+    "arrow_left_right": "↔️",
+    "bomb": "💣",
+    "arrow_loop": "🔄"
   };
   return map[iconStr] || "✦";
 }
@@ -76,7 +121,7 @@ function generateAllSkills(baseBladeSkills = []) {
   const skills = [];
 
   // ------------------------------
-  // 基础属性类 (1-15)
+  // 基础属性类 (原有)
   // ------------------------------
   skills.push({ name:"强力子弹", description:"伤害 +15%", tier:1, icon:"bolt.fill", effect:(s)=>{ s.bulletDamage *= 1.15; }});
   skills.push({ name:"极速射击", description:"射速 +12%", tier:1, icon:"timer", effect:(s)=>{ s.shootInterval *= 0.88; }});
@@ -94,7 +139,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"快速恢复", description:"每秒恢复 0.5 生命", tier:2, icon:"cross.fill", effect:(s)=>{ s.regenRate += 0.5; }});
 
   // ------------------------------
-  // 子弹变体类 (16-35)
+  // 子弹变体类 (原有)
   // ------------------------------
   skills.push({ name:"多重射击", description:"子弹数量 +1", tier:3, icon:"arrow.up.forward.and.arrow.down.backward", effect:(s)=>{ s.bulletCount += 1; }});
   skills.push({ name:"散弹枪", description:"+3 子弹，散布角度增大", tier:3, icon:"arrow.branch", effect:(s)=>{ s.bulletCount += 3; s.spreadAngle += 0.25; }});
@@ -115,7 +160,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"黑洞弹", description:"子弹消失时产生吸引敌人的黑洞", tier:4, icon:"circle.hexagongrid.fill", effect:(s)=>{ s.blackHoleOnDeath = true; }});
 
   // ------------------------------
-  // 防御与生存类 (36-55)
+  // 防御与生存类 (原有)
   // ------------------------------
   skills.push({ name:"能量护盾", description:"生成 1 个绕身旋转的护盾球", tier:3, icon:"shield.lefthalf.filled", effect:(s)=>{ s.orbitalShieldCount += 1; }});
   skills.push({ name:"护盾矩阵", description:"护盾球 +2，旋转速度提升", tier:4, icon:"shield.checkered", effect:(s)=>{ s.orbitalShieldCount += 2; s.orbitalShieldSpeed *= 1.5; }});
@@ -138,7 +183,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"完美格挡", description:"格挡成功时反击造成 200% 伤害", tier:4, icon:"hand.raised.circle.fill", effect:(s)=>{ s.perfectBlockCounter = true; }});
 
   // ------------------------------
-  // 召唤物与自动武器 (56-75)
+  // 召唤物与自动武器 (原有)
   // ------------------------------
   skills.push({ name:"攻击无人机", description:"召唤 1 架自动攻击无人机", tier:3, icon:"airplane", effect:(s)=>{ s.droneCount += 1; }});
   skills.push({ name:"无人机编队", description:"无人机 +2，攻击力提升", tier:4, icon:"airplane.circle.fill", effect:(s)=>{ s.droneCount += 2; s.droneDamage *= 1.5; }});
@@ -158,7 +203,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"奇点", description:"黑洞吸引力和伤害提升 100%", tier:5, icon:"circle.circle.fill", effect:(s)=>{ s.blackHolePower *= 2; }});
 
   // ------------------------------
-  // 触发与连锁类 (76-90)
+  // 触发与连锁类 (原有)
   // ------------------------------
   skills.push({ name:"连杀奖励", description:"连续击杀增加临时伤害加成", tier:2, icon:"flame.circle", effect:(s)=>{ s.killStreakEnabled = true; }});
   skills.push({ name:"杀戮狂欢", description:"连杀奖励上限提高，衰减减慢", tier:4, icon:"flame.circle.fill", effect:(s)=>{ s.killStreakMaxBonus *= 2; s.killStreakDecay *= 0.5; }});
@@ -173,12 +218,13 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"斩杀", description:"直接击杀 20% 血量以下的敌人", tier:4, icon:"scissors.badge.ellipsis", effect:(s)=>{ s.instantKillThreshold = 0.2; }});
   skills.push({ name:"超载", description:"暴击时有几率再次攻击", tier:3, icon:"bolt.badge.a.fill", effect:(s)=>{ s.overloadChance = 0.3; }});
   skills.push({ name:"无限超载", description:"超载可以连锁触发", tier:5, icon:"bolt.badge.clock.fill", effect:(s)=>{ s.overloadChain = true; }});
-  skills.push({ name:"时间扭曲", description:"击杀敌人有几率短暂减慢时间", tier:5, icon:"clock.arrow.circlepath", effect:(s)=>{ s.timeWarpOnKill = true; }});
+  
+  // REMOVED: 时间扭曲 (Time Warp)
 
   // ------------------------------
-  // 特殊机制类 (91-115)
+  // 特殊机制类 (原有)
   // ------------------------------
-  const TAU = window.GameUtils.TAU;  // 从工具模块导入，避免重复定义
+  const TAU = window.GameUtils.TAU;
   skills.push({ name:"加特林模式", description:"射速 x2，单发伤害 -40%", tier:4, icon:"gearshape.fill", effect:(s)=>{ s.shootInterval *= 0.5; s.bulletDamage *= 0.6; }});
   skills.push({ name:"狙击模式", description:"射速 -50%，伤害 x2，射程无限", tier:4, icon:"scope", effect:(s)=>{ s.shootInterval *= 2; s.bulletDamage *= 2; s.bulletLifetime = 10.0; }});
   skills.push({ name:"霰弹模式", description:"+5 子弹，大散布，短射程", tier:4, icon:"list.bullet", effect:(s)=>{ s.bulletCount += 5; s.spreadAngle = 0.8; s.bulletLifetime *= 0.5; }});
@@ -205,7 +251,132 @@ function generateAllSkills(baseBladeSkills = []) {
   // ------------------------------
   for (const sk of baseBladeSkills) skills.push(sk);
 
+  // ------------------------------
+  // Operation Tech Arsenal (新增 100 科技技能)
+  // ------------------------------
+  const techSkills = generateSciFiSkills();
+  for (const sk of techSkills) skills.push(sk);
+
   return skills;
+}
+
+// ------------------------------
+// 科技军械库：五大科技体系
+// ------------------------------
+function generateSciFiSkills() {
+    const s = [];
+
+    // 1. 赛博义体 (Cybernetics) - 基础属性增强
+    s.push({name:"皮下装甲 Mk.I", description:"受到的伤害减少 5%", tier:1, icon:"cpu", effect:(p)=>{ p.damageReduction += 0.05; }});
+    s.push({name:"皮下装甲 Mk.II", description:"受到的伤害减少 10%", tier:2, icon:"cpu", effect:(p)=>{ p.damageReduction += 0.10; }});
+    s.push({name:"神经加速器", description:"移动速度 +10%，闪避 +5%", tier:2, icon:"network", effect:(p)=>{ p.playerSpeedMulti *= 1.1; p.dodgeChance += 0.05; }});
+    s.push({name:"合成心脏", description:"最大生命 +50，每秒回复 +1", tier:3, icon:"heart.fill", effect:(p)=>{ p.playerMaxHealth += 50; p.playerHealth += 50; p.regenRate += 1; p.updateHealthUI(); }});
+    s.push({name:"仿生眼球", description:"暴击率 +10%，视野范围 +20%", tier:2, icon:"eye", effect:(p)=>{ p.critRate += 0.1; p.pickupRange *= 1.2; }});
+    s.push({name:"钛合金骨骼", description:"最大生命 +20%", tier:2, icon:"arm", effect:(p)=>{ p.playerMaxHealth *= 1.2; p.playerHealth *= 1.2; p.updateHealthUI(); }});
+    s.push({name:"突触增强", description:"射速 +15%", tier:1, icon:"network", effect:(p)=>{ p.shootInterval *= 0.87; }});
+    s.push({name:"高分子肌肉", description:"子弹伤害 +15%，击退 +20%", tier:1, icon:"arm", effect:(p)=>{ p.bulletDamage *= 1.15; p.knockbackForce += 2; }});
+    s.push({name:"纳米修复群", description:"每秒回复 1.5 生命", tier:3, icon:"lab", effect:(p)=>{ p.regenRate += 1.5; }});
+    s.push({name:"外骨骼支架", description:"移动速度 -10%，护甲 +20%", tier:2, icon:"robot", effect:(p)=>{ p.playerSpeedMulti *= 0.9; p.damageReduction += 0.2; }});
+    s.push({name:"脑机接口", description:"经验获取 +25%", tier:2, icon:"chip", effect:(p)=>{ p.expMultiplier *= 1.25; }});
+    s.push({name:"痛觉阻断", description:"受到伤害后无敌时间 +1秒", tier:3, icon:"shield_tech", effect:(p)=>{ p.iFrameDuration += 1.0; }});
+    s.push({name:"视觉辅助", description:"子弹散布减少 50%", tier:2, icon:"scope", effect:(p)=>{ p.spreadAngle *= 0.5; }});
+    s.push({name:"辅助供能", description:"射速 +10%", tier:1, icon:"battery", effect:(p)=>{ p.shootInterval *= 0.9; }});
+    s.push({name:"磁性植入体", description:"拾取范围 +100%", tier:2, icon:"magnet_tech", effect:(p)=>{ p.pickupRange *= 2.0; }});
+    s.push({name:"应急血库", description:"解锁不死鸟复活（死亡时回复30%）", tier:4, icon:"syringe", effect:(p)=>{ p.phoenixRevive = true; p.phoenixChance = 0.5; }});
+    s.push({name:"钢铁之躯", description:"单次受击上限锁为 15% 最大生命", tier:5, icon:"shield.fill", effect:(p)=>{ p.damageCap = 0.15; }});
+    s.push({name:"记忆体扩容", description:"经验获取 +10%", tier:1, icon:"chip", effect:(p)=>{ p.expMultiplier *= 1.1; }});
+    s.push({name:"光学迷彩", description:"闪避几率 +10%", tier:2, icon:"ghost", effect:(p)=>{ p.dodgeChance += 0.1; }});
+    s.push({name:"动能回收", description:"受到伤害时回复 5 生命(需击杀触发)", tier:3, icon:"recycle", effect:(p)=>{ p.killHealAmount += 5; }});
+
+    // 2. 能量武器 (Energy Weapons) - 子弹特性
+    s.push({name:"高能激光", description:"子弹穿透 +2，伤害 +10%", tier:3, icon:"laser", effect:(p)=>{ p.pierceCount += 2; p.bulletDamage *= 1.1; }});
+    s.push({name:"聚变弹头", description:"子弹伤害 +40%，范围伤害", tier:4, icon:"atom", effect:(p)=>{ p.bulletDamage *= 1.4; p.areaDamageRadius = Math.max(p.areaDamageRadius || 0, 40); }});
+    s.push({name:"离子中继器", description:"子弹在敌人间弹射 3 次", tier:4, icon:"network", effect:(p)=>{ p.chainLightning = true; p.chainCount = (p.chainCount||0) + 3; }});
+    s.push({name:"等离子火炮", description:"极慢射速，极大伤害和范围", tier:4, icon:"explosion", effect:(p)=>{ p.shootInterval *= 1.5; p.bulletDamage *= 3.0; p.bulletScale *= 2.0; p.areaDamageRadius = 80; }});
+    s.push({name:"光子聚焦", description:"子弹体积变小，但伤害 +50%", tier:3, icon:"target", effect:(p)=>{ p.bulletScale *= 0.5; p.bulletDamage *= 1.5; }});
+    s.push({name:"特斯拉线圈", description:"周围周期性释放电击", tier:3, icon:"bolt.horizontal.fill", effect:(p)=>{ p.lightningAuraEnabled = true; p.lightningAuraDamage = (p.lightningAuraDamage||10) * 1.5; }});
+    s.push({name:"粒子加速", description:"子弹速度 +50%", tier:1, icon:"arrow.up.right", effect:(p)=>{ p.bulletSpeedMulti *= 1.5; }});
+    s.push({name:"反物质弹", description:"子弹击中后消除敌人并产生黑洞", tier:5, icon:"circle.hexagongrid.fill", effect:(p)=>{ p.blackHoleOnDeath = true; p.blackHolePower *= 1.5; }});
+    s.push({name:"太阳耀斑", description:"燃烧伤害范围扩大", tier:3, icon:"sun.max.fill", effect:(p)=>{ p.burnSpread = true; p.burnDamage *= 1.5; }});
+    s.push({name:"极寒光束", description:"子弹必定冰冻敌人 0.5秒", tier:4, icon:"snowflake", effect:(p)=>{ p.freezeChance = 1.0; p.freezeDuration = 0.5; }});
+    s.push({name:"重力井", description:"子弹击中生成微型黑洞", tier:4, icon:"magnet_tech", effect:(p)=>{ p.blackHoleOnDeath = true; }});
+    s.push({name:"分裂光束", description:"分裂数量 +3", tier:4, icon:"arrow.triangle.branch", effect:(p)=>{ p.splitOnHit = true; p.splitCount += 3; }});
+    s.push({name:"幽灵协议", description:"子弹无限穿透，伤害 -20%", tier:5, icon:"ghost", effect:(p)=>{ p.pierceCount = 999; p.bulletDamage *= 0.8; }});
+    s.push({name:"过载电容", description:"子弹伤害 +20%", tier:2, icon:"battery", effect:(p)=>{ p.bulletDamage *= 1.2; }});
+    s.push({name:"频率干扰", description:"子弹附带 15% 眩晕(冰冻代替)", tier:3, icon:"wave", effect:(p)=>{ p.freezeChance += 0.15; p.freezeDuration = 0.5; }});
+    s.push({name:"脉冲步枪", description:"击退 +100%", tier:2, icon:"wind", effect:(p)=>{ p.knockbackForce = (p.knockbackForce||5) * 2; }});
+    s.push({name:"伽马射线", description:"子弹附带持续辐射伤害", tier:3, icon:"radioactive", effect:(p)=>{ p.poisonChance = 1.0; p.poisonDamage *= 1.5; }});
+    s.push({name:"弧光生成器", description:"闪电链伤害不衰减", tier:4, icon:"bolt.fill", effect:(p)=>{ p.chainDamageDecay = 1.0; }});
+    s.push({name:"虚空投射", description:"子弹无视距离衰减(寿命+2s)", tier:3, icon:"circle.dotted", effect:(p)=>{ p.bulletLifetime += 2.0; }});
+    s.push({name:"能量虹吸", description:"造成伤害吸血 20% (10%几率)", tier:4, icon:"shield_tech", effect:(p)=>{ p.lifestealChance += 0.1; p.lifestealPercent = 0.2; }});
+
+    // 3. 纳米科技 (Nanotech) - 状态与辅助
+    s.push({name:"吞噬者病毒", description:"击杀敌人 100% 爆炸", tier:4, icon:"bio", effect:(p)=>{ p.deathExplosion = true; }});
+    s.push({name:"物质回收仪", description:"拾取范围 +50%，回复提升", tier:3, icon:"recycle", effect:(p)=>{ p.pickupRange *= 1.5; p.regenRate += 1; }});
+    s.push({name:"灰蛊风暴", description:"全屏造成微量电击伤害(光环)", tier:5, icon:"cloud.fill", effect:(p)=>{ p.lightningAuraEnabled = true; p.lightningAuraRadius = 9999; p.lightningAuraDamage = 5; }});
+    s.push({name:"纳米护盾", description:"增加 1 个旋转护盾", tier:3, icon:"shield.fill", effect:(p)=>{ p.orbitalShieldCount += 1; }});
+    s.push({name:"寄生纳米", description:"子弹附带吸血 5%", tier:3, icon:"drop.fill", effect:(p)=>{ p.lifestealChance = 1.0; p.lifestealPercent = 0.05; }});
+    s.push({name:"增殖程序", description:"子弹数量 +2", tier:3, icon:"plus.circle", effect:(p)=>{ p.bulletCount += 2; }});
+    s.push({name:"腐蚀云", description:"中毒敌人死亡爆炸", tier:3, icon:"smoke.fill", effect:(p)=>{ p.poisonExplode = true; }});
+    s.push({name:"分子重组", description:"生命恢复速度 +3", tier:2, icon:"arrow.up.circle", effect:(p)=>{ p.regenRate += 3; }});
+    s.push({name:"智能瞄准", description:"子弹追踪力 +100%", tier:2, icon:"target", effect:(p)=>{ p.homingStrength += 1.0; }});
+    s.push({name:"适应性装甲", description:"减伤 +15%", tier:4, icon:"shield.checkered", effect:(p)=>{ p.damageReduction += 0.15; }});
+    s.push({name:"生物质转化", description:"击杀回血 +3", tier:5, icon:"heart.circle", effect:(p)=>{ p.killHealAmount += 3; }});
+    s.push({name:"纳米解构", description:"直接处决 25% 以下血量敌人", tier:3, icon:"scissors", effect:(p)=>{ p.instantKillThreshold = Math.max(p.instantKillThreshold || 0, 0.25); }});
+    s.push({name:"蜂群思维", description:"无人机数量 +3", tier:4, icon:"ant.fill", effect:(p)=>{ p.droneCount += 3; }});
+    s.push({name:"快速复制", description:"子弹分裂数量 +2", tier:3, icon:"timer", effect:(p)=>{ p.splitCount += 2; p.splitOnHit = true; }});
+    s.push({name:"硬化凝胶", description:"护甲 +10%，击退抗性", tier:2, icon:"cube.fill", effect:(p)=>{ p.damageReduction += 0.1; }});
+    s.push({name:"代谢加速", description:"移动速度 +20%", tier:3, icon:"flame", effect:(p)=>{ p.playerSpeedMulti *= 1.2; }});
+    s.push({name:"孢子喷射", description:"死亡时爆炸", tier:2, icon:"burst", effect:(p)=>{ p.deathExplosion = true; }});
+    s.push({name:"基因锁", description:"全属性 +5%", tier:4, icon:"lock.open", effect:(p)=>{ p.bulletDamage*=1.05; p.playerSpeedMulti*=1.05; p.playerMaxHealth*=1.05; }});
+    s.push({name:"微型工厂", description:"自动布雷", tier:2, icon:"gear_tech", effect:(p)=>{ p.mineDropEnabled = true; }});
+    s.push({name:"净化协议", description:"每秒生命回复 +1", tier:3, icon:"shield.slash", effect:(p)=>{ p.regenRate += 1; }});
+
+    // 4. 战术装置 (Tactical Systems) - 控场与防御
+    s.push({name:"偏导护盾", description:"护盾球数量 +2，旋转速度提升", tier:3, icon:"shield.lefthalf.filled", effect:(p)=>{ p.orbitalShieldCount += 2; p.orbitalShieldSpeed *= 1.2; }});
+    s.push({name:"重力发生器", description:"周期性产生黑洞", tier:4, icon:"magnet", effect:(p)=>{ p.blackHoleAbility = true; }});
+    s.push({name:"全息诱饵", description:"闪避率 +15%", tier:3, icon:"person.2.fill", effect:(p)=>{ p.dodgeChance += 0.15; }});
+    s.push({name:"震荡冲击", description:"子弹击退距离 +100%", tier:2, icon:"wave", effect:(p)=>{ p.knockbackForce = (p.knockbackForce||10) * 2; }});
+    s.push({name:"战术扫描", description:"暴击率 +15%", tier:1, icon:"location.viewfinder", effect:(p)=>{ p.critRate += 0.15; }});
+    s.push({name:"静滞力场", description:"周围敌人持续受到伤害(光环)", tier:4, icon:"snowflake", effect:(p)=>{ p.lightningAuraEnabled = true; p.lightningAuraDamage = 2; }});
+    s.push({name:"电磁脉冲", description:"受击反伤 +100%", tier:3, icon:"bolt.circle", effect:(p)=>{ p.thornsDamagePercent += 1.0; }});
+    s.push({name:"自动炮塔", description:"无人机数量 +1，伤害 +20%", tier:3, icon:"video.fill", effect:(p)=>{ p.droneCount += 1; p.droneDamage *= 1.2; }});
+    s.push({name:"烟雾弹", description:"闪避率 +10%", tier:3, icon:"cloud", effect:(p)=>{ p.dodgeChance += 0.1; }});
+    s.push({name:"反应装甲", description:"反弹 50% 伤害", tier:3, icon:"shield.fill", effect:(p)=>{ p.thornsDamagePercent += 0.5; }});
+    s.push({name:"弱点分析", description:"暴击率 +20%", tier:2, icon:"target", effect:(p)=>{ p.critRate += 0.2; }});
+    s.push({name:"火力压制", description:"射速 +50%，散布 +20%", tier:3, icon:"burst.fill", effect:(p)=>{ p.shootInterval *= 0.66; p.spreadAngle += 0.2; }});
+    s.push({name:"弹药箱", description:"子弹数量 +2", tier:3, icon:"square.fill", effect:(p)=>{ p.bulletCount += 2; }});
+    s.push({name:"战术目镜", description:"暴击伤害 +50%", tier:2, icon:"eyeglasses", effect:(p)=>{ p.critDamageMulti += 0.5; }});
+    s.push({name:"闪光弹", description:"子弹有 10% 几率冰冻敌人", tier:3, icon:"sun.max", effect:(p)=>{ p.freezeChance += 0.1; }});
+    s.push({name:"雷达干扰", description:"闪避 +5%，拾取 +20%", tier:2, icon:"wifi.slash", effect:(p)=>{ p.dodgeChance += 0.05; p.pickupRange *= 1.2; }});
+    s.push({name:"近防炮", description:"旋转刀片 +2", tier:3, icon:"shield.slash", effect:(p)=>{ p.bladeOrbitCount += 2; }});
+    s.push({name:"引力波", description:"击退力 +50%", tier:2, icon:"wave", effect:(p)=>{ p.knockbackForce += 10; }});
+    s.push({name:"相位移动", description:"闪避后无敌", tier:3, icon:"arrow.right", effect:(p)=>{ p.dodgeInvincibility = true; }});
+    s.push({name:"最后防线", description:"静止时伤害 +50%", tier:4, icon:"lock.shield", effect:(p)=>{ p.stationaryDamageBonus = 0.5; }});
+
+    // 5. 实验性超频 (Overclocking) - 高风险高回报
+    s.push({name:"反应堆过载", description:"伤害 +100%，生命上限减半", tier:5, icon:"radioactive", effect:(p)=>{ p.bulletDamage *= 2.0; p.playerMaxHealth *= 0.5; p.playerHealth = Math.min(p.playerHealth, p.playerMaxHealth); }});
+    s.push({name:"不稳定核心", description:"子弹大小 +50%，散布 +30%", tier:3, icon:"dice", effect:(p)=>{ p.bulletScale *= 1.5; p.spreadAngle += 0.3; }});
+    s.push({name:"量子纠缠弹", description:"双倍子弹，射速减半", tier:3, icon:"arrow.left.and.right", effect:(p)=>{ p.bulletCount *= 2; p.shootInterval *= 2; }});
+    s.push({name:"故障协议", description:"射速 x3，但精度极差 (+60度散布)", tier:4, icon:"exclamationmark.triangle", effect:(p)=>{ p.shootInterval *= 0.33; p.spreadAngle += 1.0; }});
+    s.push({name:"玻璃反应堆", description:"伤害 x3，最大生命 -80%", tier:5, icon:"skull_tech", effect:(p)=>{ p.bulletDamage *= 3.0; p.playerMaxHealth *= 0.2; p.playerHealth = Math.min(p.playerHealth, p.playerMaxHealth); }});
+    s.push({name:"随机代码", description:"全属性随机变动 (+/- 10%)", tier:3, icon:"questionmark.circle", effect:(p)=>{ p.bulletDamage *= 1.1; p.shootInterval *= 0.9; }});
+    s.push({name:"内存泄漏", description:"经验 +100%，生命上限 -30%", tier:4, icon:"drop.triangle", effect:(p)=>{ p.expMultiplier *= 2.0; p.playerMaxHealth *= 0.7; p.updateHealthUI(); }});
+    s.push({name:"无限循环", description:"子弹穿透 +10，存活时间 +5秒", tier:4, icon:"infinity", effect:(p)=>{ p.pierceCount += 10; p.bulletLifetime += 5.0; }});
+    s.push({name:"堆栈溢出", description:"子弹数量 +10，伤害 -80%", tier:5, icon:"list.bullet", effect:(p)=>{ p.bulletCount += 10; p.bulletDamage *= 0.2; }});
+    s.push({name:"蓝屏死机", description:"冰冻时间 +2秒", tier:4, icon:"display", effect:(p)=>{ p.freezeDuration += 2.0; }});
+    s.push({name:"错误修正", description:"护甲 +30%", tier:4, icon:"hammer", effect:(p)=>{ p.damageReduction += 0.3; }});
+    s.push({name:"逻辑炸弹", description:"爆炸范围 +100%，击退", tier:4, icon:"bomb.fill", effect:(p)=>{ p.areaDamageRadius = (p.areaDamageRadius||30) * 2; p.explosionKnockback = true; }});
+    s.push({name:"超频运算", description:"射速 +50%，移速 +50%", tier:4, icon:"timer", effect:(p)=>{ p.shootInterval *= 0.66; p.playerSpeedMulti *= 1.5; }});
+    s.push({name:"幽灵数据", description:"闪避率 +30%，最大生命 -30%", tier:3, icon:"ghost", effect:(p)=>{ p.dodgeChance += 0.3; p.playerMaxHealth *= 0.7; p.updateHealthUI(); }});
+    s.push({name:"递归攻击", description:"子弹分裂次数 +2", tier:4, icon:"arrow.triangle.branch", effect:(p)=>{ p.splitCount += 2; p.splitOnHit = true; }});
+    s.push({name:"野指针", description:"子弹飞行速度 +100%，精度下降", tier:2, icon:"scribble", effect:(p)=>{ p.bulletSpeedMulti *= 2.0; p.spreadAngle += 0.5; }});
+    s.push({name:"强制垃圾回收", description:"拾取范围 +500%", tier:5, icon:"trash", effect:(p)=>{ p.pickupRange *= 5.0; }});
+    s.push({name:"死循环", description:"敌人死后生成黑洞", tier:3, icon:"arrow.counterclockwise", effect:(p)=>{ p.blackHoleOnDeath = true; }});
+    s.push({name:"调试模式", description:"暴击率 100%，伤害 -50%", tier:1, icon:"gear", effect:(p)=>{ p.critRate = 1.0; p.bulletDamage *= 0.5; }});
+    s.push({name:"Beta测试版", description:"运气(幸运暴击) +10%", tier:3, icon:"dice.fill", effect:(p)=>{ p.luckyCritChance += 0.1; }});
+
+    return s;
 }
 
 // 生成额外的飞刀技能
