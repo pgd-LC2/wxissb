@@ -594,7 +594,7 @@
           const enemy = enemies[i];
           if (!enemy || enemy._dead) continue;
           
-          const enemyPos = this.predictEnemyPosition(enemy, simPlayer, dt * frame);
+          const enemyPos = this.predictEnemyPosition(enemy, simPlayer, dt * (frame + 1));
           if (!enemyPos) continue;
           
           const dist = MathUtils.distance(simPlayer.x, simPlayer.y, enemyPos.x, enemyPos.y);
