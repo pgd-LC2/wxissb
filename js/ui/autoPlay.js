@@ -51,6 +51,15 @@
     }
   }
 
+  // 计算子弹最大射程
+  function getBulletMaxRange(g) {
+    const GameConfig = window.GameConfig || { baseBulletSpeed: 600 };
+    const speed = GameConfig.baseBulletSpeed * (g.bulletSpeedMulti || 1.0);
+    const lifetime = g.bulletLifetime || 1.5;
+    // 保持在最大射程的70%左右，留有余地
+    return speed * lifetime * 0.7;
+  }
+
   function getMovementVector(g, t) {
     if (!g || !g.player || g.isGameOver || g.isPausedGame || g.isLevelingUp) {
       return { dx: 0, dy: 0 };
@@ -58,16 +67,20 @@
 
     const player = g.player;
     const enemies = g.enemies || [];
-    const hpRatio = g.playerHealth / g.playerMaxHealth;
+    const expOrbs = g.expOrbs || [];
+    
+    // 计算理想射程距离
+    const idealRange = getBulletMaxRange(g);
+    const minSafeDistance = 150; // 最小安全距离
+    const surroundThreshold = 4; // 被包围的敌人数量阈值
+    const surroundRadius = 250; // 包围检测半径
 
-    if (enemies.length === 0) {
-      return { dx: 0, dy: 0 };
-    }
-
-    let nearestEnemy = null;
-    let nearestDist = Infinity;
+    // 统计周围敌人情况
     let dangerSum = { x: 0, y: 0 };
     let dangerCount = 0;
+    let nearestEnemy = null;
+    let nearestDist = Infinity;
+    let surroundingEnemies = 0;
 
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
@@ -82,7 +95,9 @@
         nearestEnemy = e;
       }
 
-      if (dist < 200) {
+      // 统计包围圈内的敌人
+      if (dist < surroundRadius) {
+        surroundingEnemies++;
         const weight = 1 / Math.max(dist, 30);
         dangerSum.x += dx * weight;
         dangerSum.y += dy * weight;
@@ -93,29 +108,63 @@
     let moveX = 0;
     let moveY = 0;
 
-    if (hpRatio < 0.3 && dangerCount > 0) {
+    // 优先级1：被包围时，优先逃跑（远离敌人重心）
+    if (surroundingEnemies >= surroundThreshold && dangerCount > 0) {
+      // 计算敌人重心的反方向
       moveX = -dangerSum.x;
       moveY = -dangerSum.y;
-    } else if (hpRatio < 0.5 && dangerCount > 2) {
-      moveX = -dangerSum.x;
-      moveY = -dangerSum.y;
-    } else if (nearestEnemy) {
+    }
+    // 优先级2：有敌人时，保持在最大射程距离
+    else if (nearestEnemy) {
       const dx = nearestEnemy.x - player.x;
       const dy = nearestEnemy.y - player.y;
       
-      if (nearestDist < 80) {
+      if (nearestDist < minSafeDistance) {
+        // 太近了，快速远离
+        moveX = -dx;
+        moveY = -dy;
+      } else if (nearestDist < idealRange * 0.8) {
+        // 在射程内但太近，边后退边绕行
+        const retreatX = -dx;
+        const retreatY = -dy;
         const tangentX = -dy;
         const tangentY = dx;
-        moveX = tangentX;
-        moveY = tangentY;
-      } else if (nearestDist > 300) {
-        moveX = dx;
-        moveY = dy;
+        moveX = retreatX * 0.7 + tangentX * 0.3;
+        moveY = retreatY * 0.7 + tangentY * 0.3;
+      } else if (nearestDist > idealRange * 1.2) {
+        // 超出射程，需要靠近一点，但优先检查是否有经验球可捡
+        const nearestOrb = findNearestExpOrb(player, expOrbs);
+        if (nearestOrb && nearestOrb.dist < 300) {
+          // 附近有经验球，去捡
+          moveX = nearestOrb.dx;
+          moveY = nearestOrb.dy;
+        } else {
+          // 没有经验球，稍微靠近敌人
+          moveX = dx * 0.3;
+          moveY = dy * 0.3;
+        }
       } else {
-        const tangentX = -dy;
-        const tangentY = dx;
-        moveX = dx * 0.3 + tangentX * 0.7;
-        moveY = dy * 0.3 + tangentY * 0.7;
+        // 在理想射程范围内，检查是否有经验球可捡
+        const nearestOrb = findNearestExpOrb(player, expOrbs);
+        if (nearestOrb && nearestOrb.dist < 200) {
+          // 附近有经验球，去捡
+          moveX = nearestOrb.dx;
+          moveY = nearestOrb.dy;
+        } else {
+          // 保持当前距离，轻微绕行
+          const tangentX = -dy;
+          const tangentY = dx;
+          moveX = tangentX * 0.5;
+          moveY = tangentY * 0.5;
+        }
+      }
+    }
+    // 优先级3：没有敌人时，去捡经验球
+    else {
+      const nearestOrb = findNearestExpOrb(player, expOrbs);
+      if (nearestOrb) {
+        moveX = nearestOrb.dx;
+        moveY = nearestOrb.dy;
       }
     }
 
@@ -124,12 +173,35 @@
       moveX /= len;
       moveY /= len;
     } else {
-      const angle = t * 0.5;
-      moveX = Math.cos(angle);
-      moveY = Math.sin(angle);
+      // 没有明确目标时，原地待命
+      return { dx: 0, dy: 0 };
     }
 
     return { dx: moveX, dy: moveY };
+  }
+
+  // 找到最近的经验球
+  function findNearestExpOrb(player, expOrbs) {
+    if (!expOrbs || expOrbs.length === 0) return null;
+    
+    let nearest = null;
+    let nearestDist = Infinity;
+    
+    for (let i = 0; i < expOrbs.length; i++) {
+      const orb = expOrbs[i];
+      if (!orb || orb._dead) continue;
+      
+      const dx = orb.x - player.x;
+      const dy = orb.y - player.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = { dx, dy, dist };
+      }
+    }
+    
+    return nearest;
   }
 
   function evaluateSkill(skill, g) {

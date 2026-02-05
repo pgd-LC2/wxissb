@@ -13,6 +13,16 @@
     }
   }
 
+  // 检查技能是否是移速技能（开挂模式需要过滤掉）
+  function isSpeedSkill(skill) {
+    const name = skill.name || "";
+    const desc = skill.description || "";
+    // 过滤掉所有增加移动速度的技能
+    if (name.includes("疾风") || name.includes("移速") || name.includes("速度")) return true;
+    if (desc.includes("移动速度") || desc.includes("移速")) return true;
+    return false;
+  }
+
   // NB Mode - 开挂模式
   // 在控制台输入 nbmode() 即可启用
   window.nbmode = function() {
@@ -33,13 +43,23 @@
       return;
     }
 
-    // 应用所有技能
+    // 标记开挂模式已启用
+    game.nbModeActive = true;
+
+    // 应用所有技能（排除移速技能）
     let appliedCount = 0;
+    let skippedSpeedSkills = 0;
     const appliedSkills = [];
     
     for (const skill of allSkills) {
       // 跳过已经获取的技能
       if (game.acquiredSkills && game.acquiredSkills.includes(skill.name)) {
+        continue;
+      }
+      
+      // 跳过移速技能
+      if (isSpeedSkill(skill)) {
+        skippedSpeedSkills++;
         continue;
       }
       
@@ -67,7 +87,8 @@
 
     console.log("🎮 NB Mode 已启用！");
     console.log(`  ✓ 已获取 ${appliedCount} 个技能`);
-    console.log("  ✓ 所有技能效果已叠加");
+    console.log(`  ✓ 跳过 ${skippedSpeedSkills} 个移速技能`);
+    console.log("  ✓ 升级时将自动随机选择技能");
     console.log("");
     console.log("获取的技能列表：");
     appliedSkills.forEach((name, i) => {
@@ -79,6 +100,9 @@
     
     return `NB Mode Activated! 已获取 ${appliedCount} 个技能 🚀`;
   };
+
+  // 暴露移速技能检查函数供其他模块使用
+  window.isSpeedSkill = isSpeedSkill;
 
   init();
 })();
