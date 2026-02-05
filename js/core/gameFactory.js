@@ -1550,6 +1550,10 @@
 
       // knockback
       let kForce = g.knockbackForce;
+
+      // Fix: Explosion knockback should also affect the primary target
+      if (g.explosionKnockback) kForce += 150; 
+
       // NEW: Tech overrides
       if (bullet.isPulse) kForce += 300;
       if (g.tech && g.tech.railgunActive && Math.random() < g.tech.railgunChance) {
@@ -1561,8 +1565,9 @@
       if (kForce > 0) {
         const vx = enemy.x - bullet.x, vy = enemy.y - bullet.y;
         const len = hypot(vx, vy) || 1;
-        enemy.x += (vx/len) * kForce * 0.1;
-        enemy.y += (vy/len) * kForce * 0.1;
+        // Fix: Increased knockback multiplier from 0.1 to 0.4 so it's actually noticeable
+        enemy.x += (vx/len) * kForce * 0.4;
+        enemy.y += (vy/len) * kForce * 0.4;
       }
 
       // area damage
@@ -2071,8 +2076,60 @@
     // Update Systems (ported)
     // ------------------------------
     g.updateEnemies = (dt, t) => {
+      // 获取屏幕尺寸用于计算距离阈值
+      let screenW = 800, screenH = 600;
+      try {
+        if (GameApp.Canvas && GameApp.Canvas.getCssSize) {
+          const sz = GameApp.Canvas.getCssSize();
+          screenW = sz.w || screenW;
+          screenH = sz.h || screenH;
+        } else {
+          const rect = canvas.getBoundingClientRect();
+          screenW = rect.width || screenW;
+          screenH = rect.height || screenH;
+        }
+      } catch (e) { /* ignore */ }
+
+      // 4个屏幕距离的阈值（取屏幕对角线的4倍）
+      const screenDiagonal = hypot(screenW, screenH);
+      const maxDistThreshold = screenDiagonal * 4;
+      const maxDistThreshold2 = maxDistThreshold * maxDistThreshold;
+
       for (let i = 0; i < g.enemies.length; i++) {
         const e = g.enemies[i];
+
+        // 检测敌人是否距离玩家过远（超出4个屏幕距离）
+        // 如果过远，则将敌人传送到屏幕外附近
+        const distX = e.x - g.player.x;
+        const distY = e.y - g.player.y;
+        const dist2 = distX * distX + distY * distY;
+        
+        if (dist2 > maxDistThreshold2) {
+          // 将敌人传送到屏幕外附近（约1.5个屏幕距离处）
+          const pad = 160; // 屏幕外边距
+          const halfW = screenW * 0.5 + pad;
+          const halfH = screenH * 0.5 + pad;
+
+          // 随机选择一个方向（上下左右）
+          const r = Math.random();
+          if (r < 0.25) {
+            // 左侧
+            e.x = g.player.x - halfW + rand(-40, 40);
+            e.y = g.player.y + rand(-halfH, halfH);
+          } else if (r < 0.50) {
+            // 右侧
+            e.x = g.player.x + halfW + rand(-40, 40);
+            e.y = g.player.y + rand(-halfH, halfH);
+          } else if (r < 0.75) {
+            // 上方
+            e.x = g.player.x + rand(-halfW, halfW);
+            e.y = g.player.y - halfH + rand(-40, 40);
+          } else {
+            // 下方
+            e.x = g.player.x + rand(-halfW, halfW);
+            e.y = g.player.y + halfH + rand(-40, 40);
+          }
+        }
 
         // thaw (restore color after freeze)
         if (e.frozenUntil && t >= e.frozenUntil) {

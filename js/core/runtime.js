@@ -14,6 +14,9 @@
       runtime.game = g;
       for (const fn of listeners) fn(g);
     },
+    getGame() {
+      return runtime.game;
+    },
     onGameChange(fn) {
       listeners.push(fn);
       if (runtime.game) fn(runtime.game);
