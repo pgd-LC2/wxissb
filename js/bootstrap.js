@@ -29,6 +29,26 @@
     game.onLevelUp = () => {
       game.generateSkills();
       game.isLevelingUp = true;
+      
+      // 开挂模式下自动随机选择技能，不弹出选择框
+      if (game.nbModeActive) {
+        // 过滤掉移速技能
+        const isSpeedSkill = window.isSpeedSkill || (() => false);
+        const validChoices = game.skillChoices.filter(sk => !isSpeedSkill(sk));
+        
+        if (validChoices.length > 0) {
+          // 随机选择一个技能
+          const randomIndex = Math.floor(Math.random() * validChoices.length);
+          const selectedSkill = validChoices[randomIndex];
+          game.selectSkill(selectedSkill);
+        } else if (game.skillChoices.length > 0) {
+          // 如果没有非移速技能，随机选一个
+          const randomIndex = Math.floor(Math.random() * game.skillChoices.length);
+          game.selectSkill(game.skillChoices[randomIndex]);
+        }
+        return;
+      }
+      
       if (ui && ui.showLevelUpOverlay) ui.showLevelUpOverlay(game);
     };
     game.onGameOver = () => {
