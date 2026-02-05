@@ -5,7 +5,13 @@
   const PREF_AUTOPLAY = "bigear_pref_autoplay";
 
   let game = null;
-  GameApp.Runtime.onGameChange((g) => { game = g; });
+  let currentGameId = 0;
+  GameApp.Runtime.onGameChange((g) => { 
+    game = g;
+    currentGameId++;
+    state.isChoosingSkill = false;
+    state.lastMoveUpdate = 0;
+  });
 
   const state = {
     enabled: false,
@@ -179,6 +185,7 @@
     if (state.isChoosingSkill) return;
 
     state.isChoosingSkill = true;
+    const gameIdAtStart = currentGameId;
 
     const choices = g.skillChoices;
     let bestSkill = choices[0];
@@ -193,6 +200,10 @@
     }
 
     setTimeout(() => {
+      if (gameIdAtStart !== currentGameId) {
+        state.isChoosingSkill = false;
+        return;
+      }
       if (g.isLevelingUp && g.selectSkill) {
         g.selectSkill(bestSkill);
         const overlay = GameApp.DOM && GameApp.DOM.overlay;
