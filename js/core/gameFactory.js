@@ -1316,6 +1316,11 @@
 
       // Note: we no longer splice the enemies array here (that caused O(n) shifts + frame hitches).
       // Actual removal happens in the main cleanup pass (swap-remove).
+      
+      // NEW: 魔法系统击杀回调
+      if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicKill) {
+        window.MagicSystemLogic.onMagicKill(g, enemy, t);
+      }
     };
 
     g.triggerChainLightning = (fromEnemy, damage, remaining, t) => {
@@ -1452,6 +1457,11 @@
       if (g.recoilPush) {
         g.player.x -= Math.cos(baseAngle) * 5;
         g.player.y -= Math.sin(baseAngle) * 5;
+      }
+      
+      // NEW: 魔法系统射击回调
+      if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicShoot) {
+        window.MagicSystemLogic.onMagicShoot(g, t);
       }
     };
 
@@ -1611,6 +1621,11 @@
       if (Math.random() < g.overloadChance) {
         g.shoot(t);
       }
+      
+      // NEW: 魔法系统子弹命中回调
+      if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicBulletHit) {
+        window.MagicSystemLogic.onMagicBulletHit(g, bullet, enemy, t, isCrit);
+      }
     };
 
     g.handleOrbitalHit = (orbital, enemy, t) => {
@@ -1729,6 +1744,11 @@
     // ------------------------------
     g.takeDamage = (val, t) => {
       val = safeNonNeg(val, 0);
+      
+      // NEW: 魔法系统受伤回调（可能会减少伤害）
+      if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicTakeDamage) {
+        val = window.MagicSystemLogic.onMagicTakeDamage(g, val, t);
+      }
 
       if (g.stats) g.stats.dmgTaken = safeNonNeg((g.stats.dmgTaken || 0) + val, 0);
       if (g.combat && g.combat._acc) g.combat._acc.dmgTaken = safeNonNeg((g.combat._acc.dmgTaken || 0) + val, 0);
@@ -3016,6 +3036,11 @@
       g.updateBulletHoming(dt, t);
       g.updateLightningAura(dt, t);
       g.updateEnemyBullets(dt, t);  // NEW: update enemy projectiles
+      
+      // NEW: 魔法系统更新
+      if (window.MagicSystemLogic && window.MagicSystemLogic.updateMagicSystem) {
+        window.MagicSystemLogic.updateMagicSystem(g, dt, t);
+      }
 
       // Move bullets (physics)
       for (let i = 0; i < g.bullets.length; i++) {

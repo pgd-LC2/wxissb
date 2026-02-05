@@ -266,6 +266,14 @@ function generateAllSkills(baseBladeSkills = []) {
   // 保留旧的科技技能逻辑，以防万一有依赖，但它们被整合进 generateCyberpunkArsenal 或作为补充
   // const techSkills = generateSciFiSkills(); // 已废弃，使用新生成器覆盖
   
+  // ------------------------------
+  // 魔法技能系统 500个 (新增)
+  // ------------------------------
+  if (window.MagicSkillSystem && window.MagicSkillSystem.generateMagicSkills) {
+    const magicSkills = window.MagicSkillSystem.generateMagicSkills();
+    for (const sk of magicSkills) skills.push(sk);
+  }
+  
   return skills;
 }
 
