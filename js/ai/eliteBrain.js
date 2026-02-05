@@ -31,9 +31,9 @@
     THREAT_HP_WEIGHT: 0.5,            // 血量权重
     
     // 安全距离配置
-    MIN_SAFE_DISTANCE: 120,           // 最小安全距离
-    IDEAL_KITE_DISTANCE: 350,         // 理想风筝距离
-    MAX_ENGAGE_DISTANCE: 500,         // 最大交战距离
+    MIN_SAFE_DISTANCE: 60,            // 最小安全距离（更激进）
+    IDEAL_KITE_DISTANCE: 150,         // 理想风筝距离（更近）
+    MAX_ENGAGE_DISTANCE: 300,         // 最大交战距离
     
     // 行为权重
     SURVIVAL_WEIGHT: 100,             // 生存权重
@@ -46,9 +46,9 @@
     ENEMY_PREDICTION_FRAMES: 30,      // 敌人预测帧数
     
     // 风险阈值
-    CRITICAL_HP_RATIO: 0.3,           // 危险血量比例
-    SURROUNDED_THRESHOLD: 5,          // 被包围敌人数量阈值
-    SURROUNDED_RADIUS: 200,           // 包围检测半径
+    CRITICAL_HP_RATIO: 0.15,          // 危险血量比例（更低才逃跑）
+    SURROUNDED_THRESHOLD: 8,          // 被包围敌人数量阈值（更高容忍度）
+    SURROUNDED_RADIUS: 120,           // 包围检测半径（更小）
   };
 
   // ============================================================================
@@ -962,19 +962,24 @@
       
       let newState = this.state;
       
-      // 状态转换逻辑
+      // 状态转换逻辑 - 更激进的策略
       if (enemyCount === 0) {
         newState = EliteBrain.STATES.COLLECT;
-      } else if (surrounding.isSurrounded || hpRatio < CONFIG.CRITICAL_HP_RATIO) {
+      } else if (surrounding.isSurrounded && hpRatio < CONFIG.CRITICAL_HP_RATIO) {
+        // 只有被包围且血量低时才逃跑
         newState = EliteBrain.STATES.ESCAPE;
-      } else if (overallThreat > 50) {
+      } else if (hpRatio < CONFIG.CRITICAL_HP_RATIO && overallThreat > 80) {
+        // 血量很低且威胁很高时逃跑
         newState = EliteBrain.STATES.ESCAPE;
-      } else if (overallThreat > 20) {
-        newState = EliteBrain.STATES.KITE;
-      } else if (hpRatio > 0.8 && enemyCount < 5) {
+      } else if (hpRatio > 0.5 || enemyCount < 10) {
+        // 血量还行或敌人不多时，进攻
         newState = EliteBrain.STATES.AGGRESSIVE;
-      } else {
+      } else if (overallThreat > 60) {
+        // 威胁很高时风筝
         newState = EliteBrain.STATES.KITE;
+      } else {
+        // 默认进攻
+        newState = EliteBrain.STATES.AGGRESSIVE;
       }
       
       // 状态变化
@@ -1005,7 +1010,7 @@
           return this.collectStrategy(g, spatialAnalysis);
         
         case EliteBrain.STATES.AGGRESSIVE:
-          return this.aggressiveStrategy(g, threats);
+          return this.aggressiveStrategy(g, threats, spatialAnalysis);
         
         case EliteBrain.STATES.IDLE:
         default:
@@ -1135,23 +1140,61 @@
     }
 
     /**
-     * 进攻策略
+     * 进攻策略 - 更激进，同时收集经验
      */
-    aggressiveStrategy(g, threats) {
+    aggressiveStrategy(g, threats, spatialAnalysis) {
+      const player = g.player;
+      const expOrbs = g.expOrbs || [];
+      
+      // 首先检查附近是否有经验球可以顺便收集
+      let nearestOrb = null;
+      let nearestOrbDist = Infinity;
+      
+      for (let i = 0; i < expOrbs.length; i++) {
+        const orb = expOrbs[i];
+        if (!orb || orb._dead) continue;
+        
+        const dist = MathUtils.distance(player.x, player.y, orb.x, orb.y);
+        if (dist < nearestOrbDist) {
+          nearestOrbDist = dist;
+          nearestOrb = orb;
+        }
+      }
+      
+      // 如果有很近的经验球（200像素内），优先收集
+      if (nearestOrb && nearestOrbDist < 200) {
+        const dx = nearestOrb.x - player.x;
+        const dy = nearestOrb.y - player.y;
+        return MathUtils.normalize(dx, dy);
+      }
+      
       if (threats.length === 0) {
+        // 没有敌人，找经验球
+        if (nearestOrb) {
+          const dx = nearestOrb.x - player.x;
+          const dy = nearestOrb.y - player.y;
+          return MathUtils.normalize(dx, dy);
+        }
         return { x: 0, y: 0 };
       }
       
       const nearest = threats[0];
       
-      // 保持在射程内但不太近
-      if (nearest.distance > CONFIG.MAX_ENGAGE_DISTANCE) {
+      // 更激进：只有非常近才稍微后退
+      if (nearest.distance < CONFIG.MIN_SAFE_DISTANCE) {
+        // 太近了，稍微后退但同时绕行
+        const retreatDir = MathUtils.normalize(-nearest.direction.x, -nearest.direction.y);
+        const tangentDir = MathUtils.normalize(-nearest.direction.y, nearest.direction.x);
+        return {
+          x: retreatDir.x * 0.3 + tangentDir.x * 0.7,
+          y: retreatDir.y * 0.3 + tangentDir.y * 0.7,
+        };
+      } else if (nearest.distance > CONFIG.MAX_ENGAGE_DISTANCE) {
+        // 太远，靠近敌人
         return nearest.direction;
-      } else if (nearest.distance < CONFIG.MIN_SAFE_DISTANCE * 1.5) {
-        return MathUtils.normalize(-nearest.direction.x, -nearest.direction.y);
       }
       
-      // 绕行射击
+      // 在合适距离，绕行射击
       return MathUtils.normalize(-nearest.direction.y, nearest.direction.x);
     }
 
