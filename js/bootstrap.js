@@ -6,6 +6,10 @@
   const { overlay, restartBtn, homeBtn } = GameApp.DOM;
   const runtime = GameApp.Runtime;
 
+  // 存储玩家选择的职业和武器
+  let pendingClassId = null;
+  let pendingWeaponId = null;
+
   function resetGame() {
     const game = GameApp.makeGame();
     GameApp.Canvas.wrapRender(game);
@@ -31,6 +35,13 @@
       // showGameOverOverlay 现在由 tick 函数统一处理，避免重复调用
     };
 
+    // 应用职业和武器选择（如果有）
+    const CWS = GameApp.ClassWeaponSystem;
+    if (CWS && pendingClassId && pendingWeaponId) {
+      CWS.applyClassToGame(game, pendingClassId);
+      CWS.applyWeaponToGame(game, pendingWeaponId);
+    }
+
     // initial HUD
     game.updateUI();
 
@@ -41,25 +52,56 @@
     if (ui && ui.resetPauseState) ui.resetPauseState();
   }
 
-  function start() {
-    GameApp.Canvas.init();
-    resetGame();
-
-    if (restartBtn) {
-      restartBtn.addEventListener("click", () => {
-        overlay.classList.remove("show");
-        resetGame();
+  // 显示职业和武器选择界面
+  function showClassWeaponSelection(onComplete) {
+    const CWS = GameApp.ClassWeaponSystem;
+    if (CWS && CWS.showSelectionScreen) {
+      CWS.showSelectionScreen((classId, weaponId) => {
+        pendingClassId = classId;
+        pendingWeaponId = weaponId;
+        if (typeof onComplete === "function") {
+          onComplete(classId, weaponId);
+        }
       });
+    } else {
+      // 如果没有职业系统，直接回调
+      if (typeof onComplete === "function") {
+        onComplete(null, null);
+      }
     }
-
-    if (homeBtn) {
-      homeBtn.addEventListener("click", () => {
-        window.location.href = "../index.html";
-      });
-    }
-
-    requestAnimationFrame(GameApp.Loop.tick);
   }
 
-  GameApp.Boot = { resetGame, start };
+  // 重新开始游戏（带选择界面）
+  function restartWithSelection() {
+    overlay.classList.remove("show");
+    showClassWeaponSelection(() => {
+      resetGame();
+      // 游戏循环已经在运行，不需要再次启动
+    });
+  }
+
+  function start() {
+    GameApp.Canvas.init();
+
+    // 首次启动：显示职业和武器选择界面
+    showClassWeaponSelection(() => {
+      resetGame();
+
+      if (restartBtn) {
+        restartBtn.addEventListener("click", () => {
+          restartWithSelection();
+        });
+      }
+
+      if (homeBtn) {
+        homeBtn.addEventListener("click", () => {
+          window.location.href = "../index.html";
+        });
+      }
+
+      requestAnimationFrame(GameApp.Loop.tick);
+    });
+  }
+
+  GameApp.Boot = { resetGame, start, showClassWeaponSelection, restartWithSelection };
 })();

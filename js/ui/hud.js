@@ -5,7 +5,11 @@
   const { levelBadge, hpFill, expFill, skillCountEl, powerBadgeEl } = GameApp.DOM;
   const { clamp, nowSec } = GameApp.Deps.utils;
 
+  // 获取职业武器徽章元素
+  const classWeaponBadgeEl = document.getElementById("classWeaponBadge");
+
   let game = null;
+  let lastClassWeaponUpdate = "";
   GameApp.Runtime.onGameChange((g) => { game = g; });
 
   function updateHUD(exp, hp, lv) {
@@ -19,6 +23,26 @@
       skillCountEl.textContent = `技能: ${game.acquiredSkills.length}`;
     } else {
       skillCountEl.style.display = "none";
+    }
+
+    // 更新职业和武器显示
+    if (classWeaponBadgeEl) {
+      const cls = game.selectedClass;
+      const weapon = game.selectedWeapon;
+      if (cls && weapon) {
+        const key = `${cls.id}_${weapon.id}`;
+        if (key !== lastClassWeaponUpdate) {
+          lastClassWeaponUpdate = key;
+          classWeaponBadgeEl.innerHTML = `
+            <span class="cw-badge-item" style="color: ${cls.color}">${cls.icon} ${cls.name}</span>
+            <span class="cw-badge-sep">·</span>
+            <span class="cw-badge-item" style="color: ${weapon.color}">${weapon.icon} ${weapon.name}</span>
+          `;
+          classWeaponBadgeEl.style.display = "flex";
+        }
+      } else {
+        classWeaponBadgeEl.style.display = "none";
+      }
     }
 
     // 战斗水平（用于动态难度 & 本地排行榜）
