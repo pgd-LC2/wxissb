@@ -262,8 +262,8 @@
           count++;
           const angle = MathUtils.vectorToAngle(dx, dy);
           angles.push(angle);
-          angleSum.x += dx / dist;
-          angleSum.y += dy / dist;
+          angleSum.x += dist > 0.001 ? dx / dist : 0;
+          angleSum.y += dist > 0.001 ? dy / dist : 0;
         }
       }
 
