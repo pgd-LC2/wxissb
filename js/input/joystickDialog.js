@@ -61,7 +61,7 @@
               color: rgba(255,255,255,0.75);
               font-size: 16px;
               line-height: 1.5;
-            ">检测到您正在使用电脑访问游戏<br/>是否需要显示虚拟摇杆？</p>
+            ">是否需要显示虚拟摇杆？</p>
             
             <div style="
               display: flex;
@@ -151,8 +151,8 @@
 
       // 处理用户选择
       function handleChoice(showJoystick) {
-        // 保存用户选择到 localStorage
-        localStorage.setItem('desktopJoystickPreference', showJoystick ? 'yes' : 'no');
+        // 不再保存用户选择到 localStorage，实现每次都询问
+        // localStorage.setItem('desktopJoystickPreference', showJoystick ? 'yes' : 'no');
         
         // 淡出动画
         dialog.style.animation = 'fadeOut 0.3s ease-out';
@@ -184,23 +184,15 @@
     const joystickEl = document.getElementById('joystick');
     if (!joystickEl) return;
 
+    /* 移除设备检测，在任何设备上都进行询问
     // 如果不是桌面设备，使用默认行为（CSS媒体查询控制）
     if (!isDesktopDevice()) {
       return;
     }
+    */
 
-    // 检查是否已有用户偏好设置
-    const savedPreference = localStorage.getItem('desktopJoystickPreference');
-    
-    let showJoystick = false;
-
-    if (savedPreference === null) {
-      // 首次访问，显示对话框
-      showJoystick = await showJoystickDialog();
-    } else {
-      // 使用已保存的偏好
-      showJoystick = savedPreference === 'yes';
-    }
+    // 每次都显示对话框询问用户
+    const showJoystick = await showJoystickDialog();
 
     // 根据用户选择显示或隐藏摇杆
     if (showJoystick) {
@@ -228,7 +220,10 @@
           box-shadow: 0 4px 20px rgba(0,0,0,0.3);
         }
       `;
-      document.head.appendChild(style);
+      // 避免重复添加样式
+      if (!document.getElementById('desktopJoystickStyle')) {
+          document.head.appendChild(style);
+      }
     } else {
       // 不显示摇杆
       joystickEl.style.display = 'none';

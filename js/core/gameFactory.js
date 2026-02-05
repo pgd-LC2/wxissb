@@ -233,6 +233,78 @@
       maxExp: 70,
       level: 1,
       isPausedGame: false,
+
+      // ------------------------------
+      // NEW: Tech Knockback System (赛博朋克击退科技系统)
+      // ------------------------------
+      tech: {
+        // 1. Gravity Pulse
+        pulseActive: false,
+        pulseInterval: 3.0,
+        pulseNext: 0,
+        pulseRange: 180,
+        pulseForce: 150,
+
+        // 2. Sonic Shotgun
+        sonicActive: false,
+        sonicCounter: 0,
+        sonicThreshold: 3,
+        sonicArc: 0.8, // radians
+        sonicForce: 250,
+
+        // 3. Repulsor Field
+        repulsorActive: false,
+        repulsorRange: 70,
+        repulsorForce: 15, // Constant low force
+
+        // 4. Kinetic Dash (Trail)
+        dashTrailActive: false,
+        dashTrailInterval: 0.2,
+        dashTrailNext: 0,
+
+        // 5. Force Mine
+        forceMineActive: false,
+        forceMineChance: 0.0, // Chance on shoot or move? Let's do drop on move like regular mines but separate
+        forceMineInterval: 2.5,
+        forceMineNext: 0,
+
+        // 6. Railgun
+        railgunActive: false,
+        railgunChance: 0.10,
+        railgunForce: 600,
+
+        // 7. Shockwave Stomp
+        stompActive: false,
+        stompChargeTime: 1.0,
+        stompTimer: 0,
+        stompForce: 400,
+        stompRange: 250,
+        stompReady: false,
+
+        // 8. Kinetic Barrier (Orbital)
+        barrierActive: false,
+        barrierCount: 0,
+        barrierList: [], // {ang: 0}
+
+        // 9. Pulse Drone
+        droneActive: false,
+        droneCount: 0,
+        droneList: [], // {x, y, lastShot}
+
+        // 10. Anti-Gravity Singularity
+        singularityActive: false,
+        singularityChance: 0.05 // On kill
+      },
+
+      // ------------------------------
+      // NEW: Cyber Arsenal System (赛博军械库)
+      // ------------------------------
+      cyber: {
+        drones: [], // {type, behavior, level, id, lastShot, x, y}
+        bladeType: null, // "razor", "saw", "energy"
+        // Elements and hacks are stored as keys like "elem_plasma_bullet": 1.5
+      },
+
       lastShootTime: 0,
       lastRegenTime: 0,
       lastMineTime: 0,
@@ -667,9 +739,13 @@
       const hpBase = safeNonNeg(def.hp, 30);
       const hp = clamp(hpBase * diff, 1, 200000);
 
-      // Apply speed multiplier from director for dynamic difficulty
-      const speedMul = safeNumber(d.speedMul, 1.0);
-      const speed = safeNonNeg(GameConfig.baseEnemySpeed * safeNonNeg(def.speed, 1.0) * speedMul * (1 + safeNumber(d.strength, 0) * 0.18), 10);
+      // Apply speed multiplier based on player speed and combat power
+      // "让敌人的速度不是基于战力是基于我的移速 再根据我的战力提升一点"
+      const playerSpeed = GameConfig.basePlayerSpeed * safeNumber(g.playerSpeedMulti, 1.0);
+      const baseRatio = 0.45; // 基础速度比率 (敌人速度约为玩家的45%)
+      const strengthMod = 1.0 + safeNumber(d.strength, 0) * 0.12; // 战力微调 (0.12系数)
+      
+      const speed = safeNonNeg(playerSpeed * baseRatio * safeNonNeg(def.speed, 1.0) * strengthMod, 10);
 
       const enemy = {
         id: nextId(),
@@ -1424,15 +1500,59 @@
       g.shakeCamera(bigHit ? 0.10 : 0.06, bigHit ? 7 : 3, t);
       g.emitSparks({x:enemy.x, y:enemy.y}, bigHit ? 12 : 7, "#ffd60a", t, Math.atan2(bullet.vy, bullet.vx));
 
+      // NEW: Cyber Bullet Effects
+      if (g.cyber) {
+          // Plasma Bullet (Explosion)
+          if (g.cyber.elem_plasma_bullet) {
+              g.createExplosionEffect({x:enemy.x, y:enemy.y}, 30, t);
+              // Area dmg
+              const pDmg = damage * 0.3 * g.cyber.elem_plasma_bullet;
+              for(let i=0; i<g.enemies.length; i++) {
+                 const e = g.enemies[i];
+                 if(e===enemy || e._dead) continue;
+                 const d2 = (e.x-enemy.x)**2 + (e.y-enemy.y)**2;
+                 if(d2 < 30*30) g.applyDamageToEnemy(e, pDmg, t);
+              }
+          }
+          // Neon Bullet (Chain + Stun)
+          if (g.cyber.elem_neon_bullet) {
+             if (Math.random() < 0.2) {
+                enemy.slowed = true; 
+                enemy._ghostSlowUntil = t + 0.5 + 0.1 * g.cyber.elem_neon_bullet;
+             }
+             if (Math.random() < 0.2) {
+                 g.triggerChainLightning(enemy, damage * 0.4, Math.floor(g.cyber.elem_neon_bullet), t);
+             }
+          }
+          // Void Bullet (Execute)
+          if (g.cyber.elem_void_bullet) {
+             const hpRatio = enemy.hp / enemy.maxHp;
+             if (hpRatio < 0.05 * g.cyber.elem_void_bullet) {
+                 g.applyDamageToEnemy(enemy, 999999, t, { immediate:true, isCrit:true });
+                 // Small blackhole chance
+                 if(Math.random()<0.05) g.createBlackHole({x:enemy.x, y:enemy.y}, t, true);
+             }
+          }
+      }
+
       // status
       g.applyStatusEffects(enemy, t);
 
       // knockback
-      if (g.knockbackForce > 0) {
+      let kForce = g.knockbackForce;
+      // NEW: Tech overrides
+      if (bullet.isPulse) kForce += 300;
+      if (g.tech && g.tech.railgunActive && Math.random() < g.tech.railgunChance) {
+        kForce += g.tech.railgunForce;
+        // Railgun effect
+        g.emitSparks({x:enemy.x, y:enemy.y}, 5, "#00ffff", t);
+      }
+
+      if (kForce > 0) {
         const vx = enemy.x - bullet.x, vy = enemy.y - bullet.y;
         const len = hypot(vx, vy) || 1;
-        enemy.x += (vx/len) * g.knockbackForce * 0.1;
-        enemy.y += (vy/len) * g.knockbackForce * 0.1;
+        enemy.x += (vx/len) * kForce * 0.1;
+        enemy.y += (vy/len) * kForce * 0.1;
       }
 
       // area damage
@@ -1539,6 +1659,13 @@
         const dx = e.x - pos.x, dy = e.y - pos.y;
         if (dx*dx + dy*dy < radius*radius) {
           g.applyDamageToEnemy(e, damage, t, { immediate: true });
+
+          // NEW: Tech Force Mine Knockback
+          if (mine.isTechForce && mine.force) {
+             const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+             e.x += (dx/dist) * mine.force;
+             e.y += (dy/dist) * mine.force;
+          }
         }
       }
 
@@ -2428,6 +2555,308 @@
     // ------------------------------
     // Main update loop (ported from Swift update)
     // ------------------------------
+    // ------------------------------
+    // NEW: Tech System Logic (赛博朋克击退科技)
+    // ------------------------------
+    g.updateTechSystem = (dt, t) => {
+      const tech = g.tech;
+      if (!tech) return;
+
+      // 1. Gravity Pulse (重力脉冲)
+      if (tech.pulseActive) {
+        if (t >= tech.pulseNext) {
+          tech.pulseNext = t + tech.pulseInterval;
+          // Trigger visual
+          g.effects.push({ kind:"shockwave", x:g.player.x, y:g.player.y, r:tech.pulseRange, color:"#00ffff", start:t, end:t+0.3 });
+          SFX.shoot(t); // Reuse sound or new one
+
+          // Push enemies
+          const r2 = tech.pulseRange * tech.pulseRange;
+          for (let i = 0; i < g.enemies.length; i++) {
+            const e = g.enemies[i];
+            if (e._dead) continue;
+            const dx = e.x - g.player.x;
+            const dy = e.y - g.player.y;
+            const d2 = dx*dx + dy*dy;
+            if (d2 < r2) {
+              const dist = Math.sqrt(d2) || 1;
+              const force = tech.pulseForce * (1 - dist/tech.pulseRange); // Stronger closer
+              e.x += (dx/dist) * force;
+              e.y += (dy/dist) * force;
+              // Stun briefly
+              e.slowed = true;
+              e._ghostSlowUntil = t + 0.5;
+            }
+          }
+        }
+      }
+
+      // 3. Repulsor Field (排斥力场)
+      if (tech.repulsorActive) {
+        const r2 = tech.repulsorRange * tech.repulsorRange;
+        // Visual (faint) every frame? Too heavy. Every 0.5s
+        if ((g._frameId % 30) === 0) {
+           g.effects.push({ kind:"ring", x:g.player.x, y:g.player.y, r:tech.repulsorRange, color:"rgba(0,255,255,0.1)", start:t, end:t+0.1 });
+        }
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x;
+          const dy = e.y - g.player.y;
+          const d2 = dx*dx + dy*dy;
+          if (d2 < r2) {
+            const dist = Math.sqrt(d2) || 1;
+            // Constant push away
+            const force = tech.repulsorForce * dt * 10; 
+            e.x += (dx/dist) * force;
+            e.y += (dy/dist) * force;
+          }
+        }
+      }
+
+      // 7. Shockwave Stomp (震荡践踏)
+      if (tech.stompActive) {
+        const isMoving = g.wasMovingLastFrame;
+        if (!isMoving) {
+          tech.stompTimer += dt;
+          // Visual charge up
+          if (Math.random() < 0.1) {
+             g.emitSparks({x:g.player.x, y:g.player.y}, 1, "#ff00ff", t);
+          }
+          
+          if (tech.stompTimer >= tech.stompChargeTime) {
+             // BOOM
+             tech.stompTimer = 0;
+             g.effects.push({ kind:"shockwave", x:g.player.x, y:g.player.y, r:tech.stompRange, color:"#ff00ff", start:t, end:t+0.4 });
+             g.shakeCamera(0.3, 10, t);
+             SFX.kill(t, true); // Big sound
+
+             const r2 = tech.stompRange * tech.stompRange;
+             for (let i = 0; i < g.enemies.length; i++) {
+               const e = g.enemies[i];
+               if (e._dead) continue;
+               const dx = e.x - g.player.x;
+               const dy = e.y - g.player.y;
+               const d2 = dx*dx + dy*dy;
+               if (d2 < r2) {
+                 const dist = Math.sqrt(d2) || 1;
+                 const force = tech.stompForce;
+                 e.x += (dx/dist) * force;
+                 e.y += (dy/dist) * force;
+                 g.applyDamageToEnemy(e, g.bulletDamage * 2, t); // Also dmg
+               }
+             }
+          }
+        } else {
+          tech.stompTimer = 0;
+        }
+      }
+
+      // 4. Kinetic Dash (Trail)
+      if (tech.dashTrailActive && g.wasMovingLastFrame) {
+        if (t >= tech.dashTrailNext) {
+          tech.dashTrailNext = t + tech.dashTrailInterval;
+          // Create a "Force Mine" that explodes instantly or lingers short time
+          // Reusing mine system but with specific type
+          g.mines.push({
+            id: nextId(),
+            x: g.player.x,
+            y: g.player.y,
+            r: 10,
+            damage: 10, // Low damage
+            radius: 80,
+            born: t,
+            isTechForce: true, // Special flag
+            force: 200,
+            color: "#00ffff"
+          });
+        }
+      }
+
+      // 5. Force Mine
+      if (tech.forceMineActive && g.wasMovingLastFrame) {
+         if (t >= tech.forceMineNext) {
+             tech.forceMineNext = t + tech.forceMineInterval;
+             g.mines.push({
+                id: nextId(),
+                x: g.player.x,
+                y: g.player.y,
+                r: 12,
+                damage: 50,
+                radius: 120,
+                born: t,
+                isTechForce: true,
+                force: 400,
+                color: "#ff00ff"
+             });
+         }
+      }
+
+      // 8. Kinetic Barrier (Orbital Wall)
+      if (tech.barrierActive) {
+         // Ensure barriers
+         while (tech.barrierList.length < tech.barrierCount) {
+             tech.barrierList.push({ ang: (TAU / tech.barrierCount) * tech.barrierList.length });
+         }
+         
+         const speed = 1.0;
+         const dist = 100;
+         const w = 40;
+         const h = 10;
+         
+         for (let i = 0; i < tech.barrierList.length; i++) {
+             const b = tech.barrierList[i];
+             b.ang += dt * speed;
+             const bx = g.player.x + Math.cos(b.ang) * dist;
+             const by = g.player.y + Math.sin(b.ang) * dist;
+             
+             // Visual
+             // g.effects.push... (Too heavy per frame, render system should handle, but we don't have access to render loop here easily without modifying renderWithCssSize.js. We can use particles or fake it)
+             if ((g._frameId % 5) === 0) {
+                 g.particles.push({
+                    kind: "spark", x: bx, y: by, vx: 0, vy: 0, r: 4, color: "#00ffff", born: t, die: t+0.2
+                 });
+             }
+
+             // Collision
+             for (let j = 0; j < g.enemies.length; j++) {
+                 const e = g.enemies[j];
+                 if (e._dead) continue;
+                 const dx = e.x - bx;
+                 const dy = e.y - by;
+                 if (dx*dx + dy*dy < 40*40) { // Rough circle col
+                     const dist = Math.sqrt(dx*dx + dy*dy) || 1;
+                     // Push OUT from player center, not barrier center (keeps them out)
+                     const pdx = e.x - g.player.x;
+                     const pdy = e.y - g.player.y;
+                     const pdist = Math.sqrt(pdx*pdx + pdy*pdy) || 1;
+                     
+                     e.x += (pdx/pdist) * 20;
+                     e.y += (pdy/pdist) * 20;
+                 }
+             }
+         }
+      }
+
+      // 9. Pulse Drone
+      if (tech.droneActive) {
+         while (tech.droneList.length < tech.droneCount) {
+             tech.droneList.push({ x: g.player.x, y: g.player.y, lastShot: 0 });
+         }
+         
+         for (let i = 0; i < tech.droneList.length; i++) {
+             const d = tech.droneList[i];
+             // Follow player
+             const tx = g.player.x + Math.cos(t + i) * 60;
+             const ty = g.player.y + Math.sin(t + i) * 60;
+             d.x += (tx - d.x) * 0.1;
+             d.y += (ty - d.y) * 0.1;
+
+             // Visual
+             if ((g._frameId % 10) === 0) {
+                 g.particles.push({ kind: "square", x: d.x, y: d.y, r: 3, color: "#ffff00", born: t, die: t+0.1 });
+             }
+
+             if (t - d.lastShot > 1.5) {
+                 const target = g.getClosestEnemy({x:d.x, y:d.y});
+                 if (target) {
+                     d.lastShot = t;
+                     // Shoot pulse bullet
+                     // Custom logic: create bullet with special flag
+                     const dx = target.x - d.x;
+                     const dy = target.y - d.y;
+                     const angle = Math.atan2(dy, dx);
+                     const speed = 500;
+                     
+                     g.bullets.push({
+                        id: nextId(),
+                        x: d.x, y: d.y, w: 8, h: 8, rot: angle,
+                        vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed,
+                        born: t, die: t+1.0, pierceLeft: 0,
+                        isPulse: true, // Special
+                        hitIds: []
+                     });
+                 }
+             }
+         }
+      }
+    };
+
+    // ------------------------------
+    // NEW: Cyber System Logic (赛博军械库逻辑)
+    // ------------------------------
+    g.updateCyberSystem = (dt, t) => {
+      const cyber = g.cyber;
+      if (!cyber) return;
+
+      // 1. Elements - Aura (光环)
+      // elem_plasma_aura, elem_neon_aura, etc.
+      if (cyber.elem_plasma_aura) {
+         if ((g._frameId % 30) === 0) {
+             const dmg = 10 * cyber.elem_plasma_aura;
+             const range = 100;
+             g.effects.push({ kind:"ring", x:g.player.x, y:g.player.y, r:range, color:"#00ffff", start:t, end:t+0.1 });
+             for(let i=0; i<g.enemies.length; i++) {
+                 const e = g.enemies[i];
+                 if(e._dead) continue;
+                 const d2 = (e.x-g.player.x)**2 + (e.y-g.player.y)**2;
+                 if(d2 < range*range) g.applyDamageToEnemy(e, dmg, t);
+             }
+         }
+      }
+      if (cyber.elem_bio_aura) {
+         if ((g._frameId % 60) === 0) {
+             // Poison cloud around player
+             g.createPoisonExplosion({x:g.player.x, y:g.player.y}, t);
+         }
+      }
+
+      // 2. Drones
+      if (cyber.drones && cyber.drones.length > 0) {
+          for(let i=0; i<cyber.drones.length; i++) {
+              const d = cyber.drones[i];
+              if (d.x == null) { d.x = g.player.x; d.y = g.player.y; }
+              
+              // Movement (Orbit or Follow)
+              const angle = t * 0.5 + (i * (TAU / cyber.drones.length));
+              const tx = g.player.x + Math.cos(angle) * (60 + (i%2)*20);
+              const ty = g.player.y + Math.sin(angle) * (60 + (i%2)*20);
+              d.x += (tx - d.x) * 0.05;
+              d.y += (ty - d.y) * 0.05;
+              
+              // Action
+              const interval = d.behavior === 'rapid' ? 0.4 : (d.behavior === 'heavy' ? 1.5 : 0.8);
+              if (t - (d.lastShot||0) > interval) {
+                  const target = g.getClosestEnemy({x:d.x, y:d.y});
+                  if (target) {
+                      d.lastShot = t;
+                      const damage = g.droneDamage * (d.level || 1) * (d.behavior==='heavy'?2:1) * (d.behavior==='swarm'?0.5:1);
+                      
+                      if (d.type === 'assault' || d.type === 'guard') {
+                          g.fireDroneBullet({x:d.x, y:d.y}, target, t); // Reuse existing, modify dmg later or separate
+                          // Or create specific cyber bullet
+                          const dx = target.x - d.x, dy = target.y - d.y;
+                          const ang = Math.atan2(dy, dx);
+                          g.bullets.push({
+                              id: nextId(), x:d.x, y:d.y, w:5, h:10, rot:ang,
+                              vx:Math.cos(ang)*400, vy:Math.sin(ang)*400,
+                              born:t, die:t+2, pierceLeft:0,
+                              chargeBonus: damage / g.bulletDamage, // Hack to scale damage
+                              hitIds: []
+                          });
+                      } else if (d.type === 'bomber') {
+                          g.dropMine({x:d.x, y:d.y}, t);
+                      } else if (d.type === 'laser') {
+                          // Instant hit
+                          g.effects.push({ kind:"line", x1:d.x, y1:d.y, x2:target.x, y2:target.y, start:t, end:t+0.1, color:"#ff0000" });
+                          g.applyDamageToEnemy(target, damage * 0.5, t);
+                      }
+                  }
+              }
+          }
+      }
+    };
+
     g.update = (t) => {
       // --- frame delta (real dt) ---
       // Use real dt to keep movement consistent and reduce stutter sensitivity.
@@ -2579,6 +3008,8 @@
 
       // 8. systems update
       g.updateEnemies(dt, t);
+      g.updateTechSystem(dt, t);
+      g.updateCyberSystem(dt, t); // NEW: Cyber system update
       g.updateOrbitals(dt, t);
       g.updateDrones(t);
       g.updateGhosts(t);

@@ -134,15 +134,16 @@ canvas {
   height: min(25vmin, 180px);
   z-index: 11;
   touch-action: none;
-  /* 默认在电脑端隐藏（通过 JS 检测触摸设备后显示） */
+  /* 默认隐藏，通过 JS 控制显示 */
   display: none;
 }
-/* 触摸设备显示摇杆 */
+/* 移除自动显示摇杆的媒体查询，完全由 JS 控制
 @media (pointer: coarse), (hover: none) {
   #joystick {
     display: block;
   }
 }
+*/
 #joyBase{
   position: absolute;
   inset: 0;
