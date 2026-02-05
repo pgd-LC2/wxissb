@@ -1,22 +1,39 @@
+/**
+ * AutoPlay System - AI托管系统
+ * 
+ * 集成Elite Brain顶级AI决策系统
+ * 使用完整的决策树、威胁评估、空间分析和蒙特卡洛模拟
+ */
 (() => {
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
   const PREF_AUTOPLAY = "bigear_pref_autoplay";
+  const PREF_ELITE_MODE = "bigear_pref_elite_ai";
 
   let game = null;
   let currentGameId = 0;
+  
+  // Elite Brain实例（延迟初始化）
+  let eliteBrain = null;
+  
   GameApp.Runtime.onGameChange((g) => { 
     game = g;
     currentGameId++;
     state.isChoosingSkill = false;
     state.lastMoveUpdate = 0;
+    // 重置Elite Brain状态
+    if (eliteBrain) {
+      eliteBrain.state = "IDLE";
+      eliteBrain.smoothedDirection = { x: 0, y: 0 };
+    }
   });
 
   const state = {
     enabled: false,
+    eliteMode: true,  // 默认启用Elite模式
     lastMoveUpdate: 0,
-    moveUpdateInterval: 0.05,
+    moveUpdateInterval: 0.016,  // Elite模式下更频繁更新（60fps）
     pendingSkillChoice: false,
     isChoosingSkill: false
   };
@@ -37,17 +54,38 @@
     setEnabled(!state.enabled);
   }
 
+  function setEliteMode(enabled) {
+    state.eliteMode = !!enabled;
+    try {
+      localStorage.setItem(PREF_ELITE_MODE, state.eliteMode ? "1" : "0");
+    } catch {}
+    refreshAutoPlayIcon();
+  }
+
+  function isEliteMode() {
+    return state.eliteMode;
+  }
+
+  function toggleEliteMode() {
+    setEliteMode(!state.eliteMode);
+  }
+
   function refreshAutoPlayIcon() {
     const btn = GameApp.DOM && GameApp.DOM.autoPlayToggle;
     if (!btn) return;
     if (state.enabled) {
       btn.classList.add("active");
-      btn.textContent = "\uD83E\uDD16";
-      btn.title = "AI\u6258\u7BA1\u4E2D\uFF08\u70B9\u51FB\u5173\u95ED\uFF09";
+      if (state.eliteMode) {
+        btn.textContent = "\uD83E\uDDE0";  // 大脑emoji表示Elite模式
+        btn.title = "Elite AI托管中（点击关闭）\n右键切换普通模式";
+      } else {
+        btn.textContent = "\uD83E\uDD16";
+        btn.title = "AI托管中（点击关闭）\n右键切换Elite模式";
+      }
     } else {
       btn.classList.remove("active");
       btn.textContent = "\uD83C\uDFAE";
-      btn.title = "AI\u6258\u7BA1\uFF08\u70B9\u51FB\u5F00\u542F\uFF09";
+      btn.title = "AI托管（点击开启）";
     }
   }
 
@@ -204,7 +242,10 @@
     return nearest;
   }
 
-  function evaluateSkill(skill, g) {
+  // ============================================================================
+  // 旧版简单AI（保留作为后备）
+  // ============================================================================
+  function evaluateSkillSimple(skill, g) {
     let score = 0;
     const tierBonus = [0, 1, 2, 4, 8, 16];
     score += tierBonus[skill.tier] || 1;
@@ -252,6 +293,24 @@
     return score;
   }
 
+  // ============================================================================
+  // Elite Brain技能评估（使用高级AI）
+  // ============================================================================
+  function evaluateSkillElite(skill, g) {
+    // 确保Elite Brain已初始化
+    if (!eliteBrain && GameApp.eliteBrainInstance) {
+      eliteBrain = GameApp.eliteBrainInstance;
+    }
+    
+    if (eliteBrain && eliteBrain.skillEvaluator) {
+      const gameState = eliteBrain.skillEvaluator.analyzeGameState(g);
+      return eliteBrain.skillEvaluator.evaluateSkill(skill, g, gameState);
+    }
+    
+    // 后备：使用简单评估
+    return evaluateSkillSimple(skill, g);
+  }
+
   function autoSelectSkill(g) {
     if (!g || !g.skillChoices || g.skillChoices.length === 0) return;
     if (state.isChoosingSkill) return;
@@ -263,8 +322,11 @@
     let bestSkill = choices[0];
     let bestScore = -Infinity;
 
+    // 根据模式选择评估函数
+    const evaluateFunc = state.eliteMode ? evaluateSkillElite : evaluateSkillSimple;
+
     for (let i = 0; i < choices.length; i++) {
-      const score = evaluateSkill(choices[i], g);
+      const score = evaluateFunc(choices[i], g);
       if (score > bestScore) {
         bestScore = score;
         bestSkill = choices[i];
@@ -282,7 +344,25 @@
         if (overlay) overlay.classList.remove("show");
       }
       state.isChoosingSkill = false;
-    }, 300);
+    }, 200);  // Elite模式下更快选择
+  }
+
+  // ============================================================================
+  // Elite Brain移动决策
+  // ============================================================================
+  function getMovementVectorElite(g, t) {
+    // 确保Elite Brain已初始化
+    if (!eliteBrain && GameApp.eliteBrainInstance) {
+      eliteBrain = GameApp.eliteBrainInstance;
+    }
+    
+    if (!eliteBrain) {
+      // 后备：使用简单AI
+      return getMovementVector(g, t);
+    }
+    
+    // 使用Elite Brain进行决策
+    return eliteBrain.decide(g, t);
   }
 
   function update(t) {
@@ -295,25 +375,46 @@
 
     if (game.isGameOver || game.isPausedGame || game.isLevelingUp) return;
 
-    if (t - state.lastMoveUpdate >= state.moveUpdateInterval) {
+    // Elite模式下更频繁更新
+    const updateInterval = state.eliteMode ? 0.016 : state.moveUpdateInterval;
+    
+    if (t - state.lastMoveUpdate >= updateInterval) {
       state.lastMoveUpdate = t;
-      const vec = getMovementVector(game, t);
+      
+      // 根据模式选择移动向量计算函数
+      const vec = state.eliteMode ? getMovementVectorElite(game, t) : getMovementVector(game, t);
       game.joystickVector = vec;
     }
   }
 
+  // 初始化状态
   try {
     const pref = localStorage.getItem(PREF_AUTOPLAY);
     if (pref === "1") {
       state.enabled = true;
     }
+    const elitePref = localStorage.getItem(PREF_ELITE_MODE);
+    if (elitePref === "0") {
+      state.eliteMode = false;
+    } else {
+      state.eliteMode = true;  // 默认启用Elite模式
+    }
   } catch {}
 
   const autoPlayBtn = GameApp.DOM && GameApp.DOM.autoPlayToggle;
   if (autoPlayBtn) {
+    // 左键切换AI托管
     autoPlayBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       toggle();
+    });
+    // 右键切换Elite模式
+    autoPlayBtn.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (state.enabled) {
+        toggleEliteMode();
+      }
     });
   }
 
@@ -325,4 +426,15 @@
   autoPlay.toggle = toggle;
   autoPlay.update = update;
   autoPlay.refreshAutoPlayIcon = refreshAutoPlayIcon;
+  autoPlay.isEliteMode = isEliteMode;
+  autoPlay.setEliteMode = setEliteMode;
+  autoPlay.toggleEliteMode = toggleEliteMode;
+  
+  // 获取Elite Brain调试信息
+  autoPlay.getDebugInfo = () => {
+    if (eliteBrain) {
+      return eliteBrain.getDebugInfo();
+    }
+    return null;
+  };
 })();
