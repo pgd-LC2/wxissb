@@ -352,10 +352,59 @@ canvas {
 #soundToggle:hover{ background: rgba(0,0,0,.62); }
 #soundToggle.muted{ opacity: .55; }
 
+/* Music toggle */
+#musicToggle{
+  position: absolute;
+  right: 62px;
+  bottom: 56px;
+  z-index: 12;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.45);
+  color: rgba(255,255,255,.92);
+  font-size: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+}
+#musicToggle:hover{ background: rgba(0,0,0,.62); }
+#musicToggle.muted{ opacity: .55; }
+
+/* AutoPlay toggle */
+#autoPlayToggle{
+  position: absolute;
+  right: 112px;
+  bottom: 56px;
+  z-index: 12;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(0,0,0,.45);
+  color: rgba(255,255,255,.92);
+  font-size: 20px;
+  cursor: pointer;
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+}
+#autoPlayToggle:hover{ background: rgba(0,0,0,.62); }
+#autoPlayToggle.active{ 
+  background: rgba(0,200,100,.45);
+  border-color: rgba(0,255,100,.3);
+}
+
 /* Shake toggle */
 #shakeToggle{
   position: absolute;
-  right: 62px;
+  right: 162px;
   bottom: 56px;
   z-index: 12;
   width: 44px;

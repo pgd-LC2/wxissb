@@ -30,6 +30,8 @@
     joystickEl: document.getElementById("joystick"),
     joyKnob: document.getElementById("joyKnob"),
     soundToggle: document.getElementById("soundToggle"),
+    musicToggle: document.getElementById("musicToggle"),
+    autoPlayToggle: document.getElementById("autoPlayToggle"),
     shakeToggle: document.getElementById("shakeToggle"),
     pauseBtn: document.getElementById("pauseBtn"),
     pauseOverlay: document.getElementById("pauseOverlay"),

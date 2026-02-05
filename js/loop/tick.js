@@ -29,11 +29,17 @@
     }
 
     if (game) {
-      // Input: joystick active => use joystickVector, otherwise always use held keys
-      const input = GameApp.Input;
-      const keyVec = input ? input.recomputeKeyVector() : { dx: 0, dy: 0 };
-      if (!input || !input.isJoyActive || !input.isJoyActive()) {
-        game.joystickVector = keyVec;
+      // AI AutoPlay: if enabled, let AI control movement
+      const autoPlay = GameApp.AutoPlay;
+      if (autoPlay && autoPlay.isEnabled && autoPlay.isEnabled()) {
+        autoPlay.update(t);
+      } else {
+        // Input: joystick active => use joystickVector, otherwise always use held keys
+        const input = GameApp.Input;
+        const keyVec = input ? input.recomputeKeyVector() : { dx: 0, dy: 0 };
+        if (!input || !input.isJoyActive || !input.isJoyActive()) {
+          game.joystickVector = keyVec;
+        }
       }
 
       // Update (simulation)
