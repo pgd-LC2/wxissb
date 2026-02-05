@@ -1099,14 +1099,39 @@
      * 收集策略
      */
     collectStrategy(g, spatialAnalysis) {
-      const expResult = spatialAnalysis.findBestExpDirection(g);
+      const player = g.player;
+      const expOrbs = g.expOrbs || [];
       
+      // 首先尝试直接找最近的经验球
+      let nearestOrb = null;
+      let nearestDist = Infinity;
+      
+      for (let i = 0; i < expOrbs.length; i++) {
+        const orb = expOrbs[i];
+        if (!orb || orb._dead) continue;
+        
+        const dist = MathUtils.distance(player.x, player.y, orb.x, orb.y);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestOrb = orb;
+        }
+      }
+      
+      // 如果找到经验球，直接朝它移动
+      if (nearestOrb) {
+        const dx = nearestOrb.x - player.x;
+        const dy = nearestOrb.y - player.y;
+        return MathUtils.normalize(dx, dy);
+      }
+      
+      // 使用网格分析作为备选
+      const expResult = spatialAnalysis.findBestExpDirection(g);
       if (expResult.value > 0) {
         return expResult.direction;
       }
       
-      // 没有经验球，随机移动
-      return MathUtils.randomUnitVector();
+      // 没有经验球，停止移动而不是随机移动
+      return { x: 0, y: 0 };
     }
 
     /**
