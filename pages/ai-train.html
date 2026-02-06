@@ -620,10 +620,11 @@
       }
 
       if (currentGame && !currentGame.isGameOver) {
-        ppoTrainer.step(t);
-
         currentGame.update(t);
         if (typeof currentGame.directorStep === "function") currentGame.directorStep(t);
+
+        ppoTrainer.step(t);
+
         currentGame.render(t);
 
         const state = PPOTrainerSystem.extractState(currentGame);

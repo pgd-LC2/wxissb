@@ -519,7 +519,7 @@
             for (let j = 0; j < this.net.actionDim; j++) {
               const pj = probs[j];
               if (pj > 1e-8) {
-                const entropyGrad = pj * (entropy + Math.log(pj));
+                const entropyGrad = pj * (entropy - Math.log(pj));
                 dLogits[j] += this.cfg.entropyCoef * entropyGrad;
               }
             }
