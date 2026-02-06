@@ -1,0 +1,737 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>BIGEAR - PPO AI 训练</title>
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="stylesheet" href="../css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a1a;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+    }
+
+    #trainRoot {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      grid-template-rows: 50px 1fr 220px;
+      height: 100vh;
+      gap: 0;
+    }
+
+    #topBar {
+      grid-column: 1 / -1;
+      background: linear-gradient(90deg, #1a1a3e, #0d0d2b);
+      border-bottom: 1px solid #2a2a5e;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 10;
+    }
+
+    #topBar h1 {
+      font-size: 16px;
+      color: #00d7ff;
+      margin-right: 16px;
+      white-space: nowrap;
+    }
+
+    .topBtn {
+      background: linear-gradient(135deg, #1e3a5f, #0d2240);
+      border: 1px solid #2a5a8f;
+      color: #7ec8e3;
+      padding: 6px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .topBtn:hover { background: linear-gradient(135deg, #2a5a8f, #1e3a5f); border-color: #4a8abf; }
+    .topBtn.active { background: linear-gradient(135deg, #0a6e3a, #04522a); border-color: #0fa; color: #0fa; }
+    .topBtn.danger { background: linear-gradient(135deg, #5f1e1e, #401010); border-color: #8f2a2a; color: #e87777; }
+    .topBtn.danger:hover { background: linear-gradient(135deg, #8f2a2a, #5f1e1e); }
+
+    #topBar .spacer { flex: 1; }
+
+    #gameArea {
+      position: relative;
+      background: #111;
+      overflow: hidden;
+    }
+
+    #c {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    #gameOverlay {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      line-height: 1.6;
+      pointer-events: none;
+      z-index: 5;
+    }
+    #gameOverlay .label { color: #888; }
+    #gameOverlay .value { color: #0fa; font-weight: bold; }
+    #gameOverlay .action-display { color: #ff0; }
+
+    #sidePanel {
+      background: #0d0d25;
+      border-left: 1px solid #2a2a5e;
+      overflow-y: auto;
+      padding: 12px;
+    }
+
+    .panelSection {
+      margin-bottom: 14px;
+    }
+    .panelSection h3 {
+      font-size: 13px;
+      color: #7ec8e3;
+      margin-bottom: 8px;
+      padding-bottom: 4px;
+      border-bottom: 1px solid #1a1a4e;
+    }
+
+    .statRow {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 3px 0;
+    }
+    .statRow .label { color: #888; }
+    .statRow .value { color: #e0e0e0; font-family: 'Consolas', monospace; }
+    .statRow .value.good { color: #0fa; }
+    .statRow .value.warn { color: #fa0; }
+    .statRow .value.bad { color: #f55; }
+
+    .configRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 12px;
+    }
+    .configRow label { color: #aaa; }
+    .configRow input, .configRow select {
+      background: #1a1a3e;
+      border: 1px solid #333;
+      color: #e0e0e0;
+      padding: 3px 6px;
+      border-radius: 4px;
+      width: 80px;
+      font-size: 12px;
+    }
+
+    #stateVectorDisplay {
+      font-family: 'Consolas', monospace;
+      font-size: 11px;
+      color: #888;
+      background: #0a0a18;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 6px;
+      max-height: 140px;
+      overflow-y: auto;
+    }
+    #stateVectorDisplay .dim { display: flex; justify-content: space-between; padding: 1px 0; }
+    #stateVectorDisplay .dim .name { color: #7ec8e3; }
+    #stateVectorDisplay .dim .val { color: #0fa; }
+
+    .probBar {
+      display: flex;
+      align-items: center;
+      margin: 2px 0;
+      font-size: 11px;
+    }
+    .probBar .actionName {
+      width: 32px;
+      color: #888;
+      text-align: right;
+      margin-right: 6px;
+    }
+    .probBar .barOuter {
+      flex: 1;
+      height: 12px;
+      background: #1a1a3e;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .probBar .barInner {
+      height: 100%;
+      background: linear-gradient(90deg, #0a6e3a, #0fa);
+      transition: width 0.1s;
+      border-radius: 3px;
+    }
+    .probBar .barInner.selected {
+      background: linear-gradient(90deg, #8f6a00, #ffd700);
+    }
+    .probBar .probVal {
+      width: 40px;
+      text-align: right;
+      color: #aaa;
+      margin-left: 4px;
+    }
+
+    #chartsArea {
+      grid-column: 1 / -1;
+      background: #0a0a18;
+      border-top: 1px solid #2a2a5e;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 1px;
+      padding: 1px;
+    }
+
+    .chartBox {
+      background: #0d0d25;
+      padding: 8px;
+      position: relative;
+    }
+    .chartBox h4 {
+      font-size: 12px;
+      color: #7ec8e3;
+      margin-bottom: 4px;
+    }
+    .chartBox canvas {
+      width: 100%;
+      height: calc(100% - 22px);
+      display: block;
+    }
+
+    #hud, #joystick, #overlay, #help, #soundToggle, #musicToggle,
+    #autoPlayToggle, #shakeToggle, #pauseBtn, #pauseOverlay,
+    #leaderboardToggle, #globalLeaderboard, #fpsCounter { display: none !important; }
+
+    #episodeLog {
+      font-size: 11px;
+      max-height: 120px;
+      overflow-y: auto;
+      background: #0a0a18;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 4px 6px;
+    }
+    #episodeLog .logEntry { padding: 1px 0; border-bottom: 1px solid #1a1a1a; }
+    #episodeLog .logEntry .ep { color: #7ec8e3; }
+    #episodeLog .logEntry .rew { color: #0fa; }
+    #episodeLog .logEntry .detail { color: #888; }
+
+    .backLink {
+      color: #7ec8e3;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .backLink:hover { color: #0fa; }
+  </style>
+</head>
+<body>
+  <div id="trainRoot">
+    <div id="topBar">
+      <a href="../index.html" class="backLink">← 返回</a>
+      <h1>🧠 PPO AI 训练系统</h1>
+      <button id="btnStart" class="topBtn">▶ 开始训练</button>
+      <button id="btnPause" class="topBtn" disabled>⏸ 暂停</button>
+      <button id="btnReset" class="topBtn danger">↻ 重置网络</button>
+      <div class="spacer"></div>
+      <button id="btnExport" class="topBtn">📥 导出模型</button>
+      <button id="btnImport" class="topBtn">📤 导入模型</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" />
+    </div>
+
+    <div id="gameArea">
+      <canvas id="c"></canvas>
+      <div id="gameOverlay">
+        <div><span class="label">动作: </span><span id="ovAction" class="action-display">--</span></div>
+        <div><span class="label">步数奖励: </span><span id="ovReward" class="value">0</span></div>
+        <div><span class="label">回合奖励: </span><span id="ovEpReward" class="value">0</span></div>
+        <div><span class="label">HP: </span><span id="ovHp" class="value">100%</span></div>
+        <div><span class="label">等级: </span><span id="ovLevel" class="value">1</span></div>
+      </div>
+
+      <div id="hud"><div id="levelBadge"></div><div id="bars"><div class="bar"><div id="hpFill" class="fill hp"></div></div><div class="bar"><div id="expFill" class="fill exp"></div></div><div id="classWeaponBadge" class="cw-badge"></div><div id="skillCount"></div><div id="powerBadge"></div></div></div>
+      <div id="joystick"><div id="joyBase"></div><div id="joyKnob"></div></div>
+      <div id="overlay"><div id="panel"><h1 id="overlayTitle"></h1><p id="overlaySubtitle"></p><div id="choices"></div><div id="gameoverStats"></div><div id="restartRow"><button id="homeBtn" class="gameover-btn secondary"></button><button id="restartBtn" class="gameover-btn primary"></button></div></div></div>
+      <button id="soundToggle"></button><button id="musicToggle"></button><button id="autoPlayToggle"></button><button id="shakeToggle"></button><button id="pauseBtn"></button>
+      <div id="pauseOverlay" class="hidden"><div id="pausePanel"><h2></h2><div id="pauseStats"></div><div class="pause-submit-section"><input type="text" id="pauseSubmitNameInput" /><button id="pauseSubmitScoreBtn"></button><div id="pauseSubmitStatus"></div></div><div class="pause-buttons"><button id="quitBtn"></button><button id="resumeBtn"></button></div><div id="quitConfirmDialog" class="hidden"><div class="quit-confirm-content"><p></p><div class="quit-confirm-buttons"><button id="quitCancelBtn"></button><button id="quitConfirmBtn"></button></div></div></div></div></div>
+      <div id="fpsCounter"></div>
+      <div id="help"></div>
+      <div id="leaderboardToggle" style="display:none"></div>
+      <div id="globalLeaderboard" class="hidden"><div class="lb-header"><span></span><button id="closeLeaderboard"></button></div><div id="globalLeaderboardContent"></div></div>
+    </div>
+
+    <div id="sidePanel">
+      <div class="panelSection">
+        <h3>📊 训练统计</h3>
+        <div class="statRow"><span class="label">总步数</span><span id="statSteps" class="value">0</span></div>
+        <div class="statRow"><span class="label">总回合</span><span id="statEpisodes" class="value">0</span></div>
+        <div class="statRow"><span class="label">平均奖励</span><span id="statAvgReward" class="value">0</span></div>
+        <div class="statRow"><span class="label">最佳奖励</span><span id="statBestReward" class="value">-∞</span></div>
+        <div class="statRow"><span class="label">策略损失</span><span id="statPolicyLoss" class="value">0</span></div>
+        <div class="statRow"><span class="label">价值损失</span><span id="statValueLoss" class="value">0</span></div>
+        <div class="statRow"><span class="label">熵</span><span id="statEntropy" class="value">0</span></div>
+      </div>
+
+      <div class="panelSection">
+        <h3>🎯 动作概率分布</h3>
+        <div id="actionProbs"></div>
+      </div>
+
+      <div class="panelSection">
+        <h3>🔢 状态向量</h3>
+        <div id="stateVectorDisplay"></div>
+      </div>
+
+      <div class="panelSection">
+        <h3>⚙️ 超参数</h3>
+        <div class="configRow"><label>学习率</label><input id="cfgLr" type="number" value="0.0003" step="0.0001" min="0.00001" max="0.01" /></div>
+        <div class="configRow"><label>折扣因子 γ</label><input id="cfgGamma" type="number" value="0.99" step="0.01" min="0.9" max="1" /></div>
+        <div class="configRow"><label>GAE λ</label><input id="cfgLambda" type="number" value="0.95" step="0.01" min="0.8" max="1" /></div>
+        <div class="configRow"><label>裁剪 ε</label><input id="cfgEpsilon" type="number" value="0.2" step="0.05" min="0.05" max="0.5" /></div>
+        <div class="configRow"><label>熵系数</label><input id="cfgEntropy" type="number" value="0.01" step="0.005" min="0" max="0.1" /></div>
+        <div class="configRow"><label>Rollout长度</label><input id="cfgRollout" type="number" value="256" step="64" min="64" max="2048" /></div>
+        <div class="configRow"><label>训练轮数</label><input id="cfgEpochs" type="number" value="4" step="1" min="1" max="10" /></div>
+        <div class="configRow"><label>隐藏层大小</label><input id="cfgHidden" type="number" value="64" step="16" min="16" max="256" /></div>
+      </div>
+
+      <div class="panelSection">
+        <h3>📝 训练日志</h3>
+        <div id="episodeLog"></div>
+      </div>
+    </div>
+
+    <div id="chartsArea">
+      <div class="chartBox"><h4>📈 回合奖励</h4><canvas id="chartReward"></canvas></div>
+      <div class="chartBox"><h4>📉 损失函数</h4><canvas id="chartLoss"></canvas></div>
+      <div class="chartBox"><h4>📊 动作熵</h4><canvas id="chartEntropy"></canvas></div>
+    </div>
+  </div>
+
+  <script src="../js/music.js"></script>
+  <script src="../js/utils.js"></script>
+  <script src="../js/sfx.js"></script>
+  <script src="../js/classWeaponSystem.js"></script>
+  <script src="../js/skills.js"></script>
+  <script src="../js/magicSkills.js"></script>
+  <script src="../js/magicSystem.js"></script>
+  <script src="../js/skillDropRates.js"></script>
+  <script src="../js/game.js"></script>
+  <script src="../js/config.js"></script>
+  <script src="../js/supabase.js"></script>
+
+  <script src="../js/core/deps.js"></script>
+  <script src="../js/core/dom.js"></script>
+  <script src="../js/core/runtime.js"></script>
+  <script src="../js/core/helpers.js"></script>
+  <script src="../js/core/gameFactory.js"></script>
+
+  <script src="../js/render/renderWithCssSize.js"></script>
+  <script src="../js/canvas/resize.js"></script>
+
+  <script src="../js/ui/skillsOverlay.js"></script>
+  <script src="../js/ui/gameover.js"></script>
+  <script src="../js/ui/hud.js"></script>
+  <script src="../js/ui/sound.js"></script>
+  <script src="../js/ui/musicToggle.js"></script>
+  <script src="../js/ai/eliteBrain.js"></script>
+  <script src="../js/ui/autoPlay.js"></script>
+  <script src="../js/ui/shake.js"></script>
+  <script src="../js/ui/pause.js"></script>
+  <script src="../js/ui/leaderboard.js"></script>
+
+  <script src="../js/input/joystick.js"></script>
+  <script src="../js/input/joystickDialog.js"></script>
+  <script src="../js/input/keyboard.js"></script>
+
+  <script src="../js/ai/ppoNet.js"></script>
+  <script src="../js/ai/ppoTrainer.js"></script>
+
+  <script>
+  (() => {
+    "use strict";
+
+    const ACTION_NAMES = ["停", "W", "A", "S", "D", "WA", "WD", "SA", "SD"];
+    const STATE_NAMES = [
+      "HP比例", "移动X", "移动Y", "敌人1 X", "敌人1 Y", "敌人1距离",
+      "敌人2 X", "敌人2 Y", "附近敌人数", "经验比例", "等级", "战力",
+      "经验球X", "经验球Y"
+    ];
+
+    let ppoTrainer = null;
+    let isRunning = false;
+    let currentGame = null;
+    let autoRestartTimer = null;
+
+    const el = {
+      btnStart: document.getElementById("btnStart"),
+      btnPause: document.getElementById("btnPause"),
+      btnReset: document.getElementById("btnReset"),
+      btnExport: document.getElementById("btnExport"),
+      btnImport: document.getElementById("btnImport"),
+      importFile: document.getElementById("importFile"),
+      statSteps: document.getElementById("statSteps"),
+      statEpisodes: document.getElementById("statEpisodes"),
+      statAvgReward: document.getElementById("statAvgReward"),
+      statBestReward: document.getElementById("statBestReward"),
+      statPolicyLoss: document.getElementById("statPolicyLoss"),
+      statValueLoss: document.getElementById("statValueLoss"),
+      statEntropy: document.getElementById("statEntropy"),
+      actionProbs: document.getElementById("actionProbs"),
+      stateVectorDisplay: document.getElementById("stateVectorDisplay"),
+      episodeLog: document.getElementById("episodeLog"),
+      ovAction: document.getElementById("ovAction"),
+      ovReward: document.getElementById("ovReward"),
+      ovEpReward: document.getElementById("ovEpReward"),
+      ovHp: document.getElementById("ovHp"),
+      ovLevel: document.getElementById("ovLevel"),
+      chartReward: document.getElementById("chartReward"),
+      chartLoss: document.getElementById("chartLoss"),
+      chartEntropy: document.getElementById("chartEntropy"),
+    };
+
+    function buildActionProbsHTML() {
+      let html = "";
+      for (let i = 0; i < ACTION_NAMES.length; i++) {
+        html += `<div class="probBar">
+          <span class="actionName">${ACTION_NAMES[i]}</span>
+          <div class="barOuter"><div class="barInner" id="probBar${i}" style="width:${(100/9).toFixed(1)}%"></div></div>
+          <span class="probVal" id="probVal${i}">${(100/9).toFixed(1)}%</span>
+        </div>`;
+      }
+      el.actionProbs.innerHTML = html;
+    }
+    buildActionProbsHTML();
+
+    function buildStateVectorHTML() {
+      let html = "";
+      for (let i = 0; i < STATE_NAMES.length; i++) {
+        html += `<div class="dim"><span class="name">[${i}] ${STATE_NAMES[i]}</span><span class="val" id="sv${i}">0.000</span></div>`;
+      }
+      el.stateVectorDisplay.innerHTML = html;
+    }
+    buildStateVectorHTML();
+
+    function drawChart(canvasEl, data, color, label, yRange) {
+      const canvas = canvasEl;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * (window.devicePixelRatio || 1);
+      canvas.height = rect.height * (window.devicePixelRatio || 1);
+      const ctx = canvas.getContext("2d");
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      if (data.length < 2) {
+        ctx.fillStyle = "#555";
+        ctx.font = `${12 * (window.devicePixelRatio || 1)}px monospace`;
+        ctx.fillText("等待数据...", 10, h / 2);
+        return;
+      }
+
+      let minVal = Infinity, maxVal = -Infinity;
+      for (let i = 0; i < data.length; i++) {
+        if (data[i] < minVal) minVal = data[i];
+        if (data[i] > maxVal) maxVal = data[i];
+      }
+      if (yRange) { minVal = yRange[0]; maxVal = yRange[1]; }
+      if (maxVal === minVal) { maxVal = minVal + 1; }
+
+      const pad = 4;
+      const plotW = w - pad * 2;
+      const plotH = h - pad * 2;
+
+      ctx.strokeStyle = "#2a2a5e";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, pad + plotH * 0.5);
+      ctx.lineTo(w - pad, pad + plotH * 0.5);
+      ctx.stroke();
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5 * (window.devicePixelRatio || 1);
+      ctx.beginPath();
+      const maxPoints = 200;
+      const step = Math.max(1, Math.floor(data.length / maxPoints));
+      let first = true;
+      for (let i = 0; i < data.length; i += step) {
+        const x = pad + (i / (data.length - 1)) * plotW;
+        const y = pad + (1 - (data[i] - minVal) / (maxVal - minVal)) * plotH;
+        if (first) { ctx.moveTo(x, y); first = false; }
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = "#888";
+      const dpr = window.devicePixelRatio || 1;
+      ctx.font = `${10 * dpr}px monospace`;
+      ctx.fillText(`${maxVal.toFixed(1)}`, pad, pad + 10 * dpr);
+      ctx.fillText(`${minVal.toFixed(1)}`, pad, h - pad);
+      ctx.fillText(`n=${data.length}`, w - 60 * dpr, h - pad);
+    }
+
+    function getConfig() {
+      return {
+        lr: parseFloat(document.getElementById("cfgLr").value) || 3e-4,
+        gamma: parseFloat(document.getElementById("cfgGamma").value) || 0.99,
+        lamda: parseFloat(document.getElementById("cfgLambda").value) || 0.95,
+        epsilon: parseFloat(document.getElementById("cfgEpsilon").value) || 0.2,
+        entropyCoef: parseFloat(document.getElementById("cfgEntropy").value) || 0.01,
+        rolloutLength: parseInt(document.getElementById("cfgRollout").value) || 256,
+        epochs: parseInt(document.getElementById("cfgEpochs").value) || 4,
+        hiddenSize: parseInt(document.getElementById("cfgHidden").value) || 64,
+      };
+    }
+
+    function createNewGame() {
+      const game = GameApp.makeGame();
+      GameApp.Canvas.wrapRender(game);
+      GameApp.Runtime.setGame(game);
+
+      const nowSec = GameApp.Deps.utils.nowSec;
+      game._startTime = nowSec();
+      game._runId = `${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+      if (game.stats) game.stats.startTime = game._startTime;
+      game._runRecorded = false;
+      game._gameOverShown = false;
+
+      const ui = GameApp.UI;
+      if (ui && ui.buildSkillPool) ui.buildSkillPool(game);
+      game.onStateChange = null;
+      game.onLevelUp = () => {
+        game.generateSkills();
+        game.isLevelingUp = true;
+      };
+      game.onGameOver = () => {};
+
+      game.updateUI();
+      currentGame = game;
+      return game;
+    }
+
+    function initTrainer() {
+      const cfg = getConfig();
+      ppoTrainer = new PPOTrainerSystem.PPOGameTrainer(cfg);
+
+      ppoTrainer.onTrainStep = (info) => {
+        el.ovAction.textContent = ACTION_NAMES[info.action] || "--";
+        el.ovReward.textContent = info.reward.toFixed(2);
+        el.ovEpReward.textContent = info.episodeReward.toFixed(1);
+        el.ovHp.textContent = (info.hp * 100).toFixed(0) + "%";
+        el.ovLevel.textContent = info.level;
+      };
+
+      ppoTrainer.onEpisodeEnd = (info) => {
+        const entry = document.createElement("div");
+        entry.className = "logEntry";
+        entry.innerHTML = `<span class="ep">EP ${info.episode}</span> `
+          + `<span class="rew">R:${info.reward.toFixed(1)}</span> `
+          + `<span class="detail">Lv${info.level} K:${info.kills} Avg:${info.avgReward.toFixed(1)}</span>`;
+        el.episodeLog.prepend(entry);
+        while (el.episodeLog.children.length > 50) el.episodeLog.removeChild(el.episodeLog.lastChild);
+      };
+
+      ppoTrainer.onTrainUpdate = (info) => {
+        el.statPolicyLoss.textContent = info.policyLoss.toFixed(4);
+        el.statValueLoss.textContent = info.valueLoss.toFixed(4);
+        el.statEntropy.textContent = info.entropy.toFixed(4);
+      };
+    }
+
+    function updateStatsDisplay() {
+      if (!ppoTrainer) return;
+      const stats = ppoTrainer.getStats();
+      el.statSteps.textContent = stats.totalSteps.toLocaleString();
+      el.statEpisodes.textContent = stats.totalEpisodes;
+      el.statAvgReward.textContent = stats.avgReward.toFixed(1);
+      el.statAvgReward.className = "value " + (stats.avgReward > 0 ? "good" : stats.avgReward < -10 ? "bad" : "warn");
+      el.statBestReward.textContent = stats.bestReward === -Infinity ? "-∞" : stats.bestReward.toFixed(1);
+      el.statPolicyLoss.textContent = stats.policyLoss.toFixed(4);
+      el.statValueLoss.textContent = stats.valueLoss.toFixed(4);
+      el.statEntropy.textContent = stats.entropy.toFixed(4);
+    }
+
+    function updateActionProbsDisplay(state) {
+      if (!ppoTrainer || !ppoTrainer.network) return;
+      const probs = ppoTrainer.network.forwardActor(state);
+      let maxIdx = 0;
+      for (let i = 1; i < probs.length; i++) {
+        if (probs[i] > probs[maxIdx]) maxIdx = i;
+      }
+      for (let i = 0; i < ACTION_NAMES.length; i++) {
+        const bar = document.getElementById("probBar" + i);
+        const val = document.getElementById("probVal" + i);
+        if (bar) {
+          bar.style.width = (probs[i] * 100).toFixed(1) + "%";
+          bar.className = "barInner" + (i === maxIdx ? " selected" : "");
+        }
+        if (val) val.textContent = (probs[i] * 100).toFixed(1) + "%";
+      }
+    }
+
+    function updateStateVectorDisplay(state) {
+      for (let i = 0; i < STATE_NAMES.length; i++) {
+        const svEl = document.getElementById("sv" + i);
+        if (svEl) svEl.textContent = state[i].toFixed(3);
+      }
+    }
+
+    function updateCharts() {
+      if (!ppoTrainer) return;
+      const stats = ppoTrainer.getStats();
+
+      drawChart(el.chartReward, stats.rewardHistory, "#0fa", "奖励");
+      const policyLosses = stats.lossHistory.map(l => l.policy);
+      drawChart(el.chartLoss, policyLosses, "#f55", "策略损失");
+      const entropies = stats.lossHistory.map(l => l.entropy);
+      drawChart(el.chartEntropy, entropies, "#ff0", "熵");
+    }
+
+    let lastT = 0;
+    let lastChartUpdate = 0;
+    let lastStatsUpdate = 0;
+
+    function trainTick() {
+      if (!isRunning || !ppoTrainer) {
+        requestAnimationFrame(trainTick);
+        return;
+      }
+
+      const nowSec = GameApp.Deps.utils.nowSec;
+      const t = nowSec();
+      lastT = t;
+
+      if (!currentGame || currentGame.isGameOver) {
+        const g = createNewGame();
+        ppoTrainer.attachGame(g);
+      }
+
+      if (currentGame && !currentGame.isGameOver) {
+        currentGame.update(t);
+        if (typeof currentGame.directorStep === "function") currentGame.directorStep(t);
+
+        ppoTrainer.step(t);
+
+        currentGame.render(t);
+
+        const state = PPOTrainerSystem.extractState(currentGame);
+        if (t - lastStatsUpdate > 0.3) {
+          updateStatsDisplay();
+          updateActionProbsDisplay(state);
+          updateStateVectorDisplay(state);
+          lastStatsUpdate = t;
+        }
+
+        if (t - lastChartUpdate > 2.0) {
+          updateCharts();
+          lastChartUpdate = t;
+        }
+      }
+
+      requestAnimationFrame(trainTick);
+    }
+
+    function startTraining() {
+      if (!ppoTrainer) initTrainer();
+      isRunning = true;
+      ppoTrainer.startTraining();
+      el.btnStart.textContent = "⏹ 停止训练";
+      el.btnStart.classList.add("active");
+      el.btnPause.disabled = false;
+    }
+
+    function stopTraining() {
+      isRunning = false;
+      if (ppoTrainer) ppoTrainer.stopTraining();
+      el.btnStart.textContent = "▶ 开始训练";
+      el.btnStart.classList.remove("active");
+      el.btnPause.disabled = true;
+      el.btnPause.textContent = "⏸ 暂停";
+    }
+
+    el.btnStart.addEventListener("click", () => {
+      if (isRunning) stopTraining();
+      else startTraining();
+    });
+
+    el.btnPause.addEventListener("click", () => {
+      if (!ppoTrainer) return;
+      if (ppoTrainer.isPaused) {
+        ppoTrainer.resumeTraining();
+        el.btnPause.textContent = "⏸ 暂停";
+      } else {
+        ppoTrainer.pauseTraining();
+        el.btnPause.textContent = "▶ 继续";
+      }
+    });
+
+    el.btnReset.addEventListener("click", () => {
+      if (!confirm("确定要重置网络吗？所有训练进度将丢失！")) return;
+      stopTraining();
+      ppoTrainer = null;
+      currentGame = null;
+      el.statSteps.textContent = "0";
+      el.statEpisodes.textContent = "0";
+      el.statAvgReward.textContent = "0";
+      el.statBestReward.textContent = "-∞";
+      el.statPolicyLoss.textContent = "0";
+      el.statValueLoss.textContent = "0";
+      el.statEntropy.textContent = "0";
+      el.episodeLog.innerHTML = "";
+      buildActionProbsHTML();
+      buildStateVectorHTML();
+    });
+
+    el.btnExport.addEventListener("click", () => {
+      if (!ppoTrainer) { alert("还没有训练的模型"); return; }
+      const json = ppoTrainer.exportBestModel();
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ppo_model_ep${ppoTrainer.getStats().totalEpisodes}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    el.btnImport.addEventListener("click", () => {
+      el.importFile.click();
+    });
+    el.importFile.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          if (!ppoTrainer) initTrainer();
+          ppoTrainer.importModel(ev.target.result);
+          alert("模型导入成功！");
+        } catch (err) {
+          alert("模型导入失败: " + err.message);
+        }
+      };
+      reader.readAsText(file);
+      el.importFile.value = "";
+    });
+
+    GameApp.Canvas.init();
+    requestAnimationFrame(trainTick);
+
+    try { window.SFX.setMuted(true); } catch (e) {}
+  })();
+  </script>
+</body>
+</html>
