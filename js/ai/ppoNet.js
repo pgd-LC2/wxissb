@@ -3,6 +3,7 @@
  * 
  * 在浏览器端运行的轻量级PPO算法
  * Actor-Critic 架构，离散动作空间
+ * 使用解析反向传播计算梯度（非数值梯度）
  * 
  * 状态向量 (14维):
  *   0: 玩家HP比例 (0-1)
@@ -70,25 +71,29 @@
     return out;
   }
 
+  function matTransMulVec(mat, vec) {
+    const out = new Float32Array(mat.cols);
+    for (let r = 0; r < mat.rows; r++) {
+      const off = r * mat.cols;
+      const v = vec[r];
+      for (let c = 0; c < mat.cols; c++) {
+        out[c] += mat.data[off + c] * v;
+      }
+    }
+    return out;
+  }
+
   function vecAdd(a, b) {
     const out = new Float32Array(a.length);
     for (let i = 0; i < a.length; i++) out[i] = a[i] + b[i];
     return out;
   }
 
-  function tanh(x) {
+  function tanhFwd(x) {
     const out = new Float32Array(x.length);
     for (let i = 0; i < x.length; i++) {
       const e2 = Math.exp(2 * Math.max(-20, Math.min(20, x[i])));
       out[i] = (e2 - 1) / (e2 + 1);
-    }
-    return out;
-  }
-
-  function relu(x) {
-    const out = new Float32Array(x.length);
-    for (let i = 0; i < x.length; i++) {
-      out[i] = x[i] > 0 ? x[i] : 0;
     }
     return out;
   }
@@ -132,17 +137,36 @@
     }
 
     forwardActor(state) {
-      let h = tanh(vecAdd(matMulVec(this.actorW1, state), this.actorB1));
-      h = tanh(vecAdd(matMulVec(this.actorW2, h), this.actorB2));
+      let h = tanhFwd(vecAdd(matMulVec(this.actorW1, state), this.actorB1));
+      h = tanhFwd(vecAdd(matMulVec(this.actorW2, h), this.actorB2));
       const logits = vecAdd(matMulVec(this.actorW3, h), this.actorB3);
       return softmax(logits);
     }
 
+    forwardActorCached(state) {
+      const z1 = vecAdd(matMulVec(this.actorW1, state), this.actorB1);
+      const h1 = tanhFwd(z1);
+      const z2 = vecAdd(matMulVec(this.actorW2, h1), this.actorB2);
+      const h2 = tanhFwd(z2);
+      const logits = vecAdd(matMulVec(this.actorW3, h2), this.actorB3);
+      const probs = softmax(logits);
+      return { h1, h2, logits, probs, input: state };
+    }
+
     forwardCritic(state) {
-      let h = tanh(vecAdd(matMulVec(this.criticW1, state), this.criticB1));
-      h = tanh(vecAdd(matMulVec(this.criticW2, h), this.criticB2));
+      let h = tanhFwd(vecAdd(matMulVec(this.criticW1, state), this.criticB1));
+      h = tanhFwd(vecAdd(matMulVec(this.criticW2, h), this.criticB2));
       const val = vecAdd(matMulVec(this.criticW3, h), this.criticB3);
       return val[0];
+    }
+
+    forwardCriticCached(state) {
+      const z1 = vecAdd(matMulVec(this.criticW1, state), this.criticB1);
+      const h1 = tanhFwd(z1);
+      const z2 = vecAdd(matMulVec(this.criticW2, h1), this.criticB2);
+      const h2 = tanhFwd(z2);
+      const out = vecAdd(matMulVec(this.criticW3, h2), this.criticB3);
+      return { h1, h2, value: out[0], input: state };
     }
 
     sampleAction(state) {
@@ -215,6 +239,89 @@
       const net = new PPONetwork(obj.stateDim, obj.actionDim, obj.hiddenSize);
       net.setAllParams(obj.params);
       return net;
+    }
+  }
+
+  class GradAccumulator {
+    constructor(net) {
+      const H = net.hiddenSize;
+      const S = net.stateDim;
+      const A = net.actionDim;
+      this.actorW1 = new Float32Array(H * S);
+      this.actorB1 = new Float32Array(H);
+      this.actorW2 = new Float32Array(H * H);
+      this.actorB2 = new Float32Array(H);
+      this.actorW3 = new Float32Array(A * H);
+      this.actorB3 = new Float32Array(A);
+      this.criticW1 = new Float32Array(H * S);
+      this.criticB1 = new Float32Array(H);
+      this.criticW2 = new Float32Array(H * H);
+      this.criticB2 = new Float32Array(H);
+      this.criticW3 = new Float32Array(1 * H);
+      this.criticB3 = new Float32Array(1);
+    }
+
+    zero() {
+      this.actorW1.fill(0); this.actorB1.fill(0);
+      this.actorW2.fill(0); this.actorB2.fill(0);
+      this.actorW3.fill(0); this.actorB3.fill(0);
+      this.criticW1.fill(0); this.criticB1.fill(0);
+      this.criticW2.fill(0); this.criticB2.fill(0);
+      this.criticW3.fill(0); this.criticB3.fill(0);
+    }
+
+    addOuterProduct(target, dOut, input, scale) {
+      const rows = dOut.length;
+      const cols = input.length;
+      for (let r = 0; r < rows; r++) {
+        const v = dOut[r] * scale;
+        const off = r * cols;
+        for (let c = 0; c < cols; c++) {
+          target[off + c] += v * input[c];
+        }
+      }
+    }
+
+    addScaled(target, src, scale) {
+      for (let i = 0; i < target.length; i++) {
+        target[i] += src[i] * scale;
+      }
+    }
+
+    applyToNetwork(net, lr, batchSize) {
+      const s = -lr / batchSize;
+      const pairs = [
+        [net.actorW1.data, this.actorW1],
+        [net.actorB1, this.actorB1],
+        [net.actorW2.data, this.actorW2],
+        [net.actorB2, this.actorB2],
+        [net.actorW3.data, this.actorW3],
+        [net.actorB3, this.actorB3],
+        [net.criticW1.data, this.criticW1],
+        [net.criticB1, this.criticB1],
+        [net.criticW2.data, this.criticW2],
+        [net.criticB2, this.criticB2],
+        [net.criticW3.data, this.criticW3],
+        [net.criticB3, this.criticB3],
+      ];
+
+      let gradNorm = 0;
+      for (const [, g] of pairs) {
+        for (let i = 0; i < g.length; i++) {
+          const gv = g[i] / batchSize;
+          gradNorm += gv * gv;
+        }
+      }
+      gradNorm = Math.sqrt(gradNorm);
+
+      const maxNorm = 0.5;
+      const clip = gradNorm > maxNorm ? maxNorm / gradNorm : 1.0;
+
+      for (const [param, grad] of pairs) {
+        for (let i = 0; i < param.length; i++) {
+          param[i] += s * clip * grad[i];
+        }
+      }
     }
   }
 
@@ -291,42 +398,57 @@
       return { advantages, returns };
     }
 
-    numericalGradient(paramIdx, state, action, advantage, oldLogProb, ret, h) {
-      const params = this.net.getAllParams();
-      const original = params[paramIdx];
+    _backpropActor(cache, dLogits, grads, scale) {
+      const { h1, h2, input } = cache;
+      const H = this.net.hiddenSize;
 
-      params[paramIdx] = original + h;
-      this.net.setAllParams(params);
-      const lossPlus = this._computeLoss(state, action, advantage, oldLogProb, ret);
+      grads.addOuterProduct(grads.actorW3, dLogits, h2, scale);
+      grads.addScaled(grads.actorB3, dLogits, scale);
 
-      params[paramIdx] = original - h;
-      this.net.setAllParams(params);
-      const lossMinus = this._computeLoss(state, action, advantage, oldLogProb, ret);
-
-      params[paramIdx] = original;
-      this.net.setAllParams(params);
-
-      return (lossPlus - lossMinus) / (2 * h);
-    }
-
-    _computeLoss(state, action, advantage, oldLogProb, ret) {
-      const probs = this.net.forwardActor(state);
-      const newLogProb = Math.log(probs[action] + 1e-8);
-      const ratio = Math.exp(newLogProb - oldLogProb);
-
-      const surr1 = ratio * advantage;
-      const surr2 = Math.max(Math.min(ratio, 1 + this.cfg.epsilon), 1 - this.cfg.epsilon) * advantage;
-      const policyLoss = -Math.min(surr1, surr2);
-
-      const value = this.net.forwardCritic(state);
-      const valueLoss = 0.5 * (ret - value) ** 2;
-
-      let entropy = 0;
-      for (let i = 0; i < probs.length; i++) {
-        if (probs[i] > 1e-8) entropy -= probs[i] * Math.log(probs[i]);
+      const dh2 = matTransMulVec(this.net.actorW3, dLogits);
+      const dz2 = new Float32Array(H);
+      for (let i = 0; i < H; i++) {
+        dz2[i] = dh2[i] * (1 - h2[i] * h2[i]);
       }
 
-      return policyLoss + this.cfg.valueLossCoef * valueLoss - this.cfg.entropyCoef * entropy;
+      grads.addOuterProduct(grads.actorW2, dz2, h1, scale);
+      grads.addScaled(grads.actorB2, dz2, scale);
+
+      const dh1 = matTransMulVec(this.net.actorW2, dz2);
+      const dz1 = new Float32Array(H);
+      for (let i = 0; i < H; i++) {
+        dz1[i] = dh1[i] * (1 - h1[i] * h1[i]);
+      }
+
+      grads.addOuterProduct(grads.actorW1, dz1, input, scale);
+      grads.addScaled(grads.actorB1, dz1, scale);
+    }
+
+    _backpropCritic(cache, dValue, grads, scale) {
+      const { h1, h2, input } = cache;
+      const H = this.net.hiddenSize;
+
+      const dOut = new Float32Array([dValue]);
+      grads.addOuterProduct(grads.criticW3, dOut, h2, scale);
+      grads.criticB3[0] += dValue * scale;
+
+      const dh2 = matTransMulVec(this.net.criticW3, dOut);
+      const dz2 = new Float32Array(H);
+      for (let i = 0; i < H; i++) {
+        dz2[i] = dh2[i] * (1 - h2[i] * h2[i]);
+      }
+
+      grads.addOuterProduct(grads.criticW2, dz2, h1, scale);
+      grads.addScaled(grads.criticB2, dz2, scale);
+
+      const dh1 = matTransMulVec(this.net.criticW2, dz2);
+      const dz1 = new Float32Array(H);
+      for (let i = 0; i < H; i++) {
+        dz1[i] = dh1[i] * (1 - h1[i] * h1[i]);
+      }
+
+      grads.addOuterProduct(grads.criticW1, dz1, input, scale);
+      grads.addScaled(grads.criticB1, dz1, scale);
     }
 
     train() {
@@ -343,8 +465,7 @@
       let totalEntropy = 0;
       let updateCount = 0;
 
-      const paramCount = this.net.getParamCount();
-      const h = 1e-3;
+      const grads = new GradAccumulator(this.net);
 
       for (let epoch = 0; epoch < this.cfg.epochs; epoch++) {
         const indices = [];
@@ -358,7 +479,7 @@
           const end = Math.min(start + this.cfg.miniBatchSize, T);
           const batchSize = end - start;
 
-          const grads = new Float32Array(paramCount);
+          grads.zero();
 
           for (let b = start; b < end; b++) {
             const idx = indices[b];
@@ -368,45 +489,55 @@
             const oldLogProb = this.buffer.logProbs[idx];
             const ret = returns[idx];
 
-            const probs = this.net.forwardActor(state);
+            const actorCache = this.net.forwardActorCached(state);
+            const probs = actorCache.probs;
             const newLogProb = Math.log(probs[action] + 1e-8);
             const ratio = Math.exp(newLogProb - oldLogProb);
-            const surr1 = ratio * advantage;
-            const surr2 = Math.max(Math.min(ratio, 1 + this.cfg.epsilon), 1 - this.cfg.epsilon) * advantage;
-            totalPolicyLoss += -Math.min(surr1, surr2);
 
-            const value = this.net.forwardCritic(state);
-            totalValueLoss += 0.5 * (ret - value) ** 2;
+            const surr1 = ratio * advantage;
+            const clippedRatio = Math.max(1 - this.cfg.epsilon, Math.min(1 + this.cfg.epsilon, ratio));
+            const surr2 = clippedRatio * advantage;
+            const policyLoss = -Math.min(surr1, surr2);
+            totalPolicyLoss += policyLoss;
 
             let entropy = 0;
             for (let i = 0; i < probs.length; i++) {
               if (probs[i] > 1e-8) entropy -= probs[i] * Math.log(probs[i]);
             }
             totalEntropy += entropy;
-            updateCount++;
 
-            for (let p = 0; p < paramCount; p++) {
-              grads[p] += this.numericalGradient(p, state, action, advantage, oldLogProb, ret, h);
+            const dLogits = new Float32Array(this.net.actionDim);
+
+            const useUnclipped = surr1 <= surr2;
+            if (useUnclipped) {
+              const dLogProb = -advantage * ratio;
+              for (let j = 0; j < this.net.actionDim; j++) {
+                dLogits[j] += dLogProb * ((j === action ? 1 : 0) - probs[j]);
+              }
             }
+
+            for (let j = 0; j < this.net.actionDim; j++) {
+              const pj = probs[j];
+              if (pj > 1e-8) {
+                const entropyGrad = pj * (entropy + Math.log(pj));
+                dLogits[j] += this.cfg.entropyCoef * entropyGrad;
+              }
+            }
+
+            this._backpropActor(actorCache, dLogits, grads, 1.0);
+
+            const criticCache = this.net.forwardCriticCached(state);
+            const value = criticCache.value;
+            const valueLoss = 0.5 * (ret - value) ** 2;
+            totalValueLoss += valueLoss;
+
+            const dValue = this.cfg.valueLossCoef * (value - ret);
+            this._backpropCritic(criticCache, dValue, grads, 1.0);
+
+            updateCount++;
           }
 
-          let gradNorm = 0;
-          for (let p = 0; p < paramCount; p++) {
-            grads[p] /= batchSize;
-            gradNorm += grads[p] * grads[p];
-          }
-          gradNorm = Math.sqrt(gradNorm);
-
-          if (gradNorm > this.cfg.maxGradNorm) {
-            const scale = this.cfg.maxGradNorm / gradNorm;
-            for (let p = 0; p < paramCount; p++) grads[p] *= scale;
-          }
-
-          const params = this.net.getAllParams();
-          for (let p = 0; p < paramCount; p++) {
-            params[p] -= this.cfg.lr * grads[p];
-          }
-          this.net.setAllParams(params);
+          grads.applyToNetwork(this.net, this.cfg.lr, batchSize);
         }
       }
 
