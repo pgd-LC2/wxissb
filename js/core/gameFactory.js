@@ -597,7 +597,7 @@
         const timeAliveNB = g._startTime ? Math.max(0, t - g._startTime) : 0;
         const nbTimeFactor = clamp(timeAliveNB / 60, 0, 10);
         d.minEnemies = 30 + Math.round(nbTimeFactor * 20);
-        d.targetEnemies = 9999;
+        d.targetEnemies = 100000000;
         const nbBaseRate = 12 + nbTimeFactor * 4;
         d.spawnRate = clamp(nbBaseRate + level * 0.5 + strength * 2, 12, 60);
         d.eliteChance = clamp(0.10 + 0.06 * strength + 0.06 * d.progress, 0.10, 0.45);
