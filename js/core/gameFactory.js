@@ -591,6 +591,28 @@
       const level = g.level;
       
       // ========================================
+      // NB Mode 僵尸围城：怪物刷新无上限
+      // ========================================
+      if (g.nbModeActive) {
+        const timeAliveNB = g._startTime ? Math.max(0, t - g._startTime) : 0;
+        const nbTimeFactor = clamp(timeAliveNB / 60, 0, 10);
+        d.minEnemies = 30 + Math.round(nbTimeFactor * 20);
+        d.targetEnemies = 100000000;
+        const nbBaseRate = 12 + nbTimeFactor * 4;
+        d.spawnRate = clamp(nbBaseRate + level * 0.5 + strength * 2, 12, 60);
+        d.eliteChance = clamp(0.10 + 0.06 * strength + 0.06 * d.progress, 0.10, 0.45);
+        d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
+        let spawnedNB = 0;
+        const maxLoopNB = 30;
+        while (d.spawnBudget >= 1 && spawnedNB < maxLoopNB) {
+          g.spawnEnemy(t);
+          d.spawnBudget -= 1;
+          spawnedNB++;
+        }
+        return;
+      }
+
+      // ========================================
       // 动态最小怪物数量 - 基于玩家等级（对数增长）
       // ========================================
       // 最小怪物数量：保证场上始终有一定数量的怪物

@@ -89,6 +89,7 @@
     console.log(`  ✓ 已获取 ${appliedCount} 个技能`);
     console.log(`  ✓ 跳过 ${skippedSpeedSkills} 个移速技能`);
     console.log("  ✓ 升级时将自动随机选择技能");
+    console.log("  ✓ 僵尸围城模式：怪物刷新无上限！");
     console.log("");
     console.log("获取的技能列表：");
     appliedSkills.forEach((name, i) => {
