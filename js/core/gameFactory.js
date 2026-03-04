@@ -226,6 +226,98 @@
       bladeOrbitLifestealChance: 0,
       bladeOrbitLifestealPercent: 0.2,
 
+      // 飞刀新增属性 - 伤害修正
+      bladeOrbitArmorPen: 0,           // 破甲飞刃：无视敌人护甲比例
+      bladeOrbitCritChance: 0,         // 飞刀暴击率
+      bladeOrbitCritDamage: 1.5,       // 飞刀暴击倍率
+      bladeOrbitChargeBonus: 0,        // 蓄力飞刀：每圈伤害加成
+      bladeOrbitRageDamage: false,     // 怒刃：低生命高伤害
+      bladeOrbitExecute: false,        // 死亡飞刀：斩杀效果
+      bladeOrbitExecuteThreshold: 0,   // 斩杀血线
+      bladeOrbitExecuteMult: 1,        // 斩杀倍率
+      bladeOrbitFrozenBonusDamage: 1,  // 冰碎：对冰冻敌人额外倍率
+      bladeOrbitBurnBonusDamage: 1,    // 火焰爆发：对燃烧敌人额外倍率
+
+      // 飞刀新增属性 - 冰霜效果
+      bladeOrbitSlowChance: 0,         // 减速几率
+      bladeOrbitSlowAmount: 0,         // 减速比例
+      bladeOrbitSlowDuration: 0,       // 减速持续
+      bladeOrbitFrostAura: false,      // 寒气弥漫
+      bladeOrbitFreezeSpread: false,   // 冰刃连锁
+      bladeOrbitIceExplosion: false,   // 冰晶爆裂
+      bladeOrbitPermaFrost: false,     // 永冻飞刃
+      bladeOrbitPermaFrostSlow: 0,     // 永冻减速量
+
+      // 飞刀新增属性 - 火焰效果
+      bladeOrbitBurnExplosion: false,  // 引爆
+      bladeOrbitFireTrail: false,      // 火环
+      bladeOrbitLavaPool: false,       // 熔岩飞刃
+      bladeOrbitPhoenixWings: false,   // 凤凰之翼
+      bladeOrbitEternalFlame: false,   // 业火飞刃
+
+      // 飞刀新增属性 - 毒素效果
+      bladeOrbitPoisonSpread: false,   // 瘟疫之刃
+      bladeOrbitPoisonAura: false,     // 毒雾弥漫
+      bladeOrbitPoisonWeaken: 0,       // 致命毒素
+      bladeOrbitPoisonSlow: 0,         // 神经毒素
+      bladeOrbitPoisonInstakill: false,// 致死毒刃
+      bladeOrbitPoisonInstakillStacks: 5, // 致死所需层数
+
+      // 飞刀新增属性 - 雷电效果
+      bladeOrbitShockChance: 0,        // 闪电触发几率
+      bladeOrbitChainCount: 0,         // 闪电弹射数量
+      bladeOrbitStunChance: 0,         // 眩晕几率
+      bladeOrbitStunDuration: 0,       // 眩晕持续
+      bladeOrbitMagneticPull: false,   // 磁暴飞刃
+      bladeOrbitMagneticRange: 0,      // 磁场范围
+      bladeOrbitKillLightning: false,  // 雷神之怒
+
+      // 飞刀新增属性 - 特殊机制
+      bladeOrbitHoming: false,         // 追踪飞刃
+      bladeOrbitHomingRange: 0,        // 追踪范围
+      bladeOrbitHomingAccuracy: 0.5,   // 追踪精度
+      bladeOrbitExplosion: false,      // 爆裂飞刃
+      bladeOrbitExplosionRadius: 30,   // 爆炸半径
+      bladeOrbitSplit: 0,              // 分裂数量
+      bladeOrbitSplitChain: false,     // 连锁分裂
+      bladeOrbitBoomerang: false,      // 回旋飞刀
+      bladeOrbitReflect: false,        // 刀刃反射
+      bladeOrbitReflectDamage: 1,      // 反射伤害倍率
+      bladeOrbitShadowBlade: false,    // 影刃
+      bladeOrbitShadowDamageMult: 0.5, // 影刃伤害倍率
+      bladeOrbitResonance: false,      // 共振飞刃
+      bladeOrbitTimeStop: false,       // 时停飞刀
+      bladeOrbitTimeStopDuration: 0.3, // 时停持续
+      bladeOrbitDualRing: false,       // 双层刀阵
+      bladeOrbitPierce: 0,             // 穿透数量
+      bladeOrbitBounce: 0,             // 弹射数量
+
+      // 飞刀新增属性 - 防御与治疗
+      bladeOrbitDamageReduction: 0,    // 刀盾减伤（每把）
+      bladeOrbitDeathSave: false,      // 刃之守护
+      bladeOrbitCounterAttack: false,  // 反击飞刃
+      bladeOrbitCounterBonus: 0,       // 反击伤害加成
+      bladeOrbitThornHeal: false,      // 荆棘飞刀
+      bladeOrbitCCImmune: false,       // 绝对防御
+      bladeOrbitCCImmuneThreshold: 10, // CC免疫飞刀数量阈值
+      bladeOrbitRegenPerBlade: 0,      // 每把飞刀每秒回血
+      bladeOrbitBloodSacrifice: false, // 血祭飞刃
+      bladeOrbitOverhealShield: false, // 不死之刃
+
+      // 飞刀新增属性 - 终极技能
+      bladeOrbitSkyfall: false,        // 天降飞刀
+      bladeOrbitSkyfallInterval: 3.0,  // 天降间隔
+      bladeOrbitBurst: false,          // 刀阵自爆
+      bladeOrbitExpBonus: 0,           // 轮回飞刃：额外经验几率
+
+      // 飞刀运行时状态
+      _bladeChargeRotations: 0,        // 蓄力圈数计数
+      _bladeCounterEnd: 0,             // 反击加成结束时间
+      _bladeLastSkyfallTime: 0,        // 上次天降时间
+      _bladeLastRegenTime: 0,          // 上次飞刀回血时间
+      _bladeLastAuraTime: 0,           // 上次光环伤害时间
+      _bladeOverhealShield: 0,         // 过量治疗护盾值
+
       // MARK: 游戏状态
       playerHealth: 100,
       playerMaxHealth: 100,
@@ -1211,20 +1303,131 @@
       }
     };
 
-    // 额外：飞刀命中附加效果（不会影响原版其它系统）
+    // 飞刀命中附加状态效果（完整实现所有飞刀技能的命中效果）
     g.applyBladeStatusEffects = (enemy, t) => {
+      // === 冰冻效果 ===
       if (g.bladeOrbitFreezeChance > 0 && Math.random() < g.bladeOrbitFreezeChance) {
+        // 冰晶爆裂：已冰冻的敌人被再次命中时爆炸
+        if (g.bladeOrbitIceExplosion && enemy.frozenUntil && t < enemy.frozenUntil) {
+          const radius = 60;
+          g.createExplosionEffect({x: enemy.x, y: enemy.y}, radius, t);
+          g.emitBurst({x: enemy.x, y: enemy.y}, 15, "#88ddff", t, 400);
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy || near._dead) continue;
+            const dx = near.x - enemy.x, dy = near.y - enemy.y;
+            if (dx*dx + dy*dy < radius*radius) {
+              g.applyDamageToEnemy(near, g.bladeOrbitDamage * 0.6, t);
+              near.frozenUntil = Math.max(near.frozenUntil || 0, t + g.bladeOrbitFreezeDuration * 0.5);
+              near.color = "#00d7ff";
+              near.baseColorAfterFreeze = "#ff3b30";
+            }
+          }
+        }
+
         enemy.frozenUntil = Math.max(enemy.frozenUntil || 0, t + g.bladeOrbitFreezeDuration);
         enemy.color = "#00d7ff";
         enemy.baseColorAfterFreeze = "#ff3b30";
+
+        // 冰刃连锁：冰冻扩散到附近敌人
+        if (g.bladeOrbitFreezeSpread) {
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy || near._dead) continue;
+            const dx = near.x - enemy.x, dy = near.y - enemy.y;
+            if (dx*dx + dy*dy < 80*80) {
+              near.frozenUntil = Math.max(near.frozenUntil || 0, t + g.bladeOrbitFreezeDuration * 0.5);
+              near.color = "#00d7ff";
+              near.baseColorAfterFreeze = "#ff3b30";
+            }
+          }
+        }
+
+        // 永冻飞刃：永久减速叠加
+        if (g.bladeOrbitPermaFrost) {
+          enemy._permaFrostSlow = Math.min((enemy._permaFrostSlow || 0) + g.bladeOrbitPermaFrostSlow, 0.80);
+        }
       }
+
+      // === 减速效果 ===
+      if (g.bladeOrbitSlowChance > 0 && Math.random() < g.bladeOrbitSlowChance) {
+        enemy.slowed = true;
+        enemy._bladeSlowEnd = t + g.bladeOrbitSlowDuration;
+        enemy._bladeSlowAmount = g.bladeOrbitSlowAmount;
+      }
+
+      // === 燃烧效果 ===
       if (g.bladeOrbitBurnChance > 0 && Math.random() < g.bladeOrbitBurnChance) {
+        // 引爆：燃烧的敌人被飞刀命中时爆炸
+        if (g.bladeOrbitBurnExplosion && enemy.burnEnd && t < enemy.burnEnd) {
+          const radius = 50;
+          g.createExplosionEffect({x: enemy.x, y: enemy.y}, radius, t);
+          g.emitBurst({x: enemy.x, y: enemy.y}, 15, "#ff6600", t, 400);
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy || near._dead) continue;
+            const dx = near.x - enemy.x, dy = near.y - enemy.y;
+            if (dx*dx + dy*dy < radius*radius) {
+              g.applyDamageToEnemy(near, g.bladeOrbitDamage * 0.5, t);
+              near.burnEnd = t + g.bladeOrbitBurnDuration * 0.5;
+              near.burnDmg = g.bladeOrbitBurnDamage * 0.5;
+            }
+          }
+        }
+
+        let burnDmg = g.bladeOrbitBurnDamage;
+        // 业火飞刃：燃烧伤害随时间增加
+        if (g.bladeOrbitEternalFlame && enemy.burnEnd && t < enemy.burnEnd) {
+          burnDmg *= 1.5; // 已经在燃烧的敌人，加重燃烧
+        }
+
         enemy.burnEnd = t + g.bladeOrbitBurnDuration;
-        enemy.burnDmg = g.bladeOrbitBurnDamage;
+        enemy.burnDmg = burnDmg;
       }
+
+      // === 中毒效果 ===
       if (g.bladeOrbitPoisonChance > 0 && Math.random() < g.bladeOrbitPoisonChance) {
         enemy.poisonEnd = t + g.bladeOrbitPoisonDuration;
         enemy.poisonDmg = g.bladeOrbitPoisonDamage;
+
+        // 瘟疫之刃：中毒蔓延到附近敌人
+        if (g.bladeOrbitPoisonSpread) {
+          for (let i = 0; i < g.enemies.length; i++) {
+            const near = g.enemies[i];
+            if (near === enemy || near._dead) continue;
+            const dx = near.x - enemy.x, dy = near.y - enemy.y;
+            if (dx*dx + dy*dy < 80*80) {
+              near.poisonEnd = t + g.bladeOrbitPoisonDuration * 0.5;
+              near.poisonDmg = g.bladeOrbitPoisonDamage * 0.5;
+            }
+          }
+        }
+
+        // 致死毒刃：累积中毒层数，达到阈值杀死非Boss
+        if (g.bladeOrbitPoisonInstakill) {
+          enemy._bladePoisonStacks = (enemy._bladePoisonStacks || 0) + 1;
+          if (enemy._bladePoisonStacks >= g.bladeOrbitPoisonInstakillStacks) {
+            if (enemy.typeId !== "boss" && enemy.typeId !== "elite") {
+              enemy.hp = 0;
+              enemy._dead = true;
+              g.queueKill(enemy, t);
+              g.emitBurst({x: enemy.x, y: enemy.y}, 20, "#00ff00", t, 500);
+            }
+          }
+        }
+
+        // 神经毒素：中毒的敌人减速
+        if (g.bladeOrbitPoisonSlow > 0) {
+          enemy.slowed = true;
+          enemy._bladePoisonSlowEnd = t + g.bladeOrbitPoisonDuration;
+        }
+      }
+
+      // === 眩晕效果 ===
+      if (g.bladeOrbitStunChance > 0 && Math.random() < g.bladeOrbitStunChance) {
+        enemy.frozenUntil = Math.max(enemy.frozenUntil || 0, t + g.bladeOrbitStunDuration);
+        enemy.color = "#ffff00";
+        enemy.baseColorAfterFreeze = "#ff3b30";
       }
     };
 
@@ -1339,6 +1542,36 @@
       // Note: we no longer splice the enemies array here (that caused O(n) shifts + frame hitches).
       // Actual removal happens in the main cleanup pass (swap-remove).
       
+      // === 飞刀击杀效果 ===
+      if (enemy._lastHitByBlade) {
+        // 雷神之怒：飞刀击杀后释放闪电
+        if (g.bladeOrbitKillLightning) {
+          g.triggerChainLightning(enemy, g.bladeOrbitDamage * 0.8, 3, t);
+          g.emitBurst(pos, 12, "#88ddff", t, 400);
+        }
+
+        // 天降飞刀：击杀触发天降
+        if (g.bladeOrbitSkyfall) {
+          // 击杀时有30%几率额外触发天降
+          if (Math.random() < 0.3) {
+            g.triggerBladeSkyfall(t);
+          }
+        }
+
+        // 刀阵自爆：击杀时有20%几率触发爆发
+        if (g.bladeOrbitBurst) {
+          if (Math.random() < 0.2) {
+            g.triggerBladeBurst(t);
+          }
+        }
+
+        // 轮回飞刃：飞刀击杀额外经验
+        if (g.bladeOrbitExpBonus > 0 && Math.random() < g.bladeOrbitExpBonus) {
+          const bonusXp = g.computeExpDrop(enemy, t) * 0.5;
+          g.spawnExpOrb(pos, bonusXp, "#88ff88");
+        }
+      }
+
       // NEW: 魔法系统击杀回调
       if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicKill) {
         window.MagicSystemLogic.onMagicKill(g, enemy, t);
@@ -1656,31 +1889,183 @@
     };
 
     g.handleOrbitalHit = (orbital, enemy, t) => {
-      // Swift 原版：let damage = orbitalShieldCount > 0 ? orbitalShieldDamage : bladeOrbitDamage
-      // 这里做了“优化”：按类型分别计算（否则飞刀升级容易被护盾覆盖）
+      // 按类型分别计算基础伤害
       let damage;
-      if (orbital.type === "shield") damage = g.orbitalShieldDamage;
-      else damage = g.bladeOrbitDamage;
+      if (orbital.type === "shield") {
+        damage = g.orbitalShieldDamage;
+        g.applyDamageToEnemy(enemy, damage, t, { immediate: true });
+        return;
+      }
+      // ---- 以下全部是飞刀(blade)逻辑 ----
+      damage = g.bladeOrbitDamage;
 
-      g.applyDamageToEnemy(enemy, damage, t, { immediate: true });
-
-      // 爽感：飞刀命中受击颜色 + 刀光 + 火花 + 音效
-      if (orbital.type === "blade") {
-        enemy.hitFlashEnd = Math.max(enemy.hitFlashEnd || 0, t + 0.08);
-        g.effects.push({ kind:"slash", x: enemy.x, y: enemy.y, ang: orbital.rot, start: t, end: t + 0.12 });
-        g.emitSparks({x:enemy.x, y:enemy.y}, 10, "#ffffff", t, orbital.rot);
-        SFX.blade(t);
-        g.hitStop(0.02, 0.35, t);
-        g.shakeCamera(0.07, 4, t);
+      // 破甲飞刃：无视敌人护甲（临时降低）
+      let savedArmor = 0;
+      if (g.bladeOrbitArmorPen > 0 && enemy.armor > 0) {
+        savedArmor = enemy.armor;
+        enemy.armor = Math.max(0, enemy.armor * (1 - g.bladeOrbitArmorPen));
       }
 
-      // 额外：飞刀命中附加状态/吸血
-      if (orbital.type === "blade") {
-        g.applyBladeStatusEffects(enemy, t);
-        if (g.bladeOrbitLifestealChance > 0 && Math.random() < g.bladeOrbitLifestealChance) {
-          g.heal(damage * g.bladeOrbitLifestealPercent);
+      // 蓄力飞刀：根据旋转圈数增加伤害
+      if (g.bladeOrbitChargeBonus > 0) {
+        damage *= (1 + g.bladeOrbitChargeBonus * g._bladeChargeRotations);
+      }
+
+      // 怒刃：生命越低伤害越高（最高+100%）
+      if (g.bladeOrbitRageDamage && g.playerMaxHealth > 0) {
+        const hpRatio = g.playerHealth / g.playerMaxHealth;
+        damage *= (1 + (1 - hpRatio));
+      }
+
+      // 反击飞刃：受伤后短时间加成
+      if (g.bladeOrbitCounterAttack && t < g._bladeCounterEnd) {
+        damage *= (1 + g.bladeOrbitCounterBonus);
+      }
+
+      // 冰碎：对冰冻敌人额外伤害
+      if (g.bladeOrbitFrozenBonusDamage > 1 && enemy.frozenUntil && t < enemy.frozenUntil) {
+        damage *= g.bladeOrbitFrozenBonusDamage;
+      }
+
+      // 火焰爆发：对燃烧敌人额外伤害
+      if (g.bladeOrbitBurnBonusDamage > 1 && enemy.burnEnd && t < enemy.burnEnd) {
+        damage *= g.bladeOrbitBurnBonusDamage;
+      }
+
+      // 致命毒素：中毒敌人受到所有伤害增加
+      if (g.bladeOrbitPoisonWeaken > 0 && enemy.poisonEnd && t < enemy.poisonEnd) {
+        damage *= (1 + g.bladeOrbitPoisonWeaken);
+      }
+
+      // 死亡飞刀：斩杀低血量敌人
+      if (g.bladeOrbitExecute && enemy.maxHp > 0) {
+        const ratio = enemy.hp / enemy.maxHp;
+        if (ratio < g.bladeOrbitExecuteThreshold) {
+          damage *= g.bladeOrbitExecuteMult;
         }
       }
+
+      // 飞刀暴击系统
+      let isCrit = false;
+      if (g.bladeOrbitCritChance > 0 && Math.random() < g.bladeOrbitCritChance) {
+        damage *= g.bladeOrbitCritDamage;
+        isCrit = true;
+      }
+
+      // 血祭飞刃：消耗当前生命5%增加伤害（已在技能定义中×2伤害）
+      if (g.bladeOrbitBloodSacrifice) {
+        const cost = g.playerHealth * 0.005; // 每次命中消耗0.5%
+        if (g.playerHealth > cost + 1) {
+          g.playerHealth -= cost;
+        }
+      }
+
+      // 应用伤害
+      g.applyDamageToEnemy(enemy, damage, t, { immediate: true, isCrit: isCrit });
+
+      // 恢复护甲
+      if (savedArmor > 0) enemy.armor = savedArmor;
+
+      // 爽感：飞刀命中受击颜色 + 刀光 + 火花 + 音效
+      enemy.hitFlashEnd = Math.max(enemy.hitFlashEnd || 0, t + 0.08);
+      g.effects.push({ kind:"slash", x: enemy.x, y: enemy.y, ang: orbital.rot, start: t, end: t + 0.12 });
+      g.emitSparks({x:enemy.x, y:enemy.y}, isCrit ? 18 : 10, isCrit ? "#ffff00" : "#ffffff", t, orbital.rot);
+      SFX.blade(t);
+      g.hitStop(0.02, 0.35, t);
+      g.shakeCamera(isCrit ? 0.10 : 0.07, isCrit ? 6 : 4, t);
+
+      // 飞刀命中附加状态效果
+      g.applyBladeStatusEffects(enemy, t);
+
+      // 吸血飞刃
+      if (g.bladeOrbitLifestealChance > 0 && Math.random() < g.bladeOrbitLifestealChance) {
+        const healAmt = damage * g.bladeOrbitLifestealPercent;
+        if (g.bladeOrbitOverhealShield && g.playerHealth >= g.playerMaxHealth) {
+          g._bladeOverhealShield = Math.min((g._bladeOverhealShield || 0) + healAmt, g.playerMaxHealth * 0.5);
+        } else {
+          g.heal(healAmt);
+        }
+      }
+
+      // 荆棘飞刀：命中敌人后标记，攻击该敌人回复生命
+      if (g.bladeOrbitThornHeal) {
+        g.heal(1);
+      }
+
+      // 爆裂飞刃：命中产生爆炸
+      if (g.bladeOrbitExplosion) {
+        const radius = g.bladeOrbitExplosionRadius || 30;
+        g.createExplosionEffect({x: enemy.x, y: enemy.y}, radius, t);
+        for (let i = 0; i < g.enemies.length; i++) {
+          const near = g.enemies[i];
+          if (near === enemy || near._dead) continue;
+          const dx = near.x - enemy.x, dy = near.y - enemy.y;
+          if (dx*dx + dy*dy < radius*radius) {
+            g.applyDamageToEnemy(near, damage * 0.5, t);
+          }
+        }
+      }
+
+      // 分裂飞刀：命中后分裂出小飞刀弹射攻击附近敌人
+      if (g.bladeOrbitSplit > 0) {
+        let splitTargets = 0;
+        for (let i = 0; i < g.enemies.length && splitTargets < g.bladeOrbitSplit; i++) {
+          const near = g.enemies[i];
+          if (near === enemy || near._dead) continue;
+          const dx = near.x - enemy.x, dy = near.y - enemy.y;
+          if (dx*dx + dy*dy < 120*120) {
+            g.applyDamageToEnemy(near, damage * 0.4, t, { immediate: true });
+            g.effects.push({ kind:"line", x1: enemy.x, y1: enemy.y, x2: near.x, y2: near.y, start: t, end: t + 0.15 });
+            splitTargets++;
+          }
+        }
+      }
+
+      // 弹射飞刀：命中后弹射到附近敌人
+      if (g.bladeOrbitBounce > 0) {
+        let bounceFrom = enemy;
+        let remaining = g.bladeOrbitBounce;
+        let bounceDmg = damage * 0.6;
+        const bounced = new Set([enemy.id]);
+        while (remaining > 0) {
+          let best = null, bestD2 = 150*150;
+          for (let i = 0; i < g.enemies.length; i++) {
+            const e = g.enemies[i];
+            if (e._dead || bounced.has(e.id)) continue;
+            const dx = e.x - bounceFrom.x, dy = e.y - bounceFrom.y;
+            const d2 = dx*dx + dy*dy;
+            if (d2 < bestD2) { bestD2 = d2; best = e; }
+          }
+          if (!best) break;
+          bounced.add(best.id);
+          g.applyDamageToEnemy(best, bounceDmg, t, { immediate: true });
+          g.effects.push({ kind:"line", x1: bounceFrom.x, y1: bounceFrom.y, x2: best.x, y2: best.y, start: t, end: t + 0.12 });
+          bounceFrom = best;
+          bounceDmg *= 0.7;
+          remaining--;
+        }
+      }
+
+      // 闪电弹射
+      if (g.bladeOrbitShockChance > 0 && Math.random() < g.bladeOrbitShockChance && g.bladeOrbitChainCount > 0) {
+        g.triggerChainLightning(enemy, damage * 0.5, g.bladeOrbitChainCount, t);
+      }
+
+      // 时停飞刀：暴击时冻结时间
+      if (g.bladeOrbitTimeStop && isCrit) {
+        g.timeWarpActive = true;
+        g.timeWarpEndTime = t + (g.bladeOrbitTimeStopDuration || 0.3);
+        g.flash("#88ddff", 0.15, 0.10, t);
+      }
+
+      // 熔岩飞刃：命中留下熔岩地面
+      if (g.bladeOrbitLavaPool) {
+        g.createFireTrail({x: enemy.x, y: enemy.y}, t);
+      }
+
+      // 标记飞刀击杀来源（供killEnemy使用）
+      enemy._lastHitByBlade = true;
+      enemy._lastBladeHitTime = t;
     };
 
     g.handleMineHit = (mine, t) => {
@@ -1717,6 +2102,11 @@
     g.handlePlayerHit = (enemy, t) => {
       if (t - g.player.lastHit < g.iFrameDuration) return;
 
+      // 绝对防御：飞刀数量超过阈值免疫控制
+      if (g.bladeOrbitCCImmune && g.bladeOrbitCount >= g.bladeOrbitCCImmuneThreshold) {
+        // CC免疫（但仍受伤害）
+      }
+
       // Dodge
       if (Math.random() < g.dodgeChance) {
         g.showDodgeEffect(t);
@@ -1741,6 +2131,24 @@
       let damage = baseDmg * dirMul * typeMul;
 
       damage *= (1 - g.damageReduction);
+
+      // 刀盾减伤：每把飞刀提供额外减伤
+      if (g.bladeOrbitDamageReduction > 0 && g.bladeOrbitCount > 0) {
+        const bladeReduction = Math.min(g.bladeOrbitDamageReduction * g.bladeOrbitCount, 0.50); // 最多50%
+        damage *= (1 - bladeReduction);
+      }
+
+      // 过量治疗护盾：先消耗护盾
+      if (g._bladeOverhealShield > 0) {
+        if (g._bladeOverhealShield >= damage) {
+          g._bladeOverhealShield -= damage;
+          damage = 0;
+        } else {
+          damage -= g._bladeOverhealShield;
+          g._bladeOverhealShield = 0;
+        }
+      }
+
       damage = Math.min(damage, g.playerMaxHealth * g.damageCap);
 
       // Thorns
@@ -1750,6 +2158,12 @@
       }
 
       g.takeDamage(damage, t);
+
+      // 反击飞刃：受伤后激活反击加成
+      if (g.bladeOrbitCounterAttack) {
+        g._bladeCounterEnd = t + 3.0; // 3秒反击窗口
+        g.emitBurst({x:g.player.x, y:g.player.y}, 8, "#ff6600", t, 300);
+      }
 
       // Rage
       if (g.rageOnHit) g.rageEndTime = t + 3.0;
@@ -1784,7 +2198,17 @@
       g.flash("#ff3b30", 0.30, 0.20, t);
 
       if (g.playerHealth <= 0) {
-        if (g.phoenixRevive && Math.random() < g.phoenixChance) {
+        // 刃之守护：飞刀数量足够时免死一次
+        if (g.bladeOrbitDeathSave && g.bladeOrbitCount >= 5) {
+          g.playerHealth = safeNonNeg(g.playerMaxHealth * 0.25, 1);
+          g.bladeOrbitDeathSave = false; // 只触发一次
+          g.flash("#00ffff", 0.30, 0.20, t);
+          g.emitBurst({x: g.player.x, y: g.player.y}, 30, "#00ffff", t, 600);
+          // 触发刀阵爆发作为反击
+          if (g.bladeOrbitCount > 0) {
+            g.triggerBladeBurst(t);
+          }
+        } else if (g.phoenixRevive && Math.random() < g.phoenixChance) {
           g.playerHealth = safeNonNeg(g.playerMaxHealth * 0.3, 1);
           g.phoenixRevive = false;
           g.showPhoenixEffect(t);
@@ -1980,6 +2404,53 @@
       });
     };
 
+    // === 飞刀天降效果 ===
+    g.triggerBladeSkyfall = (t) => {
+      // 在屏幕范围内随机位置生成多把飞刀从天而降
+      const count = Math.min(g.bladeOrbitCount, 20); // 最多20把天降
+      for (let i = 0; i < count; i++) {
+        const x = g.player.x + rand(-250, 250);
+        const y = g.player.y + rand(-250, 250);
+        // 对落点附近敌人造成伤害
+        const damage = g.bladeOrbitDamage * 1.5;
+        const radius = 40;
+        g.createExplosionEffect({x, y}, radius, t);
+        g.effects.push({ kind:"slash", x, y, ang: Math.random() * TAU, start: t, end: t + 0.2 });
+        for (let j = 0; j < g.enemies.length; j++) {
+          const e = g.enemies[j];
+          if (e._dead) continue;
+          const dx = e.x - x, dy = e.y - y;
+          if (dx*dx + dy*dy < radius*radius) {
+            g.applyDamageToEnemy(e, damage, t, { immediate: true });
+          }
+        }
+      }
+      SFX.blade(t);
+      g.shakeCamera(0.15, 10, t);
+      g.flash("#88ccff", 0.12, 0.10, t);
+    };
+
+    // === 飞刀蓄能爆发 ===
+    g.triggerBladeBurst = (t) => {
+      // 所有飞刀同时向外爆发，对环形范围内所有敌人造成大伤害
+      const damage = g.bladeOrbitDamage * g.bladeOrbitCount * 0.3;
+      const radius = g.bladeOrbitRadius * 2;
+      g.createExplosionEffect({x: g.player.x, y: g.player.y}, radius, t);
+      g.emitBurst({x: g.player.x, y: g.player.y}, 30, "#ff9f0a", t, 800);
+      for (let i = 0; i < g.enemies.length; i++) {
+        const e = g.enemies[i];
+        if (e._dead) continue;
+        const dx = e.x - g.player.x, dy = e.y - g.player.y;
+        if (dx*dx + dy*dy < radius*radius) {
+          g.applyDamageToEnemy(e, damage, t, { immediate: true });
+        }
+      }
+      SFX.kill(t, true);
+      g.shakeCamera(0.25, 15, t);
+      g.flash("#ff9f0a", 0.20, 0.15, t);
+      g.hitStop(0.08, 0.25, t);
+    };
+
     g.createPoisonExplosion = (pos, t) => {
       g.poisonClouds.push({
         id: nextId(),
@@ -2170,6 +2641,23 @@
           e._ghostSlowUntil = null;
         }
 
+        // 飞刀减速效果到期清除
+        if (e._bladeSlowEnd != null && t >= e._bladeSlowEnd) {
+          if (!e._ghostSlowUntil && !e._bladePoisonSlowEnd) {
+            e.slowed = false;
+          }
+          e._bladeSlowEnd = null;
+          e._bladeSlowAmount = 0;
+        }
+
+        // 飞刀毒素减速到期清除
+        if (e._bladePoisonSlowEnd != null && t >= e._bladePoisonSlowEnd) {
+          if (!e._ghostSlowUntil && !e._bladeSlowEnd) {
+            e.slowed = false;
+          }
+          e._bladePoisonSlowEnd = null;
+        }
+
         const frozen = (e.frozenUntil && t < e.frozenUntil);
 
         if (!frozen) {
@@ -2335,12 +2823,24 @@
       while (shieldCount < g.orbitalShieldCount) { g.createOrbitalShield(); shieldCount++; }
       while (bladeCount < g.bladeOrbitCount) { g.createOrbitalBlade(); bladeCount++; }
 
+      // 蓄力飞刀：累计旋转圈数
+      g._bladeChargeRotations = (g._bladeChargeRotations || 0) + dt * g.bladeOrbitSpeed * 3 / TAU;
+
       const shieldStep = TAU / Math.max(1, g.orbitalShieldCount);
       const bladeStep  = TAU / Math.max(1, g.bladeOrbitCount);
+
+      // 双环飞刀：总数的一半放在内环，一半放在外环
+      const dualRing = g.bladeOrbitDualRing;
+      const innerCount = dualRing ? Math.ceil(g.bladeOrbitCount / 2) : g.bladeOrbitCount;
+      const outerCount = dualRing ? Math.floor(g.bladeOrbitCount / 2) : 0;
+      const innerStep = TAU / Math.max(1, innerCount);
+      const outerStep = outerCount > 0 ? TAU / Math.max(1, outerCount) : 0;
 
       // Update positions
       let sIdx = 0;
       let bIdx = 0;
+      let innerIdx = 0;
+      let outerIdx = 0;
       for (let i = 0; i < g.orbitals.length; i++) {
         const o = g.orbitals[i];
         if (o.type === "shield") {
@@ -2350,14 +2850,168 @@
           o.rot = angle;
           sIdx++;
         } else if (o.type === "blade") {
-          const angle = (t * 3 * g.bladeOrbitSpeed) + bIdx * bladeStep;
-          o.x = g.player.x + Math.cos(angle) * g.bladeOrbitRadius;
-          o.y = g.player.y + Math.sin(angle) * g.bladeOrbitRadius;
+          let angle, radius;
+
+          if (dualRing && bIdx >= innerCount) {
+            // 外环：反向旋转，更大半径
+            angle = -(t * 2.5 * g.bladeOrbitSpeed) + outerIdx * outerStep;
+            radius = g.bladeOrbitRadius * 1.5;
+            outerIdx++;
+          } else {
+            // 内环（或单环）
+            angle = (t * 3 * g.bladeOrbitSpeed) + (dualRing ? innerIdx : bIdx) * (dualRing ? innerStep : bladeStep);
+            radius = g.bladeOrbitRadius;
+            if (dualRing) innerIdx++;
+          }
+
+          // 追踪飞刀：飞刀向最近敌人偏移
+          if (g.bladeOrbitHoming) {
+            const target = g.getClosestEnemy({x: g.player.x, y: g.player.y});
+            if (target) {
+              const dx = target.x - g.player.x;
+              const dy = target.y - g.player.y;
+              const d = Math.sqrt(dx*dx + dy*dy);
+              if (d < (g.bladeOrbitHomingRange || 200)) {
+                const targetAngle = Math.atan2(dy, dx);
+                const accuracy = g.bladeOrbitHomingAccuracy || 0.3;
+                // 偏移飞刀角度朝向敌人
+                const diff = ((targetAngle - angle + Math.PI * 3) % TAU) - Math.PI;
+                angle += diff * accuracy * dt * 5;
+              }
+            }
+          }
+
+          // 回旋飞刀：半径脉冲式伸缩
+          if (g.bladeOrbitBoomerang) {
+            const phase = (t * 2 + bIdx * 0.5) % 2;
+            if (phase < 1) {
+              radius *= (1 + phase * 0.8); // 展开
+            } else {
+              radius *= (1 + (2 - phase) * 0.8); // 回收
+            }
+          }
+
+          o.x = g.player.x + Math.cos(angle) * radius;
+          o.y = g.player.y + Math.sin(angle) * radius;
           o.rot = angle;
           o.w = 30 * g.bladeOrbitScale;
           o.h = 6 * g.bladeOrbitScale;
           bIdx++;
         }
+      }
+
+      // === 飞刀周期效果 ===
+
+      // 霜冻光环：周期性减速附近敌人
+      if (g.bladeOrbitFrostAura && t - (g._bladeLastAuraTime || 0) > 0.5) {
+        g._bladeLastAuraTime = t;
+        const auraRange = g.bladeOrbitRadius + 30;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < auraRange*auraRange) {
+            e.slowed = true;
+            e._bladeSlowEnd = t + 0.6;
+            e._bladeSlowAmount = 0.5;
+          }
+        }
+      }
+
+      // 毒素光环：周期性毒化附近敌人
+      if (g.bladeOrbitPoisonAura && t - (g._bladeLastAuraTime || 0) > 1.0) {
+        g._bladeLastAuraTime = t;
+        const auraRange = g.bladeOrbitRadius + 20;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < auraRange*auraRange) {
+            e.poisonEnd = t + 2.0;
+            e.poisonDmg = g.bladeOrbitPoisonDamage || 3;
+          }
+        }
+      }
+
+      // 火焰轨迹：飞刀路径留下火焰
+      if (g.bladeOrbitFireTrail && t - (g._bladeLastFireTrailTime || 0) > 0.3) {
+        g._bladeLastFireTrailTime = t;
+        for (let i = 0; i < g.orbitals.length; i++) {
+          const o = g.orbitals[i];
+          if (o.type !== "blade") continue;
+          g.createFireTrail({x: o.x, y: o.y}, t);
+          break; // 只从第一个飞刀生成轨迹，避免过多
+        }
+      }
+
+      // 凤凰之翼：飞刀击中后在轨道留下凤凰火焰视觉效果
+      if (g.bladeOrbitPhoenixWings && g.effects.length < 800) {
+        for (let i = 0; i < g.orbitals.length && i < 4; i++) {
+          const o = g.orbitals[i];
+          if (o.type !== "blade") continue;
+          if (Math.random() < 0.1) {
+            g.effects.push({ kind:"spark", x: o.x, y: o.y, vx: (Math.random()-0.5)*50, vy: (Math.random()-0.5)*50, color:"#ff6600", start:t, end:t+0.3 });
+          }
+        }
+      }
+
+      // 磁力飞刃：吸引附近敌人
+      if (g.bladeOrbitMagneticPull) {
+        const pullRange = g.bladeOrbitMagneticRange || 100;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = g.player.x - e.x, dy = g.player.y - e.y;
+          const d = Math.sqrt(dx*dx + dy*dy);
+          if (d < pullRange && d > 20) {
+            const pull = 30 * dt;
+            e.x += (dx / d) * pull;
+            e.y += (dy / d) * pull;
+          }
+        }
+      }
+
+      // 影刃：生成影子飞刀（视觉效果，不占数量但增加伤害范围）
+      if (g.bladeOrbitShadowBlade && g.effects.length < 600) {
+        for (let i = 0; i < g.orbitals.length && i < 3; i++) {
+          const o = g.orbitals[i];
+          if (o.type !== "blade") continue;
+          // 影子飞刀在半透明位置
+          const shadowAngle = o.rot + Math.PI;
+          const sx = g.player.x + Math.cos(shadowAngle) * g.bladeOrbitRadius;
+          const sy = g.player.y + Math.sin(shadowAngle) * g.bladeOrbitRadius;
+          // 影子飞刀碰撞检测
+          for (let ei = 0; ei < g.enemies.length; ei++) {
+            const e = g.enemies[ei];
+            if (e._dead) continue;
+            const dx = e.x - sx, dy = e.y - sy;
+            const r = Math.max(o.w, o.h) / 2 + Math.max(e.w, e.h) / 2;
+            if (dx*dx + dy*dy <= r*r) {
+              if (!e._shadowHitTime || t - e._shadowHitTime > 0.3) {
+                e._shadowHitTime = t;
+                g.applyDamageToEnemy(e, g.bladeOrbitDamage * (g.bladeOrbitShadowDamageMult || 0.5), t, { immediate: true });
+              }
+            }
+          }
+        }
+      }
+
+      // 飞刀每秒回血
+      if (g.bladeOrbitRegenPerBlade > 0 && t - (g._bladeLastRegenTime || 0) > 1.0) {
+        g._bladeLastRegenTime = t;
+        g.heal(g.bladeOrbitRegenPerBlade * g.bladeOrbitCount);
+      }
+
+      // 天降飞刀（周期性）
+      if (g.bladeOrbitSkyfall && t - (g._bladeLastSkyfallTime || 0) > (g.bladeOrbitSkyfallInterval || 3.0)) {
+        g._bladeLastSkyfallTime = t;
+        g.triggerBladeSkyfall(t);
+      }
+
+      // 飞刀蓄能爆发
+      if (g.bladeOrbitBurst && g._bladeChargeRotations >= 10) {
+        g._bladeChargeRotations = 0;
+        g.triggerBladeBurst(t);
       }
 
       // Orbital vs enemy contact begin (reuse Sets to avoid per-frame GC)
@@ -2595,6 +3249,21 @@
 
       const chosen = [];
       const tmp = candidates.slice();
+
+      // 万有引力保底机制：前50个技能选择中必定出现
+      // 追踪累计技能提供次数（每次升级提供3个选择，计为1次）
+      g._skillOfferCount = (g._skillOfferCount || 0) + 1;
+      if (g._skillOfferCount <= 50 && !acquired.has("万有引力")) {
+        // 在前50次技能选择中，如果还没获得万有引力，强制加入候选
+        const gravityIdx = tmp.findIndex(c => c.sk.name === "万有引力");
+        if (gravityIdx >= 0) {
+          // 找到了万有引力，强制选入第一个位置
+          chosen.push(tmp[gravityIdx].sk);
+          tmp[gravityIdx] = tmp[tmp.length - 1];
+          tmp.pop();
+        }
+      }
+
       while (chosen.length < 3 && tmp.length > 0) {
         const idx = pickIndexWeighted(tmp);
         if (idx < 0) break;
