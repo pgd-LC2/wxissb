@@ -4,7 +4,7 @@
  * 
  * 技能分类：
  * 1. 元素魔法 (100个) - 火、冰、雷、风、土、光、暗、毒、水、奥术
- * 2. 召唤魔法 (80个) - 元素精灵、魔法傀儡、幻影、图腾
+ * 2. 召唤魔法 (40个) - 魔法傀儡、幻影、高级召唤
  * 3. 时空魔法 (60个) - 时间操控、空间折叠、传送、维度
  * 4. 附魔魔法 (60个) - 武器附魔、护甲附魔、增益魔法
  * 5. 诅咒魔法 (50个) - 减益、诅咒、腐蚀、恐惧
@@ -20,17 +20,11 @@
   // 魔法系统状态定义
   // ============================================
   const MagicState = {
-    // 元素精灵召唤物
-    elementals: [],       // {type, x, y, hp, damage, lastAttack, behavior}
-    
     // 魔法傀儡
     golems: [],           // {type, x, y, hp, damage, size, lastAttack}
     
     // 幻影分身
     phantoms: [],         // {x, y, lifetime, attackRate, lastAttack}
-    
-    // 图腾
-    totems: [],           // {type, x, y, hp, radius, effect, nextTick}
     
     // 符文阵
     runeCircles: [],      // {type, x, y, radius, duration, nextTick, born}
@@ -360,64 +354,8 @@
     skills.push(...darkSkills.map(s => ({ ...s, icon: "moon.fill", category: "dark" })));
 
     // ------------------------------------------
-    // 第二类：召唤魔法 (80个)
+    // 第二类：召唤魔法 (40个)
     // ------------------------------------------
-    
-    // 元素精灵 (20个)
-    const elementalSummons = [
-      { name: "召唤火精灵", tier: 2, desc: "召唤一只火精灵，发射火球攻击敌人",
-        effect: g => { g.magic.fireElementalCount = (g.magic.fireElementalCount||0) + 1; }},
-      { name: "火精灵强化", tier: 3, desc: "火精灵伤害+50%，攻击附带燃烧",
-        effect: g => { g.magic.fireElementalDamage = (g.magic.fireElementalDamage||1) * 1.5; g.magic.fireElementalBurn = true; }},
-      { name: "召唤冰精灵", tier: 2, desc: "召唤一只冰精灵，发射寒冰攻击敌人",
-        effect: g => { g.magic.iceElementalCount = (g.magic.iceElementalCount||0) + 1; }},
-      { name: "冰精灵强化", tier: 3, desc: "冰精灵攻击必定减速，几率冻结",
-        effect: g => { g.magic.iceElementalFreeze = true; }},
-      { name: "召唤雷精灵", tier: 2, desc: "召唤一只雷精灵，释放闪电链攻击",
-        effect: g => { g.magic.lightningElementalCount = (g.magic.lightningElementalCount||0) + 1; }},
-      
-      { name: "雷精灵强化", tier: 3, desc: "雷精灵闪电链可跳跃更多目标",
-        effect: g => { g.magic.lightningElementalChains = (g.magic.lightningElementalChains||2) + 2; }},
-      { name: "召唤风精灵", tier: 2, desc: "召唤风精灵，推开敌人并造成伤害",
-        effect: g => { g.magic.windElementalCount = (g.magic.windElementalCount||0) + 1; }},
-      { name: "召唤土精灵", tier: 2, desc: "召唤土精灵，吸引敌人仇恨并反击",
-        effect: g => { g.magic.earthElementalCount = (g.magic.earthElementalCount||0) + 1; }},
-      { name: "精灵共鸣", tier: 4, desc: "所有精灵数量+1，获得元素协同效果",
-        effect: g => { 
-          g.magic.fireElementalCount = (g.magic.fireElementalCount||0) + 1;
-          g.magic.iceElementalCount = (g.magic.iceElementalCount||0) + 1;
-          g.magic.lightningElementalCount = (g.magic.lightningElementalCount||0) + 1;
-          g.magic.elementalSynergy = true;
-        }},
-      { name: "精灵融合", tier: 5, desc: "所有精灵融合成元素王，伤害和生命翻倍",
-        effect: g => { g.magic.elementalKing = true; }},
-      
-      { name: "光明精灵", tier: 3, desc: "召唤光明精灵治疗玩家",
-        effect: g => { g.magic.lightElementalCount = (g.magic.lightElementalCount||0) + 1; g.magic.lightElementalHeal = 2; }},
-      { name: "暗影精灵", tier: 3, desc: "召唤暗影精灵吸取敌人生命",
-        effect: g => { g.magic.darkElementalCount = (g.magic.darkElementalCount||0) + 1; }},
-      { name: "精灵之王", tier: 5, desc: "所有精灵伤害+100%，攻速+50%",
-        effect: g => { g.magic.elementalKingBonus = true; }},
-      { name: "精灵大军", tier: 4, desc: "所有精灵数量翻倍",
-        effect: g => { 
-          g.magic.fireElementalCount = (g.magic.fireElementalCount||0) * 2;
-          g.magic.iceElementalCount = (g.magic.iceElementalCount||0) * 2;
-          g.magic.lightningElementalCount = (g.magic.lightningElementalCount||0) * 2;
-        }},
-      { name: "精灵护卫", tier: 3, desc: "精灵会优先攻击接近玩家的敌人",
-        effect: g => { g.magic.elementalGuard = true; }},
-      
-      { name: "精灵爆发", tier: 4, desc: "精灵死亡时爆炸造成元素伤害",
-        effect: g => { g.magic.elementalDeathExplosion = true; }},
-      { name: "精灵再生", tier: 3, desc: "精灵死亡后10秒重新召唤",
-        effect: g => { g.magic.elementalRespawn = true; g.magic.elementalRespawnTime = 10; }},
-      { name: "精灵之心", tier: 2, desc: "玩家受伤时精灵分担20%伤害",
-        effect: g => { g.magic.elementalDamageShare = 0.20; }},
-      { name: "元素狂热", tier: 4, desc: "精灵攻速+100%，但生命减半",
-        effect: g => { g.magic.elementalFrenzy = true; }},
-      { name: "永恒精灵", tier: 5, desc: "精灵不会死亡，但无法再生",
-        effect: g => { g.magic.immortalElementals = true; }}
-    ];
     
     // 魔法傀儡 (20个)
     const golemSummons = [
@@ -469,7 +407,7 @@
         effect: g => { g.magic.golemLegion = true; }}
     ];
     
-    // 幻影与图腾 (20个)
+    // 幻影 (5个 - 已移除图腾相关技能)
     const phantomAndTotemSkills = [
       { name: "幻影分身", tier: 2, desc: "创建一个幻影分身复制你的攻击",
         effect: g => { g.magic.phantomCount = (g.magic.phantomCount||0) + 1; }},
@@ -479,43 +417,10 @@
         effect: g => { g.magic.perfectPhantom = true; }},
       { name: "永恒幻影", tier: 5, desc: "幻影不会消失",
         effect: g => { g.magic.eternalPhantom = true; }},
-      { name: "召唤火焰图腾", tier: 2, desc: "召唤火焰图腾定期释放火焰攻击",
-        effect: g => { g.magic.fireTotemCount = (g.magic.fireTotemCount||0) + 1; }},
-      
-      { name: "召唤治疗图腾", tier: 2, desc: "召唤治疗图腾定期回复生命",
-        effect: g => { g.magic.healTotemCount = (g.magic.healTotemCount||0) + 1; g.magic.healTotemAmount = 5; }},
-      { name: "召唤护盾图腾", tier: 3, desc: "召唤护盾图腾减少受到的伤害",
-        effect: g => { g.magic.shieldTotemCount = (g.magic.shieldTotemCount||0) + 1; }},
-      { name: "召唤雷电图腾", tier: 3, desc: "召唤雷电图腾定期释放闪电",
-        effect: g => { g.magic.lightningTotemCount = (g.magic.lightningTotemCount||0) + 1; }},
-      { name: "图腾大师", tier: 4, desc: "所有图腾数量+1，效果+30%",
-        effect: g => { 
-          g.magic.fireTotemCount = (g.magic.fireTotemCount||0) + 1;
-          g.magic.healTotemCount = (g.magic.healTotemCount||0) + 1;
-          g.magic.totemPowerBonus = 0.30;
-        }},
-      { name: "图腾爆炸", tier: 3, desc: "图腾被摧毁时爆炸伤害敌人",
-        effect: g => { g.magic.totemExplosion = true; }},
-      
-      { name: "召唤减速图腾", tier: 2, desc: "召唤图腾减速周围敌人",
-        effect: g => { g.magic.slowTotemCount = (g.magic.slowTotemCount||0) + 1; }},
-      { name: "召唤吸引图腾", tier: 3, desc: "召唤图腾吸引敌人",
-        effect: g => { g.magic.pullTotemCount = (g.magic.pullTotemCount||0) + 1; }},
-      { name: "图腾链接", tier: 4, desc: "图腾之间形成能量链接伤害敌人",
-        effect: g => { g.magic.totemLink = true; }},
-      { name: "图腾复制", tier: 4, desc: "图腾被摧毁时在原地召唤新图腾",
-        effect: g => { g.magic.totemRespawn = true; }},
       { name: "幻影军团", tier: 5, desc: "幻影数量×3",
         effect: g => { g.magic.phantomCount = (g.magic.phantomCount||0) * 3; }},
-      
-      { name: "召唤诅咒图腾", tier: 3, desc: "召唤图腾诅咒敌人降低其伤害",
-        effect: g => { g.magic.curseTotemCount = (g.magic.curseTotemCount||0) + 1; }},
-      { name: "图腾要塞", tier: 5, desc: "所有图腾生命翻倍，护甲+50%",
-        effect: g => { g.magic.totemFortress = true; }},
       { name: "幻影交换", tier: 3, desc: "受到致命伤害时与幻影交换位置",
         effect: g => { g.magic.phantomSwap = true; }},
-      { name: "图腾网络", tier: 4, desc: "图腾共享效果范围",
-        effect: g => { g.magic.totemNetwork = true; }},
       { name: "召唤王座", tier: 5, desc: "所有召唤物获得增益并回复生命",
         effect: g => { g.magic.throneOfSummoning = true; }}
     ];
@@ -541,8 +446,6 @@
         effect: g => { g.magic.phoenixSummonEnabled = true; }},
       { name: "召唤海怪", tier: 4, desc: "召唤海怪触手攻击敌人",
         effect: g => { g.magic.krakenSummonEnabled = true; }},
-      { name: "召唤精灵王", tier: 5, desc: "召唤精灵王，伤害和范围巨大",
-        effect: g => { g.magic.elementalKingSummon = true; }},
       
       { name: "召唤骸骨骑士", tier: 3, desc: "召唤骸骨骑士冲锋敌人",
         effect: g => { g.magic.skeletonKnightCount = (g.magic.skeletonKnightCount||0) + 1; }},
@@ -567,7 +470,6 @@
         effect: g => { g.magic.legionSummoner = true; }}
     ];
     
-    skills.push(...elementalSummons.map(s => ({ ...s, icon: "sparkles", category: "summon_elemental" })));
     skills.push(...golemSummons.map(s => ({ ...s, icon: "cube.fill", category: "summon_golem" })));
     skills.push(...phantomAndTotemSkills.map(s => ({ ...s, icon: "person.2.fill", category: "summon_phantom" })));
     skills.push(...advancedSummons.map(s => ({ ...s, icon: "star.fill", category: "summon_advanced" })));

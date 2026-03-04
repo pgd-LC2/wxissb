@@ -2595,6 +2595,21 @@
 
       const chosen = [];
       const tmp = candidates.slice();
+
+      // 万有引力保底机制：前50个技能选择中必定出现
+      // 追踪累计技能提供次数（每次升级提供3个选择，计为1次）
+      g._skillOfferCount = (g._skillOfferCount || 0) + 1;
+      if (g._skillOfferCount <= 50 && !acquired.has("万有引力")) {
+        // 在前50次技能选择中，如果还没获得万有引力，强制加入候选
+        const gravityIdx = tmp.findIndex(c => c.sk.name === "万有引力");
+        if (gravityIdx >= 0) {
+          // 找到了万有引力，强制选入第一个位置
+          chosen.push(tmp[gravityIdx].sk);
+          tmp[gravityIdx] = tmp[tmp.length - 1];
+          tmp.pop();
+        }
+      }
+
       while (chosen.length < 3 && tmp.length > 0) {
         const idx = pickIndexWeighted(tmp);
         if (idx < 0) break;
