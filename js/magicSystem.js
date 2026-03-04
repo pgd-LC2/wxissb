@@ -97,10 +97,8 @@
     // 初始化魔法实体数组
     // ----------------------------------------
     if (!g.magicProjectiles) g.magicProjectiles = [];
-    if (!g.elementals) g.elementals = [];
     if (!g.golems) g.golems = [];
     if (!g.phantoms) g.phantoms = [];
-    if (!g.totems) g.totems = [];
     if (!g.runeCircles) g.runeCircles = [];
     if (!g.magicBeams) g.magicBeams = [];
     if (!g.domains) g.domains = [];
@@ -496,106 +494,6 @@
     // 4. 召唤系统
     // ========================================
     
-    // 元素精灵
-    const elementalTypes = ['fire', 'ice', 'lightning', 'wind', 'earth', 'light', 'dark', 'water'];
-    for (const elemType of elementalTypes) {
-      const countKey = `${elemType}ElementalCount`;
-      const targetCount = m[countKey] || 0;
-      
-      // 计算当前该类型的精灵数量
-      const currentCount = g.elementals.filter(e => e.type === elemType && !e._dead).length;
-      
-      // 召唤缺少的精灵
-      while (currentCount < targetCount) {
-        const angle = rand(0, TAU);
-        const dist = rand(80, 150);
-        g.elementals.push({
-          id: nextId(),
-          type: elemType,
-          x: g.player.x + Math.cos(angle) * dist,
-          y: g.player.y + Math.sin(angle) * dist,
-          hp: 100,
-          maxHp: 100,
-          damage: 15 * (1 + (m.elementalAffinity?.[elemType] || 0)),
-          lastAttack: 0,
-          attackInterval: 1.0,
-          born: t,
-          angle: angle
-        });
-        break;  // 每帧只召唤一个
-      }
-    }
-    
-    // 更新元素精灵
-    for (let i = g.elementals.length - 1; i >= 0; i--) {
-      const elem = g.elementals[i];
-      if (elem._dead) {
-        g.elementals.splice(i, 1);
-        continue;
-      }
-      
-      // 跟随玩家
-      elem.angle += dt * 0.5;
-      const targetX = g.player.x + Math.cos(elem.angle) * 100;
-      const targetY = g.player.y + Math.sin(elem.angle) * 100;
-      elem.x += (targetX - elem.x) * 0.05;
-      elem.y += (targetY - elem.y) * 0.05;
-      
-      // 攻击最近敌人
-      if (t - elem.lastAttack > elem.attackInterval) {
-        const target = getClosestEnemy({ x: elem.x, y: elem.y });
-        if (target && hypot(target.x - elem.x, target.y - elem.y) < 300) {
-          elem.lastAttack = t;
-          
-          // 根据类型发射不同攻击
-          const dx = target.x - elem.x, dy = target.y - elem.y;
-          const dist = Math.max(1, hypot(dx, dy));
-          const speed = 400;
-          
-          let projType = 'magic';
-          let color = '#ffffff';
-          let effect = {};
-          
-          switch (elem.type) {
-            case 'fire':
-              projType = 'fireball';
-              color = '#ff6600';
-              effect = { burn: true };
-              break;
-            case 'ice':
-              projType = 'icebolt';
-              color = '#66ccff';
-              effect = { slow: true, freezeChance: m.iceElementalFreeze ? 0.3 : 0 };
-              break;
-            case 'lightning':
-              projType = 'lightning';
-              color = '#ffff00';
-              effect = { chain: true, chainCount: m.lightningElementalChains || 2 };
-              break;
-            case 'light':
-              projType = 'holyLight';
-              color = '#ffffaa';
-              effect = { heal: m.lightElementalHeal || 2 };
-              break;
-            case 'dark':
-              projType = 'shadowBolt';
-              color = '#660066';
-              effect = { lifesteal: 0.2 };
-              break;
-            default:
-              color = '#aaaaff';
-          }
-          
-          createMagicProjectile(projType, elem.x, elem.y,
-            (dx/dist) * speed, (dy/dist) * speed,
-            elem.damage, effect
-          );
-          
-          emitParticles({ x: elem.x, y: elem.y }, 3, color);
-        }
-      }
-    }
-    
     // 傀儡系统
     const golemTypes = ['stone', 'iron', 'crystal', 'lava', 'bone', 'wood', 'ice'];
     for (const golemType of golemTypes) {
@@ -780,174 +678,7 @@
     }
     
     // ========================================
-    // 5. 图腾系统
-    // ========================================
-    const totemTypes = ['fire', 'heal', 'shield', 'lightning', 'slow', 'pull', 'curse'];
-    for (const totemType of totemTypes) {
-      const countKey = `${totemType}TotemCount`;
-      const targetCount = m[countKey] || 0;
-      const currentCount = g.totems.filter(t => t.type === totemType && !t._dead).length;
-      
-      while (currentCount < targetCount) {
-        const angle = rand(0, TAU);
-        const dist = rand(60, 120);
-        let hp = 100;
-        let radius = 120;
-        let color = '#ffffff';
-        
-        switch (totemType) {
-          case 'fire': color = '#ff6600'; break;
-          case 'heal': color = '#00ff00'; break;
-          case 'shield': color = '#4488ff'; hp = 150; break;
-          case 'lightning': color = '#ffff00'; break;
-          case 'slow': color = '#88ddff'; break;
-          case 'pull': color = '#ff00ff'; break;
-          case 'curse': color = '#660066'; break;
-        }
-        
-        if (m.totemFortress) { hp *= 2; }
-        const powerBonus = 1 + (m.totemPowerBonus || 0);
-        if (m.domainSizeBonus) radius *= (1 + m.domainSizeBonus);
-        
-        g.totems.push({
-          id: nextId(),
-          type: totemType,
-          x: m.mobileDomain ? g.player.x : (g.player.x + Math.cos(angle) * dist),
-          y: m.mobileDomain ? g.player.y : (g.player.y + Math.sin(angle) * dist),
-          hp: hp,
-          maxHp: hp,
-          radius: radius,
-          powerBonus: powerBonus,
-          color: color,
-          nextTick: t,
-          tickInterval: 0.5,
-          born: t,
-          followPlayer: m.mobileDomain
-        });
-        break;
-      }
-    }
-    
-    // 更新图腾
-    for (let i = g.totems.length - 1; i >= 0; i--) {
-      const totem = g.totems[i];
-      if (totem._dead || totem.hp <= 0) {
-        if (m.totemExplosion) {
-          const radius = 80;
-          for (let j = 0; j < g.enemies.length; j++) {
-            const e = g.enemies[j];
-            if (e._dead) continue;
-            const dx = e.x - totem.x, dy = e.y - totem.y;
-            if (dx*dx + dy*dy < radius*radius) {
-              applyDamageToEnemy(e, 50, t);
-            }
-          }
-          createExplosionEffect({ x: totem.x, y: totem.y }, radius, t);
-        }
-        if (m.totemRespawn) {
-          // 重新召唤
-          g.totems.push({
-            ...totem,
-            id: nextId(),
-            hp: totem.maxHp,
-            _dead: false,
-            born: t
-          });
-        }
-        g.totems.splice(i, 1);
-        continue;
-      }
-      
-      // 跟随玩家
-      if (totem.followPlayer) {
-        totem.x = g.player.x;
-        totem.y = g.player.y;
-      }
-      
-      // 图腾效果
-      if (t >= totem.nextTick) {
-        totem.nextTick = t + totem.tickInterval;
-        
-        switch (totem.type) {
-          case 'fire':
-            for (let j = 0; j < g.enemies.length; j++) {
-              const e = g.enemies[j];
-              if (e._dead) continue;
-              const dx = e.x - totem.x, dy = e.y - totem.y;
-              if (dx*dx + dy*dy < totem.radius*totem.radius) {
-                applyDamageToEnemy(e, 15 * totem.powerBonus, t);
-                e.burnEnd = t + 2;
-                e.burnDmg = 5;
-              }
-            }
-            break;
-            
-          case 'heal':
-            const dx = g.player.x - totem.x, dy = g.player.y - totem.y;
-            if (dx*dx + dy*dy < totem.radius*totem.radius) {
-              heal((m.healTotemAmount || 5) * totem.powerBonus);
-            }
-            break;
-            
-          case 'shield':
-            // 提供减伤
-            const dxS = g.player.x - totem.x, dyS = g.player.y - totem.y;
-            if (dxS*dxS + dyS*dyS < totem.radius*totem.radius) {
-              m._totemShieldActive = t + 0.6;
-            }
-            break;
-            
-          case 'lightning':
-            const target = getClosestEnemy({ x: totem.x, y: totem.y });
-            if (target && hypot(target.x - totem.x, target.y - totem.y) < totem.radius) {
-              applyDamageToEnemy(target, 25 * totem.powerBonus, t);
-              createEffect('line', { x1: totem.x, y1: totem.y, x2: target.x, y2: target.y, color: '#ffff00' });
-            }
-            break;
-            
-          case 'slow':
-            for (let j = 0; j < g.enemies.length; j++) {
-              const e = g.enemies[j];
-              if (e._dead) continue;
-              const dx = e.x - totem.x, dy = e.y - totem.y;
-              if (dx*dx + dy*dy < totem.radius*totem.radius) {
-                e.slowed = true;
-                e._totemSlowUntil = t + 1;
-              }
-            }
-            break;
-            
-          case 'pull':
-            for (let j = 0; j < g.enemies.length; j++) {
-              const e = g.enemies[j];
-              if (e._dead) continue;
-              const dx = totem.x - e.x, dy = totem.y - e.y;
-              const dist = hypot(dx, dy);
-              if (dist < totem.radius && dist > 20) {
-                const pull = 30 * totem.powerBonus;
-                e.x += (dx / dist) * pull * dt;
-                e.y += (dy / dist) * pull * dt;
-              }
-            }
-            break;
-            
-          case 'curse':
-            for (let j = 0; j < g.enemies.length; j++) {
-              const e = g.enemies[j];
-              if (e._dead) continue;
-              const dx = e.x - totem.x, dy = e.y - totem.y;
-              if (dx*dx + dy*dy < totem.radius*totem.radius) {
-                e._cursed = true;
-                e._curseBonus = 0.3 * totem.powerBonus;
-              }
-            }
-            break;
-        }
-      }
-    }
-    
-    // ========================================
-    // 6. 领域系统更新
+    // 5. 领域系统更新（原图腾系统已移除）
     // ========================================
     for (let i = g.domains.length - 1; i >= 0; i--) {
       const domain = g.domains[i];
@@ -1240,9 +971,6 @@
     // 治愈光环 (给召唤物回血)
     if (m.healAura) {
       const healRate = m.healAuraRate || 2;
-      for (const elem of g.elementals) {
-        if (!elem._dead) elem.hp = Math.min(elem.maxHp, elem.hp + healRate * dt);
-      }
       for (const golem of g.golems) {
         if (!golem._dead) golem.hp = Math.min(golem.maxHp, golem.hp + healRate * dt);
       }
@@ -1659,11 +1387,6 @@
         }
         if (g.createExplosionEffect) g.createExplosionEffect({ x: g.player.x, y: g.player.y }, radius, t);
       }
-    }
-    
-    // 图腾护盾效果
-    if (m._totemShieldActive && t < m._totemShieldActive) {
-      finalDamage *= 0.7;  // 减少30%
     }
     
     // 闪电护盾反击
