@@ -853,6 +853,7 @@
       for (let i = 0; i < g.enemyDefs.length; i++) {
         const def = g.enemyDefs[i];
         if (def.elite) continue;
+        if (def.boss) continue;
         const unlock = def.unlock || 0;
         if (prog < unlock) continue;
 
@@ -865,6 +866,7 @@
       for (let i = 0; i < g.enemyDefs.length; i++) {
         const def = g.enemyDefs[i];
         if (def.elite) continue;
+        if (def.boss) continue;
         const unlock = def.unlock || 0;
         if (prog < unlock) continue;
 
@@ -916,7 +918,7 @@
         speed,
         armor: clamp(safeNumber(def.armor, 0), 0, 0.85),
         damageMul: clamp(safeNumber(def.damage, 1.0), 0.2, 5.0),
-        expMul: clamp(safeNumber(def.exp, 1.0), 0.1, 20.0),
+        expMul: clamp(safeNumber(def.exp, 1.0), 0.1, 50.0),
 
         // behavior params
         orbitR: def.orbitR || 180,
@@ -971,7 +973,7 @@
       const hpRatio = clamp(g.playerHealth / Math.max(1, g.playerMaxHealth), 0, 1);
 
       const base = 10;
-      const typeMul = clamp(safeNumber(enemy.expMul, 1.0), 0.1, 20.0);
+      const typeMul = clamp(safeNumber(enemy.expMul, 1.0), 0.1, 50.0);
 
       // grow moderately with sqrt(diff) to avoid overflow
       const diffMul = 1 + Math.sqrt(Math.max(0, diff - 1)) * 0.55;
