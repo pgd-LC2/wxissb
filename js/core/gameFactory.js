@@ -546,15 +546,15 @@
       const calm = clamp(sinceHit / W, 0, 1);
       const efficiency = dps / Math.max(1, dtps);
 
-      // normalize with log scaling - 移除上限限制，允许战力无限增长
-      // 当超过基准值时，战力会继续增长但速度变慢（对数增长）
-      const nK = Math.max(0, Math.log1p(kpm) / Math.log1p(80));
-      const nD = Math.max(0, Math.log1p(dps) / Math.log1p(900));
-      const nB = Math.max(0, Math.log1p(buildDps) / Math.log1p(1200));
-      const nX = Math.max(0, Math.log1p(xps) / Math.log1p(120));
-      const nL = Math.max(0, Math.log1p(lpm) / Math.log1p(10));
-      const nS = Math.max(0, Math.log1p(skillScore) / Math.log1p(120));
-      const nE = Math.max(0, Math.log1p(efficiency) / Math.log1p(12));
+      // 线性缩放 - 战力无限增长，没有任何减缓
+      // 每个指标按基准值线性归一化，超过基准值后继续等比例增长
+      const nK = Math.max(0, kpm / 80);
+      const nD = Math.max(0, dps / 900);
+      const nB = Math.max(0, buildDps / 1200);
+      const nX = Math.max(0, xps / 120);
+      const nL = Math.max(0, lpm / 10);
+      const nS = Math.max(0, skillScore / 120);
+      const nE = Math.max(0, efficiency / 12);
 
       const raw =
         0.18 * nB +
@@ -567,7 +567,7 @@
         0.05 * calm +
         0.03 * hpRatio;
 
-      // 移除1000上限，允许战力无限增长
+      // 线性缩放，战力无限增长无减缓
       const rating = Math.max(0, 1000 * raw);
       const tc = g._combatTierFromScore(rating);
 
@@ -989,6 +989,17 @@
 
       let xp = clamp(base * typeMul * diffMul * riskMul * streakMul * rng, 1, 1200);
       if (enemy && enemy._minion) xp *= 0.65;
+
+      // 后期经验衰减：随着等级提升，怪物掉落经验逐渐减少
+      // 等级1-10: 100%经验（无衰减）
+      // 等级10-30: 逐渐衰减到40%
+      // 等级30+: 保持在40%左右，不会更低
+      const level = g.level || 1;
+      if (level > 10) {
+        const decay = Math.max(0.4, 1.0 - (level - 10) * 0.03);
+        xp *= decay;
+      }
+
       return xp;
     };
 
