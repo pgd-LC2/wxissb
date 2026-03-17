@@ -51,28 +51,67 @@
     <button id="pauseBtn" title="暂停游戏" aria-label="pause">⏸️</button>
     <div id="help">按住 W/A/S/D 或左下角摇杆移动 · 自动射击 · 选技能升级 · M 静音</div>
     
-    <!-- 暂停菜单 -->
+    <!-- 暂停菜单 (重构版：左右技能滚动 + 中央面板) -->
     <div id="pauseOverlay" class="hidden">
+      <!-- 左侧技能滚动列 -->
+      <div id="pauseSkillsLeft" class="pause-skills-column pause-skills-left"></div>
+      <!-- 右侧技能滚动列 -->
+      <div id="pauseSkillsRight" class="pause-skills-column pause-skills-right"></div>
+
+      <!-- 粒子画布 -->
+      <canvas id="pauseParticleCanvas" class="pause-particle-canvas"></canvas>
+
+      <!-- 中央面板 -->
       <div id="pausePanel">
-        <h2>游戏暂停</h2>
-        <div id="pauseStats"></div>
-        <div class="pause-submit-section">
-          <input type="text" id="pauseSubmitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" />
-          <button id="pauseSubmitScoreBtn">提交当前分数</button>
-          <div id="pauseSubmitStatus" class="submit-status"></div>
-        </div>
-        <div class="pause-buttons">
-          <button id="quitBtn">退出游戏</button>
-          <button id="resumeBtn">继续游戏</button>
-        </div>
-        <!-- 退出确认对话框 -->
-        <div id="quitConfirmDialog" class="hidden">
-          <div class="quit-confirm-content">
-            <p>确定要退出游戏吗？</p>
-            <div class="quit-confirm-buttons">
-              <button id="quitCancelBtn">取消</button>
-              <button id="quitConfirmBtn">确定退出</button>
+        <!-- 主菜单视图 -->
+        <div id="pauseMainView">
+          <h2 class="pause-title">游戏暂停</h2>
+          <div id="pauseStats" class="pause-stats-grid"></div>
+
+          <div class="pause-submit-section">
+            <input type="text" id="pauseSubmitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" />
+            <button id="pauseSubmitScoreBtn">提交当前分数</button>
+            <div id="pauseSubmitStatus" class="submit-status"></div>
+          </div>
+
+          <button id="reportSkillBtn" class="report-skill-entry-btn">🚩 举报技能</button>
+
+          <div class="pause-buttons">
+            <button id="quitBtn">退出游戏</button>
+            <button id="resumeBtn">继续游戏</button>
+          </div>
+
+          <!-- 退出确认对话框 -->
+          <div id="quitConfirmDialog" class="hidden">
+            <div class="quit-confirm-content">
+              <p>确定要退出游戏吗？</p>
+              <div class="quit-confirm-buttons">
+                <button id="quitCancelBtn">取消</button>
+                <button id="quitConfirmBtn">确定退出</button>
+              </div>
             </div>
+          </div>
+        </div>
+
+        <!-- 举报技能视图 (默认隐藏) -->
+        <div id="reportSkillView" class="hidden">
+          <h2 class="pause-title">🚩 举报技能</h2>
+          <p class="report-subtitle">选择你认为"没用"的技能</p>
+          <div id="reportSkillList" class="report-skill-list"></div>
+          <div class="report-reason-section">
+            <div class="report-reason-label">举报理由</div>
+            <div class="report-reason-options">
+              <label class="report-reason-chip selected"><input type="radio" name="reportReason" value="没用" checked /><span>没用</span></label>
+              <label class="report-reason-chip"><input type="radio" name="reportReason" value="太弱" /><span>太弱</span></label>
+              <label class="report-reason-chip"><input type="radio" name="reportReason" value="效果不明显" /><span>效果不明显</span></label>
+              <label class="report-reason-chip"><input type="radio" name="reportReason" value="其他" /><span>其他</span></label>
+            </div>
+            <textarea id="reportReasonText" class="hidden" placeholder="补充说明（可选）" maxlength="200"></textarea>
+          </div>
+          <div id="reportSubmitStatus" class="submit-status"></div>
+          <div class="report-buttons">
+            <button id="reportBackBtn">返回</button>
+            <button id="reportSubmitBtn" disabled>提交举报 (0)</button>
           </div>
         </div>
       </div>

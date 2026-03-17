@@ -446,95 +446,472 @@ canvas {
 }
 #pauseBtn:hover{ background: rgba(0,0,0,.62); }
 
-/* Pause Overlay */
+/* ========================================
+   Pause Overlay (重构版：酷炫特效)
+   ======================================== */
 #pauseOverlay {
   position: absolute;
   inset: 0;
   z-index: 22;
-  background: rgba(0,0,0,.78);
+  background: radial-gradient(ellipse at center, rgba(5,5,20,.88) 0%, rgba(0,0,0,.95) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 18px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 #pauseOverlay.hidden { display: none; }
 
-#pausePanel {
-  width: min(420px, 100%);
-  background: rgba(20,20,20,.92);
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px;
-  padding: 22px;
-  box-sizing: border-box;
-  animation: popIn .18s ease-out;
+/* 粒子画布 */
+.pause-particle-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
 }
-#pausePanel h2 {
+
+/* ---- 左右技能滚动列 ---- */
+.pause-skills-column {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 160px;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 15%, black 85%, transparent 100%);
+}
+.pause-skills-left { left: 0; }
+.pause-skills-right { right: 0; }
+
+.pause-skill-scroll-track {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  will-change: transform;
+}
+.pause-skills-left .pause-skill-scroll-track {
+  animation: scrollUp 25s linear infinite;
+}
+.pause-skills-right .pause-skill-scroll-track {
+  animation: scrollDown 30s linear infinite;
+}
+
+@keyframes scrollUp {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+@keyframes scrollDown {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
+}
+
+.pause-skill-card {
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: border-color .3s, box-shadow .3s;
+  position: relative;
+  overflow: hidden;
+}
+.pause-skill-card::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, transparent 40%, rgba(255,214,10,.12) 100%);
+  opacity: 0;
+  transition: opacity .4s;
+  pointer-events: none;
+}
+.pause-skill-card:hover::before { opacity: 1; }
+.pause-skill-card .sk-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.08);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.pause-skill-card .sk-info {
+  flex: 1;
+  min-width: 0;
+}
+.pause-skill-card .sk-name {
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pause-skill-card .sk-tier {
+  font-size: 9px;
+  opacity: .7;
+  font-weight: 600;
+}
+
+/* 技能卡片等级发光 */
+.pause-skill-card.tier1 { border-color: rgba(255,255,255,.10); }
+.pause-skill-card.tier2 { border-color: rgba(74,163,255,.25); box-shadow: 0 0 6px rgba(74,163,255,.10); }
+.pause-skill-card.tier3 { border-color: rgba(52,199,89,.25); box-shadow: 0 0 6px rgba(52,199,89,.10); }
+.pause-skill-card.tier4 { border-color: rgba(191,90,242,.30); box-shadow: 0 0 8px rgba(191,90,242,.15); }
+.pause-skill-card.tier5 { border-color: rgba(255,214,10,.35); box-shadow: 0 0 10px rgba(255,214,10,.2); animation: legendGlow 2s ease-in-out infinite alternate; }
+
+@keyframes legendGlow {
+  0% { box-shadow: 0 0 8px rgba(255,214,10,.15); }
+  100% { box-shadow: 0 0 18px rgba(255,214,10,.35), 0 0 40px rgba(255,165,0,.1); }
+}
+
+/* ---- 中央面板 ---- */
+#pausePanel {
+  width: min(380px, 88%);
+  background: rgba(12,12,18,.94);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 18px;
+  padding: 24px 22px;
+  box-sizing: border-box;
+  animation: pausePanelIn .35s cubic-bezier(.16,1,.3,1);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 12px 60px rgba(0,0,0,.6), 0 0 80px rgba(255,214,10,.03);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+@keyframes pausePanelIn {
+  0% { transform: scale(.88) translateY(20px); opacity: 0; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.pause-title {
   margin: 0 0 16px 0;
-  font-size: 28px;
+  font-size: 26px;
   text-align: center;
   color: #ffd60a;
+  text-shadow: 0 0 20px rgba(255,214,10,.3);
+  letter-spacing: 1px;
 }
-#pauseStats {
+
+/* 游戏状态网格 */
+.pause-stats-grid {
   margin-bottom: 16px;
-  padding: 12px;
-  background: rgba(255,255,255,.06);
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.6;
+  padding: 14px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.7;
 }
+
+/* 提交分数区 */
 .pause-submit-section {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .pause-submit-section input {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,.15);
-  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.06);
   color: rgba(255,255,255,.95);
-  font-size: 14px;
+  font-size: 13px;
   box-sizing: border-box;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   user-select: text;
   -webkit-user-select: text;
+  transition: border-color .2s, box-shadow .2s;
 }
-.pause-submit-section input::placeholder { color: rgba(255,255,255,.45); }
+.pause-submit-section input:focus {
+  outline: none;
+  border-color: rgba(255,214,10,.5);
+  box-shadow: 0 0 12px rgba(255,214,10,.1);
+}
+.pause-submit-section input::placeholder { color: rgba(255,255,255,.35); }
 .pause-submit-section button {
   width: 100%;
-  padding: 10px 12px;
+  padding: 9px 12px;
   border-radius: 10px;
   border: none;
-  background: rgba(255,214,10,.85);
+  background: linear-gradient(135deg, rgba(255,214,10,.85), rgba(255,180,0,.85));
   color: #000;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
+  transition: transform .12s, box-shadow .2s;
 }
-.pause-submit-section button:hover { background: rgba(255,214,10,1); }
+.pause-submit-section button:hover {
+  background: linear-gradient(135deg, rgba(255,214,10,1), rgba(255,180,0,1));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255,214,10,.25);
+}
+.pause-submit-section button:disabled {
+  opacity: .5;
+  cursor: default;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 举报技能入口按钮 */
+.report-skill-entry-btn {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,100,50,.25);
+  background: rgba(255,80,40,.08);
+  color: rgba(255,180,140,.95);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .2s;
+  text-align: center;
+}
+.report-skill-entry-btn:hover {
+  background: rgba(255,80,40,.18);
+  border-color: rgba(255,100,50,.45);
+  color: #fff;
+  box-shadow: 0 0 16px rgba(255,80,40,.12);
+}
+
+/* 暂停按钮组 */
 .pause-buttons {
   display: flex;
-  gap: 12px;
+  gap: 10px;
 }
 .pause-buttons button {
   flex: 1;
-  padding: 12px 16px;
+  padding: 11px 16px;
   border-radius: 10px;
   border: none;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
   cursor: pointer;
+  transition: transform .12s, box-shadow .2s;
 }
+.pause-buttons button:hover { transform: translateY(-1px); }
 #resumeBtn {
-  background: rgba(52,199,89,.85);
+  background: linear-gradient(135deg, rgba(52,199,89,.85), rgba(40,160,70,.85));
   color: #fff;
 }
-#resumeBtn:hover { background: rgba(52,199,89,1); }
+#resumeBtn:hover { box-shadow: 0 4px 18px rgba(52,199,89,.3); }
 #quitBtn {
-  background: rgba(255,59,48,.85);
+  background: rgba(255,59,48,.15);
+  color: rgba(255,120,110,.95);
+  border: 1px solid rgba(255,59,48,.25);
+}
+#quitBtn:hover {
+  background: rgba(255,59,48,.25);
+  box-shadow: 0 4px 18px rgba(255,59,48,.15);
+}
+
+/* ---- 举报技能面板 ---- */
+#reportSkillView.hidden { display: none; }
+
+.report-subtitle {
+  margin: 0 0 12px 0;
+  text-align: center;
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+}
+
+.report-skill-list {
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.15) transparent;
+}
+.report-skill-list::-webkit-scrollbar { width: 4px; }
+.report-skill-list::-webkit-scrollbar-track { background: transparent; }
+.report-skill-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 4px; }
+
+.report-skill-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  cursor: pointer;
+  transition: all .18s;
+  user-select: none;
+}
+.report-skill-item:hover {
+  background: rgba(255,255,255,.06);
+  border-color: rgba(255,255,255,.12);
+}
+.report-skill-item.selected {
+  background: rgba(255,80,40,.10);
+  border-color: rgba(255,100,50,.35);
+  box-shadow: 0 0 10px rgba(255,80,40,.08);
+}
+.report-skill-item .rsi-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid rgba(255,255,255,.20);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  flex-shrink: 0;
+  transition: all .15s;
+  color: transparent;
+}
+.report-skill-item.selected .rsi-check {
+  background: rgba(255,80,40,.7);
+  border-color: rgba(255,100,50,.8);
   color: #fff;
 }
-#quitBtn:hover { background: rgba(255,59,48,1); }
+.report-skill-item .rsi-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(255,255,255,.06);
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+.report-skill-item .rsi-info { flex: 1; min-width: 0; }
+.report-skill-item .rsi-name {
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.report-skill-item .rsi-desc {
+  font-size: 11px;
+  color: rgba(255,255,255,.50);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 举报理由 */
+.report-reason-section {
+  margin-bottom: 12px;
+}
+.report-reason-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255,255,255,.6);
+  margin-bottom: 8px;
+}
+.report-reason-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.report-reason-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.7);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all .15s;
+  user-select: none;
+}
+.report-reason-chip input { display: none; }
+.report-reason-chip:hover {
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.2);
+}
+.report-reason-chip.selected {
+  background: rgba(255,214,10,.12);
+  border-color: rgba(255,214,10,.4);
+  color: #ffd60a;
+}
+
+#reportReasonText {
+  width: 100%;
+  min-height: 50px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  color: rgba(255,255,255,.9);
+  font-size: 12px;
+  font-family: inherit;
+  box-sizing: border-box;
+  resize: vertical;
+  transition: border-color .2s;
+}
+#reportReasonText:focus {
+  outline: none;
+  border-color: rgba(255,214,10,.4);
+}
+#reportReasonText.hidden { display: none; }
+#reportReasonText::placeholder { color: rgba(255,255,255,.3); }
+
+/* 举报按钮组 */
+.report-buttons {
+  display: flex;
+  gap: 10px;
+}
+.report-buttons button {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: none;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all .15s;
+}
+#reportBackBtn {
+  background: rgba(255,255,255,.10);
+  color: rgba(255,255,255,.85);
+  border: 1px solid rgba(255,255,255,.12);
+}
+#reportBackBtn:hover { background: rgba(255,255,255,.18); }
+#reportSubmitBtn {
+  background: linear-gradient(135deg, rgba(255,80,40,.8), rgba(255,50,20,.8));
+  color: #fff;
+}
+#reportSubmitBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255,80,40,.25);
+}
+#reportSubmitBtn:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+/* 提交状态 */
+.submit-status {
+  margin-top: 6px;
+  font-size: 12px;
+  text-align: center;
+  min-height: 16px;
+}
+.submit-status.success { color: rgba(52,199,89,.95); }
+.submit-status.error { color: rgba(255,80,60,.95); }
+
+/* 隐藏视图 */
+#pauseMainView.hidden { display: none; }
 
 /* Overlay "juicy" animation */
 @keyframes popIn {
