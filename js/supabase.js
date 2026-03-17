@@ -121,6 +121,40 @@ const SupabaseAPI = {
   },
 
   /**
+   * 提交技能举报
+   * @param {Array<{skill_name: string, skill_tier: number, reason: string, reason_text: string, player_name: string, game_level: number, game_score: number}>} reports
+   */
+  async submitSkillReport(reports) {
+    const client = getSupabaseClient();
+    if (!client) {
+      console.error('Supabase client not initialized');
+      return { error: 'Supabase client not initialized' };
+    }
+
+    const rows = reports.map(r => ({
+      skill_name: r.skill_name,
+      skill_tier: r.skill_tier || 1,
+      reason: r.reason || '没用',
+      reason_text: r.reason_text || '',
+      player_name: r.player_name || '匿名',
+      game_level: r.game_level || 1,
+      game_score: r.game_score || 0
+    }));
+
+    const { data, error } = await client
+      .from('skill_reports')
+      .insert(rows)
+      .select();
+
+    if (error) {
+      console.error('Error submitting skill report:', error);
+      return { error };
+    }
+
+    return { data };
+  },
+
+  /**
    * 获取排行榜（兼容旧接口）
    * 默认按战力排序，不包含旧版本数据
    */

@@ -48,6 +48,19 @@
     leaderboardToggle: document.getElementById("leaderboardToggle"),
     globalLeaderboard: document.getElementById("globalLeaderboard"),
     globalLeaderboardContent: document.getElementById("globalLeaderboardContent"),
-    closeLeaderboard: document.getElementById("closeLeaderboard")
+    closeLeaderboard: document.getElementById("closeLeaderboard"),
+
+    // 暂停菜单 - 技能滚动列 & 举报面板
+    pauseSkillsLeft: document.getElementById("pauseSkillsLeft"),
+    pauseSkillsRight: document.getElementById("pauseSkillsRight"),
+    pauseParticleCanvas: document.getElementById("pauseParticleCanvas"),
+    pauseMainView: document.getElementById("pauseMainView"),
+    reportSkillBtn: document.getElementById("reportSkillBtn"),
+    reportSkillView: document.getElementById("reportSkillView"),
+    reportSkillList: document.getElementById("reportSkillList"),
+    reportReasonText: document.getElementById("reportReasonText"),
+    reportSubmitStatus: document.getElementById("reportSubmitStatus"),
+    reportBackBtn: document.getElementById("reportBackBtn"),
+    reportSubmitBtn: document.getElementById("reportSubmitBtn")
   };
 })();

@@ -13,14 +13,335 @@
     quitBtn,
     quitConfirmDialog,
     quitCancelBtn,
-    quitConfirmBtn
+    quitConfirmBtn,
+    pauseSkillsLeft,
+    pauseSkillsRight,
+    pauseParticleCanvas,
+    pauseMainView,
+    reportSkillBtn,
+    reportSkillView,
+    reportSkillList,
+    reportReasonText,
+    reportSubmitStatus,
+    reportBackBtn,
+    reportSubmitBtn
   } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
-  const { formatTime, getStoredPlayerName, storePlayerName } = GameApp.Helpers;
+  const { formatTime, getStoredPlayerName, storePlayerName, escapeHtml } = GameApp.Helpers;
   const runtime = GameApp.Runtime;
 
   let game = null;
   runtime.onGameChange((g) => { game = g; });
+
+  /* ================================================
+     粒子系统 - 暂停背景粒子特效
+     ================================================ */
+  let particleCtx = null;
+  let particles = [];
+  let particleAnimId = null;
+
+  function initParticles() {
+    if (!pauseParticleCanvas) return;
+    const rect = pauseOverlay.getBoundingClientRect();
+    pauseParticleCanvas.width = rect.width;
+    pauseParticleCanvas.height = rect.height;
+    particleCtx = pauseParticleCanvas.getContext("2d");
+    particles = [];
+    for (let i = 0; i < 50; i++) {
+      particles.push({
+        x: Math.random() * rect.width,
+        y: Math.random() * rect.height,
+        r: Math.random() * 2 + 0.5,
+        vx: (Math.random() - 0.5) * 0.4,
+        vy: (Math.random() - 0.5) * 0.4,
+        alpha: Math.random() * 0.4 + 0.1,
+        hue: Math.random() * 60 + 30
+      });
+    }
+  }
+
+  function animateParticles() {
+    if (!particleCtx || !pauseParticleCanvas) return;
+    const w = pauseParticleCanvas.width;
+    const h = pauseParticleCanvas.height;
+    particleCtx.clearRect(0, 0, w, h);
+
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < 0) p.x = w;
+      if (p.x > w) p.x = 0;
+      if (p.y < 0) p.y = h;
+      if (p.y > h) p.y = 0;
+
+      particleCtx.beginPath();
+      particleCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      particleCtx.fillStyle = `hsla(${p.hue}, 80%, 65%, ${p.alpha})`;
+      particleCtx.fill();
+
+      particleCtx.beginPath();
+      particleCtx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
+      particleCtx.fillStyle = `hsla(${p.hue}, 80%, 65%, ${p.alpha * 0.15})`;
+      particleCtx.fill();
+    }
+
+    particleAnimId = requestAnimationFrame(animateParticles);
+  }
+
+  function startParticles() {
+    initParticles();
+    if (particleAnimId) cancelAnimationFrame(particleAnimId);
+    animateParticles();
+  }
+
+  function stopParticles() {
+    if (particleAnimId) {
+      cancelAnimationFrame(particleAnimId);
+      particleAnimId = null;
+    }
+  }
+
+  /* ================================================
+     左右技能滚动列 - 酷炫动画
+     ================================================ */
+  function getSkillCards() {
+    if (!game) return [];
+    const allSkills = window.SkillSystem ? window.SkillSystem.generateAllSkills() : [];
+    const cyberSkills = window.SkillSystem ? window.SkillSystem.generateCyberpunkArsenal() : [];
+    const skillPool = [...allSkills, ...cyberSkills];
+
+    const acquired = game.acquiredSkills || [];
+    const meta = game.acquiredSkillMeta || [];
+    const cards = [];
+
+    for (let i = 0; i < acquired.length; i++) {
+      const name = acquired[i];
+      const tierVal = (meta[i] && meta[i].tier) ? meta[i].tier : 1;
+      const def = skillPool.find(s => s.name === name);
+      const icon = def ? (window.SkillSystem.iconFallback ? window.SkillSystem.iconFallback(def.icon) : def.icon) : "✦";
+      const tierLabel = window.SkillSystem && window.SkillSystem.tierName ? window.SkillSystem.tierName(tierVal) : "";
+      cards.push({ name, tier: tierVal, icon, tierLabel, description: def ? def.description : "" });
+    }
+    return cards;
+  }
+
+  function buildScrollColumn(container, cards) {
+    if (!container || cards.length === 0) {
+      if (container) container.innerHTML = "";
+      return;
+    }
+
+    const items = [...cards, ...cards];
+    let html = '<div class="pause-skill-scroll-track">';
+    for (const c of items) {
+      html += `<div class="pause-skill-card tier${c.tier}">
+        <div class="sk-icon">${c.icon}</div>
+        <div class="sk-info">
+          <div class="sk-name">${escapeHtml(c.name)}</div>
+          <div class="sk-tier">${escapeHtml(c.tierLabel)}</div>
+        </div>
+      </div>`;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
+  function populateScrollColumns() {
+    const cards = getSkillCards();
+    if (cards.length === 0) {
+      if (pauseSkillsLeft) pauseSkillsLeft.innerHTML = "";
+      if (pauseSkillsRight) pauseSkillsRight.innerHTML = "";
+      return;
+    }
+    const shuffled = [...cards].sort(() => Math.random() - 0.5);
+    const mid = Math.ceil(shuffled.length / 2);
+    buildScrollColumn(pauseSkillsLeft, shuffled.slice(0, mid));
+    buildScrollColumn(pauseSkillsRight, shuffled.slice(mid));
+  }
+
+  /* ================================================
+     举报技能面板
+     ================================================ */
+  const selectedSkills = new Set();
+
+  function showReportPanel() {
+    if (!pauseMainView || !reportSkillView) return;
+    pauseMainView.classList.add("hidden");
+    reportSkillView.classList.remove("hidden");
+    selectedSkills.clear();
+    populateReportSkillList();
+    updateSubmitBtnCount();
+    if (reportSubmitStatus) {
+      reportSubmitStatus.textContent = "";
+      reportSubmitStatus.className = "submit-status";
+    }
+    if (reportSubmitBtn) {
+      reportSubmitBtn.disabled = true;
+    }
+    const chips = reportSkillView.querySelectorAll(".report-reason-chip");
+    chips.forEach((chip, i) => {
+      if (i === 0) chip.classList.add("selected");
+      else chip.classList.remove("selected");
+    });
+    const firstRadio = reportSkillView.querySelector('input[name="reportReason"][value="没用"]');
+    if (firstRadio) firstRadio.checked = true;
+    if (reportReasonText) {
+      reportReasonText.classList.add("hidden");
+      reportReasonText.value = "";
+    }
+  }
+
+  function hideReportPanel() {
+    if (!pauseMainView || !reportSkillView) return;
+    reportSkillView.classList.add("hidden");
+    pauseMainView.classList.remove("hidden");
+  }
+
+  function populateReportSkillList() {
+    if (!reportSkillList) return;
+    const cards = getSkillCards();
+    if (cards.length === 0) {
+      reportSkillList.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);padding:20px;">你还没有获得任何技能</div>';
+      return;
+    }
+    let html = "";
+    for (const c of cards) {
+      html += `<div class="report-skill-item" data-skill="${escapeHtml(c.name)}" data-tier="${c.tier}">
+        <div class="rsi-check">✓</div>
+        <div class="rsi-icon">${c.icon}</div>
+        <div class="rsi-info">
+          <div class="rsi-name">${escapeHtml(c.name)}</div>
+          <div class="rsi-desc">${escapeHtml(c.description)}</div>
+        </div>
+      </div>`;
+    }
+    reportSkillList.innerHTML = html;
+
+    reportSkillList.querySelectorAll(".report-skill-item").forEach(item => {
+      item.addEventListener("click", () => {
+        const name = item.getAttribute("data-skill");
+        if (selectedSkills.has(name)) {
+          selectedSkills.delete(name);
+          item.classList.remove("selected");
+        } else {
+          selectedSkills.add(name);
+          item.classList.add("selected");
+        }
+        updateSubmitBtnCount();
+      });
+    });
+  }
+
+  function updateSubmitBtnCount() {
+    if (!reportSubmitBtn) return;
+    const count = selectedSkills.size;
+    reportSubmitBtn.textContent = `提交举报 (${count})`;
+    reportSubmitBtn.disabled = count === 0;
+  }
+
+  if (reportSkillView) {
+    reportSkillView.addEventListener("click", (e) => {
+      const chip = e.target.closest(".report-reason-chip");
+      if (!chip) return;
+      const radio = chip.querySelector("input[type=radio]");
+      if (radio) radio.checked = true;
+      reportSkillView.querySelectorAll(".report-reason-chip").forEach(c => c.classList.remove("selected"));
+      chip.classList.add("selected");
+
+      if (reportReasonText) {
+        if (radio && radio.value === "其他") {
+          reportReasonText.classList.remove("hidden");
+        } else {
+          reportReasonText.classList.add("hidden");
+        }
+      }
+    });
+  }
+
+  if (reportBackBtn) {
+    reportBackBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      hideReportPanel();
+    });
+  }
+
+  if (reportSkillBtn) {
+    reportSkillBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      showReportPanel();
+    });
+  }
+
+  if (reportSubmitBtn) {
+    reportSubmitBtn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (selectedSkills.size === 0) return;
+
+      const reasonRadio = reportSkillView ? reportSkillView.querySelector('input[name="reportReason"]:checked') : null;
+      const reason = reasonRadio ? reasonRadio.value : "没用";
+      const reasonText = (reportReasonText && reason === "其他") ? reportReasonText.value.trim().slice(0, 200) : "";
+
+      const playerName = pauseSubmitNameInput ? pauseSubmitNameInput.value.trim() : getStoredPlayerName();
+      const cards = getSkillCards();
+
+      const t = nowSec();
+      const timeAlive = game && game._startTime ? Math.max(0, t - game._startTime) : 0;
+      const peak = Math.round((game && game.combat && game.combat.peak) ? game.combat.peak : 0);
+      const avg = Math.round((game && game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game && game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
+      const score = Math.round(0.72 * avg + 0.28 * peak);
+      const level = game ? game.level : 1;
+
+      const reports = [];
+      for (const skillName of selectedSkills) {
+        const card = cards.find(c => c.name === skillName);
+        reports.push({
+          skill_name: skillName,
+          skill_tier: card ? card.tier : 1,
+          reason: reason,
+          reason_text: reasonText,
+          player_name: playerName || "匿名",
+          game_level: level,
+          game_score: score
+        });
+      }
+
+      reportSubmitBtn.disabled = true;
+      if (reportSubmitStatus) {
+        reportSubmitStatus.textContent = "提交中...";
+        reportSubmitStatus.className = "submit-status";
+      }
+
+      try {
+        if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
+          throw new Error("Supabase not available");
+        }
+        const result = await window.SupabaseAPI.submitSkillReport(reports);
+        if (result.error) {
+          if (reportSubmitStatus) {
+            reportSubmitStatus.textContent = "提交失败，请重试";
+            reportSubmitStatus.className = "submit-status error";
+          }
+          reportSubmitBtn.disabled = false;
+        } else {
+          if (reportSubmitStatus) {
+            reportSubmitStatus.textContent = "举报成功，感谢反馈！";
+            reportSubmitStatus.className = "submit-status success";
+          }
+          reportSubmitBtn.textContent = "已提交";
+        }
+      } catch (err) {
+        if (reportSubmitStatus) {
+          reportSubmitStatus.textContent = "提交失败，请重试";
+          reportSubmitStatus.className = "submit-status error";
+        }
+        reportSubmitBtn.disabled = false;
+      }
+    });
+  }
+
+  /* ================================================
+     暂停菜单核心逻辑
+     ================================================ */
 
   function showPauseOverlay() {
     if (!game || game.isGameOver || game.isLevelingUp) return;
@@ -30,7 +351,6 @@
     const input = GameApp.Input;
     if (input && input.clearMovementInputs) input.clearMovementInputs();
 
-    // 计算当前分数
     const t = nowSec();
     const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
     const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
@@ -39,12 +359,11 @@
     const tierObj = (game._combatTierFromScore ? game._combatTierFromScore(score) : { tier: "", color: "#fff" });
     const kills = (game.stats && game.stats.kills) ? game.stats.kills : 0;
 
-    // 显示当前游戏状态
     if (pauseStats) {
       pauseStats.innerHTML = `
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
           <div>战力评分: <strong>${score}</strong></div>
-          <div>段位: <strong style="color:${tierObj.color}">${tierObj.tier}</strong></div>
+          <div>段位: <strong style="color:${tierObj.color}">${escapeHtml(tierObj.tier)}</strong></div>
           <div>存活时间: <strong>${formatTime(timeAlive)}</strong></div>
           <div>等级: <strong>Lv.${game.level}</strong></div>
           <div>击杀: <strong>${kills}</strong></div>
@@ -53,12 +372,10 @@
       `;
     }
 
-    // 设置输入框默认值
     if (pauseSubmitNameInput) {
       pauseSubmitNameInput.value = getStoredPlayerName();
     }
 
-    // 每次打开暂停界面都重置提交状态，允许再次提交
     if (pauseSubmitStatus) {
       pauseSubmitStatus.textContent = "";
       pauseSubmitStatus.className = "submit-status";
@@ -68,12 +385,16 @@
       pauseSubmitScoreBtn.textContent = "提交当前分数";
     }
 
-    // 隐藏退出确认对话框
     if (quitConfirmDialog) {
       quitConfirmDialog.classList.add("hidden");
     }
 
-    // 显示暂停菜单
+    if (pauseMainView) pauseMainView.classList.remove("hidden");
+    if (reportSkillView) reportSkillView.classList.add("hidden");
+
+    populateScrollColumns();
+    startParticles();
+
     if (pauseOverlay) {
       pauseOverlay.classList.remove("hidden");
     }
@@ -82,6 +403,7 @@
   function hidePauseOverlay() {
     runtime.isPausedByUser = false;
     if (game) game.isPausedGame = false;
+    stopParticles();
     if (pauseOverlay) {
       pauseOverlay.classList.add("hidden");
     }
@@ -100,7 +422,6 @@
     }
   }
 
-  // 暂停按钮点击事件
   if (pauseBtn) {
     pauseBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -114,7 +435,6 @@
     });
   }
 
-  // 继续游戏按钮
   if (resumeBtn) {
     resumeBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -122,7 +442,6 @@
     });
   }
 
-  // 退出游戏按钮 - 显示确认对话框
   if (quitBtn) {
     quitBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -132,7 +451,6 @@
     });
   }
 
-  // 退出确认对话框 - 取消按钮
   if (quitCancelBtn) {
     quitCancelBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -142,7 +460,6 @@
     });
   }
 
-  // 退出确认对话框 - 确定退出按钮
   if (quitConfirmBtn) {
     quitConfirmBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -151,7 +468,6 @@
     });
   }
 
-  // 暂停菜单中提交分数
   if (pauseSubmitScoreBtn) {
     pauseSubmitScoreBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -173,10 +489,8 @@
         return;
       }
 
-      // 保存玩家名字
       storePlayerName(playerName);
 
-      // 计算当前分数
       const t = nowSec();
       const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
       const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
@@ -211,7 +525,6 @@
             pauseSubmitStatus.textContent = "提交成功！";
             pauseSubmitStatus.className = "submit-status success";
           }
-          // 禁用提交按钮
           if (pauseSubmitScoreBtn) {
             pauseSubmitScoreBtn.disabled = true;
             pauseSubmitScoreBtn.textContent = "已提交";
@@ -226,10 +539,15 @@
     });
   }
 
-  // ESC 键暂停/继续
   window.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       if (!game || game.isGameOver || game.isLevelingUp) return;
+
+      if (runtime.isPausedByUser && reportSkillView && !reportSkillView.classList.contains("hidden")) {
+        hideReportPanel();
+        e.preventDefault();
+        return;
+      }
 
       if (runtime.isPausedByUser) {
         hidePauseOverlay();
