@@ -669,8 +669,11 @@
       d.progress = clamp(0.55 * timeProg + 0.45 * clamp(strength / 1.2, 0, 1), 0, 1);
 
       // difficulty multipliers (bounded) - ENHANCED for more challenge
-      d.diff = clamp(1.0 + (g.level - 1) * 0.13 + strength * 1.1, 1.0, 8.0);
-      d.dmgMul = clamp(1.0 + (g.level - 1) * 0.12 + strength * 0.35, 1.0, 5.0);
+      // 玩家攻击力缩放因子：让怪物HP和属性跟随玩家输出成长
+      const playerDmg = safeNumber(g.bulletDamage, 15);
+      const dmgFactor = clamp(Math.log2(Math.max(1, playerDmg / 15)), 0, 4); // 攻击力每翻倍+1
+      d.diff = clamp(1.0 + (g.level - 1) * 0.13 + strength * 1.1 + dmgFactor * 0.6, 1.0, 16.0);
+      d.dmgMul = clamp(1.0 + (g.level - 1) * 0.12 + strength * 0.35 + dmgFactor * 0.15, 1.0, 8.0);
       // NEW: speed multiplier - enemies get faster over time
       d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
@@ -762,6 +765,27 @@
       // elite chance grows with strength + progress - INCREASED for more challenge
       d.eliteChance = clamp(0.04 + 0.08 * strength + 0.08 * d.progress, 0.04, 0.30);
 
+      // ========================================
+      // Boss 生成系统
+      // 每隔一定时间/等级触发Boss出现
+      // ========================================
+      if (!d._lastBossLevel) d._lastBossLevel = 0;
+      if (!d._bossCount) d._bossCount = 0;
+      const bossLevelInterval = 8; // 每8级出现一个Boss
+      if (g.level >= bossLevelInterval && g.level - d._lastBossLevel >= bossLevelInterval) {
+        d._lastBossLevel = g.level;
+        d._bossCount++;
+        const bossIds = ["boss_titan", "boss_storm", "boss_hive", "boss_phantom", "boss_fortress"];
+        const bossId = bossIds[(d._bossCount - 1) % bossIds.length];
+        const bossDef = g.getEnemyDef(bossId);
+        // Boss从屏幕外随机方向生成
+        const bossAng = rand(0, TAU);
+        const bossDist = 600;
+        const bossX = g.player.x + Math.cos(bossAng) * bossDist;
+        const bossY = g.player.y + Math.sin(bossAng) * bossDist;
+        g.createEnemyFromDef(bossDef, bossX, bossY, t);
+      }
+
       // budgeted spawn
       d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
 
@@ -801,7 +825,15 @@
       { id:"shooter",  name:"射手",   model:"star",        color:"#f472b6", w:28, h:28, hp:32,  speed:0.75, damage:1.00, exp:1.80, ai:"ranged",  weight:6,  unlock:0.35, shootInterval:1.8, bulletSpeed:280 },
 
       // 原有精英（依然保留，但生成由 director.eliteChance 控制）- 增强
-      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:180, speed:1.00, damage:1.90, exp:4.20, ai:"chase",   weight:2,  unlock:0.55, elite:true }
+      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:180, speed:1.00, damage:1.90, exp:4.20, ai:"chase",   weight:2,  unlock:0.55, elite:true },
+
+      // ========== Boss 敌人 ==========
+      // Boss在特定进度阶段由director生成，拥有极高血量和特殊行为
+      { id:"boss_titan",    name:"泰坦",     model:"squareHeavy", color:"#dc2626", w:80, h:80, hp:2000,  speed:0.55, damage:3.00, exp:20.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.25 },
+      { id:"boss_storm",    name:"风暴领主", model:"hex",         color:"#7c3aed", w:72, h:72, hp:1500,  speed:1.20, damage:2.50, exp:18.0, ai:"orbit",   weight:0, unlock:1.0, boss:true, orbitR:200, shootInterval:1.2, bulletSpeed:350 },
+      { id:"boss_hive",     name:"虫巢母体", model:"pentagon",    color:"#065f46", w:90, h:90, hp:2500,  speed:0.40, damage:2.00, exp:25.0, ai:"spawner", weight:0, unlock:1.0, boss:true, spawnMinions:true },
+      { id:"boss_phantom",  name:"幻影刺客", model:"diamondSharp",color:"#e11d48", w:50, h:50, hp:1200,  speed:1.60, damage:3.50, exp:22.0, ai:"dash",    weight:0, unlock:1.0, boss:true },
+      { id:"boss_fortress", name:"钢铁堡垒", model:"squareShield",color:"#475569", w:100,h:100,hp:4000,  speed:0.30, damage:2.00, exp:30.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.50, shootInterval:2.0, bulletSpeed:220 }
     ];
 
     g.getEnemyDef = (id) => {
@@ -851,7 +883,14 @@
       const h = safeNonNeg(def.h, 30);
 
       const hpBase = safeNonNeg(def.hp, 30);
-      const hp = clamp(hpBase * diff, 1, 200000);
+      // Boss类型享受额外的玩家攻击力缩放加成
+      let hpMul = diff;
+      if (def.boss) {
+        const playerDmg = safeNumber(g.bulletDamage, 15);
+        const bossDmgScale = 1.0 + clamp(Math.log2(Math.max(1, playerDmg / 15)), 0, 5) * 0.8;
+        hpMul *= bossDmgScale;
+      }
+      const hp = clamp(hpBase * hpMul, 1, 500000);
 
       // Apply speed multiplier based on player speed and combat power
       // "让敌人的速度不是基于战力是基于我的移速 再根据我的战力提升一点"
@@ -909,6 +948,7 @@
       };
 
       if (opts && opts.isMinion) enemy._minion = true;
+      if (def.boss) enemy.isBoss = true;
 
       g.enemies.push(enemy);
       return enemy;
@@ -4322,8 +4362,8 @@
           }
         }
 
-        // HP bar for elites / big units
-        const isBig = (e.typeId === "elite") || ((e.maxHp || 0) >= 140);
+        // HP bar for elites / big units / bosses
+        const isBig = (e.typeId === "elite") || e.isBoss || ((e.maxHp || 0) >= 140);
         if (isBig) {
           const bw = Math.max(38, w);
           const bh = 4;
