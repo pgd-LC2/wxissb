@@ -141,17 +141,16 @@ const SupabaseAPI = {
       game_score: r.game_score || 0
     }));
 
-    const { data, error } = await client
+    const { error } = await client
       .from('skill_reports')
-      .insert(rows)
-      .select();
+      .insert(rows);
 
     if (error) {
       console.error('Error submitting skill report:', error);
       return { error };
     }
 
-    return { data };
+    return { data: rows };
   },
 
   /**
