@@ -107,7 +107,7 @@
   function getSkillCards() {
     if (!game) return [];
     const allSkills = window.SkillSystem ? window.SkillSystem.generateAllSkills() : [];
-    const cyberSkills = window.SkillSystem ? window.SkillSystem.generateCyberpunkArsenal() : [];
+    const cyberSkills = (window.SkillSystem && window.SkillSystem.generateCyberpunkArsenal) ? window.SkillSystem.generateCyberpunkArsenal() : [];
     const skillPool = [...allSkills, ...cyberSkills];
 
     const acquired = game.acquiredSkills || [];
@@ -393,11 +393,12 @@
     if (reportSkillView) reportSkillView.classList.add("hidden");
 
     populateScrollColumns();
-    startParticles();
 
     if (pauseOverlay) {
       pauseOverlay.classList.remove("hidden");
     }
+
+    requestAnimationFrame(() => { startParticles(); });
   }
 
   function hidePauseOverlay() {
