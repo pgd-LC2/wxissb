@@ -1953,7 +1953,7 @@
           const bAngle = Math.atan2(bounceTarget.y - enemy.y, bounceTarget.x - enemy.x);
           const bSpeed = hypot(bullet.vx, bullet.vy) || 400;
           const bounceBullet = {
-            id: nextId(), x: enemy.x, y: enemy.y, w: bullet.w, h: bullet.h, rot: bAngle,
+            id: nextId(), x: enemy.x, y: enemy.y, w: bullet.w, h: bullet.h, rot: bAngle - Math.PI/2,
             vx: Math.cos(bAngle) * bSpeed, vy: Math.sin(bAngle) * bSpeed,
             born: t, die: t + 1.0, pierceLeft: 0, _bounced: true, hitIds: []
           };
