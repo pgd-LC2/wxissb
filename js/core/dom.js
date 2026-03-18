@@ -61,6 +61,14 @@
     reportReasonText: document.getElementById("reportReasonText"),
     reportSubmitStatus: document.getElementById("reportSubmitStatus"),
     reportBackBtn: document.getElementById("reportBackBtn"),
-    reportSubmitBtn: document.getElementById("reportSubmitBtn")
+    reportSubmitBtn: document.getElementById("reportSubmitBtn"),
+
+    // 死亡界面 - 举报技能面板
+    goReportView: document.getElementById("goReportView"),
+    goReportSkillList: document.getElementById("goReportSkillList"),
+    goReportReasonText: document.getElementById("goReportReasonText"),
+    goReportSubmitStatus: document.getElementById("goReportSubmitStatus"),
+    goReportBackBtn: document.getElementById("goReportBackBtn"),
+    goReportSubmitBtn: document.getElementById("goReportSubmitBtn")
   };
 })();

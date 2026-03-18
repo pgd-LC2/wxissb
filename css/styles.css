@@ -1235,6 +1235,207 @@ canvas {
   line-height: 1.35;
 }
 
+/* ================================================
+   Game Over - Beautified UI
+   ================================================ */
+.go-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.go-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.go-skull {
+  font-size: 48px;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(255, 59, 48, .5));
+  animation: go-skull-pulse 2s ease-in-out infinite;
+}
+
+@keyframes go-skull-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: .85; }
+}
+
+.go-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #ff3b30;
+  margin: 0;
+  text-shadow: 0 0 20px rgba(255, 59, 48, .4);
+}
+
+.go-tier-badge {
+  display: inline-block;
+  padding: 4px 16px;
+  border: 2px solid;
+  border-radius: 20px;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 1px;
+  background: rgba(255,255,255,.06);
+}
+
+.go-score-hero {
+  padding: 12px 0 8px;
+}
+
+.go-score-value {
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+  text-shadow: 0 0 30px currentColor;
+}
+
+.go-score-label {
+  font-size: 13px;
+  opacity: .6;
+  margin-top: 4px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.go-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.go-stat-card {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 12px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: background .2s;
+}
+
+.go-stat-card:hover {
+  background: rgba(255,255,255,.10);
+}
+
+.go-stat-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.go-stat-val {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.go-stat-lbl {
+  font-size: 11px;
+  opacity: .55;
+}
+
+.go-detail-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  opacity: .75;
+  padding: 4px 0;
+}
+
+.go-detail-row b {
+  font-weight: 800;
+}
+
+.go-submit-section {
+  padding: 14px;
+  background: rgba(255,255,255,.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.go-submit-section input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.go-submit-section input::placeholder {
+  color: rgba(255,255,255,.45);
+}
+
+.go-submit-section button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,214,10,.85);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .2s;
+}
+
+.go-submit-section button:hover {
+  background: rgba(255,214,10,1);
+}
+
+.go-submit-section button:disabled {
+  background: rgba(255,255,255,.25);
+  color: rgba(255,255,255,.45);
+  cursor: not-allowed;
+}
+
+.go-report-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,59,48,.35);
+  background: rgba(255,59,48,.12);
+  color: rgba(255,120,100,.95);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.go-report-btn:hover {
+  background: rgba(255,59,48,.22);
+  border-color: rgba(255,59,48,.5);
+}
+
+.go-report-title {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0 0 4px;
+  color: rgba(255,120,100,.95);
+}
+
+.go-report-subtitle {
+  font-size: 13px;
+  opacity: .6;
+  margin: 0 0 12px;
+}
+
 /* Responsive: Stack vertically on mobile */
 @media (max-width: 640px) {
   #overlay.mode-gameover #panel {
@@ -1257,6 +1458,28 @@ canvas {
   .leaderboard-table th,
   .leaderboard-table td {
     padding: 5px 6px;
+  }
+
+  .go-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .go-score-value {
+    font-size: 38px;
+  }
+
+  .go-title {
+    font-size: 22px;
+    letter-spacing: 2px;
+  }
+
+  .go-skull {
+    font-size: 36px;
+  }
+
+  .go-detail-row {
+    font-size: 12px;
+    gap: 10px;
   }
 }
 
