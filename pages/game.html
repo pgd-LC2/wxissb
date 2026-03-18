@@ -38,28 +38,6 @@
 
         <div id="gameoverStats"></div>
 
-        <!-- 死亡界面举报技能视图 (默认隐藏) -->
-        <div id="goReportView" class="hidden">
-          <h2 class="go-report-title">🚩 举报技能</h2>
-          <p class="go-report-subtitle">选择你认为有问题的技能</p>
-          <div id="goReportSkillList" class="report-skill-list"></div>
-          <div class="report-reason-section">
-            <div class="report-reason-label">举报理由</div>
-            <div class="report-reason-options">
-              <label class="report-reason-chip selected"><input type="radio" name="goReportReason" value="没用" checked /><span>没用</span></label>
-              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="太弱" /><span>太弱</span></label>
-              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="效果不明显" /><span>效果不明显</span></label>
-              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="其他" /><span>其他</span></label>
-            </div>
-            <textarea id="goReportReasonText" class="hidden" placeholder="补充说明（可选）" maxlength="200"></textarea>
-          </div>
-          <div id="goReportSubmitStatus" class="submit-status"></div>
-          <div class="report-buttons">
-            <button id="goReportBackBtn">返回</button>
-            <button id="goReportSubmitBtn" disabled>提交举报 (0)</button>
-          </div>
-        </div>
-
         <div id="restartRow">
           <button id="homeBtn" class="gameover-btn secondary">返回主页</button>
           <button id="restartBtn" class="gameover-btn primary">重新开始</button>

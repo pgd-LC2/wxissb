@@ -1436,6 +1436,32 @@ canvas {
   margin: 0 0 12px;
 }
 
+.go-report-textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+
+.go-report-textarea::placeholder {
+  color: rgba(255,255,255,.4);
+}
+
+.go-report-textarea:focus {
+  outline: none;
+  border-color: rgba(255,120,100,.5);
+  background: rgba(255,255,255,.10);
+}
+
 /* Responsive: Stack vertically on mobile */
 @media (max-width: 640px) {
   #overlay.mode-gameover #panel {

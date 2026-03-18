@@ -3,9 +3,7 @@
 
   const GameApp = window.GameApp = window.GameApp || {};
   const {
-    overlay, overlayTitle, overlaySubtitle, choicesEl, gameoverStatsEl, restartRow,
-    goReportView, goReportSkillList, goReportReasonText,
-    goReportSubmitStatus, goReportBackBtn, goReportSubmitBtn
+    overlay, overlayTitle, overlaySubtitle, choicesEl, gameoverStatsEl, restartRow
   } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
   const { escapeHtml, formatTime, getStoredPlayerName, storePlayerName } = GameApp.Helpers;
@@ -127,180 +125,10 @@
   }
 
   /* ================================================
-     死亡界面举报技能面板
+     死亡界面举报技能面板（动态创建，避免污染 level-up）
      ================================================ */
   const goSelectedSkills = new Set();
   let _currentGame = null;
-
-  function showGoReportPanel() {
-    if (!goReportView || !gameoverStatsEl) return;
-    gameoverStatsEl.style.display = "none";
-    restartRow.style.display = "none";
-    goReportView.classList.remove("hidden");
-    goSelectedSkills.clear();
-    populateGoReportSkillList();
-    updateGoSubmitBtnCount();
-    if (goReportSubmitStatus) {
-      goReportSubmitStatus.textContent = "";
-      goReportSubmitStatus.className = "submit-status";
-    }
-    if (goReportSubmitBtn) {
-      goReportSubmitBtn.disabled = true;
-    }
-    const chips = goReportView.querySelectorAll(".report-reason-chip");
-    chips.forEach((chip, i) => {
-      if (i === 0) chip.classList.add("selected");
-      else chip.classList.remove("selected");
-    });
-    const firstRadio = goReportView.querySelector('input[name="goReportReason"][value="没用"]');
-    if (firstRadio) firstRadio.checked = true;
-    if (goReportReasonText) {
-      goReportReasonText.classList.add("hidden");
-      goReportReasonText.value = "";
-    }
-  }
-
-  function hideGoReportPanel() {
-    if (!goReportView || !gameoverStatsEl) return;
-    goReportView.classList.add("hidden");
-    gameoverStatsEl.style.display = "block";
-    restartRow.style.display = "flex";
-  }
-
-  function populateGoReportSkillList() {
-    if (!goReportSkillList) return;
-    const cards = getSkillCards(_currentGame);
-    if (cards.length === 0) {
-      goReportSkillList.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);padding:20px;">你还没有获得任何技能</div>';
-      return;
-    }
-    let html = "";
-    for (const c of cards) {
-      html += `<div class="report-skill-item" data-skill="${escapeHtml(c.name)}" data-tier="${c.tier}">`
-        + `<div class="rsi-check">✓</div>`
-        + `<div class="rsi-icon">${c.icon}</div>`
-        + `<div class="rsi-info">`
-        + `<div class="rsi-name">${escapeHtml(c.name)}</div>`
-        + `<div class="rsi-desc">${escapeHtml(c.description)}</div>`
-        + `</div></div>`;
-    }
-    goReportSkillList.innerHTML = html;
-
-    goReportSkillList.querySelectorAll(".report-skill-item").forEach(item => {
-      item.addEventListener("click", () => {
-        const name = item.getAttribute("data-skill");
-        if (goSelectedSkills.has(name)) {
-          goSelectedSkills.delete(name);
-          item.classList.remove("selected");
-        } else {
-          goSelectedSkills.add(name);
-          item.classList.add("selected");
-        }
-        updateGoSubmitBtnCount();
-      });
-    });
-  }
-
-  function updateGoSubmitBtnCount() {
-    if (!goReportSubmitBtn) return;
-    const count = goSelectedSkills.size;
-    goReportSubmitBtn.textContent = `提交举报 (${count})`;
-    goReportSubmitBtn.disabled = count === 0;
-  }
-
-  // 举报理由选择事件
-  if (goReportView) {
-    goReportView.addEventListener("click", (e) => {
-      const chip = e.target.closest(".report-reason-chip");
-      if (!chip) return;
-      const radio = chip.querySelector("input[type=radio]");
-      if (radio) radio.checked = true;
-      goReportView.querySelectorAll(".report-reason-chip").forEach(c => c.classList.remove("selected"));
-      chip.classList.add("selected");
-
-      if (goReportReasonText) {
-        if (radio && radio.value === "其他") {
-          goReportReasonText.classList.remove("hidden");
-        } else {
-          goReportReasonText.classList.add("hidden");
-        }
-      }
-    });
-  }
-
-  if (goReportBackBtn) {
-    goReportBackBtn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      hideGoReportPanel();
-    });
-  }
-
-  if (goReportSubmitBtn) {
-    goReportSubmitBtn.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      if (goSelectedSkills.size === 0) return;
-
-      const reasonRadio = goReportView ? goReportView.querySelector('input[name="goReportReason"]:checked') : null;
-      const reason = reasonRadio ? reasonRadio.value : "没用";
-      const reasonText = (goReportReasonText && reason === "其他") ? goReportReasonText.value.trim().slice(0, 200) : "";
-
-      const playerName = getStoredPlayerName() || "匿名";
-      const cards = getSkillCards(_currentGame);
-      const cg = _currentGame;
-
-      const lastRun = cg ? cg._lastRun : null;
-      const peak = lastRun ? lastRun.peak : Math.round((cg && cg.combat && cg.combat.peak) ? cg.combat.peak : 0);
-      const avg = lastRun ? lastRun.avg : 0;
-      const score = lastRun ? lastRun.score : Math.round(0.72 * avg + 0.28 * peak);
-      const level = lastRun ? lastRun.level : (cg ? cg.level : 1);
-
-      const reports = [];
-      goSelectedSkills.forEach(skillName => {
-        const card = cards.find(c => c.name === skillName);
-        reports.push({
-          skill_name: skillName,
-          skill_tier: card ? card.tier : 1,
-          reason,
-          reason_text: reasonText,
-          player_name: playerName,
-          game_level: level,
-          game_score: score
-        });
-      });
-
-      goReportSubmitBtn.disabled = true;
-      if (goReportSubmitStatus) {
-        goReportSubmitStatus.textContent = "提交中...";
-        goReportSubmitStatus.className = "submit-status";
-      }
-
-      try {
-        if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
-          throw new Error("Supabase not available");
-        }
-        const result = await window.SupabaseAPI.submitSkillReport(reports);
-        if (result.error) {
-          if (goReportSubmitStatus) {
-            goReportSubmitStatus.textContent = "提交失败，请重试";
-            goReportSubmitStatus.className = "submit-status error";
-          }
-          goReportSubmitBtn.disabled = false;
-        } else {
-          if (goReportSubmitStatus) {
-            goReportSubmitStatus.textContent = "举报成功，感谢反馈！";
-            goReportSubmitStatus.className = "submit-status success";
-          }
-          goReportSubmitBtn.textContent = "已提交";
-        }
-      } catch (err) {
-        if (goReportSubmitStatus) {
-          goReportSubmitStatus.textContent = "提交失败，请重试";
-          goReportSubmitStatus.className = "submit-status error";
-        }
-        goReportSubmitBtn.disabled = false;
-      }
-    });
-  }
 
   async function fetchGlobalLeaderboard() {
     if (!window.SupabaseAPI) return [];
@@ -350,9 +178,6 @@
 
     choicesEl.innerHTML = "";
     gameoverStatsEl.style.display = "block";
-
-    // 隐藏举报面板
-    if (goReportView) goReportView.classList.add("hidden");
 
     const endT = nowSec();
     const timeAlive = g._startTime ? Math.max(0, endT - g._startTime) : 0;
@@ -465,6 +290,27 @@
 
         <button id="goReportSkillBtn" class="go-report-btn">🚩 举报技能</button>
 
+        <div id="goReportPanel" style="display:none;">
+          <h2 class="go-report-title">🚩 举报技能</h2>
+          <p class="go-report-subtitle">选择你认为有问题的技能</p>
+          <div id="goReportSkillList" class="report-skill-list"></div>
+          <div class="report-reason-section">
+            <div class="report-reason-label">举报理由</div>
+            <div class="report-reason-options">
+              <label class="report-reason-chip selected"><input type="radio" name="goReportReason" value="没用" checked /><span>没用</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="太弱" /><span>太弱</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="效果不明显" /><span>效果不明显</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="其他" /><span>其他</span></label>
+            </div>
+            <textarea id="goReportReasonText" class="go-report-textarea" placeholder="补充说明（可选）" maxlength="200" style="display:none;"></textarea>
+          </div>
+          <div id="goReportSubmitStatus" class="submit-status"></div>
+          <div class="report-buttons">
+            <button id="goReportBackBtn">返回</button>
+            <button id="goReportSubmitBtn" disabled>提交举报 (0)</button>
+          </div>
+        </div>
+
         <div class="dual-leaderboard-container">
           <div class="leaderboard-column">
             <div class="leaderboard-title local">
@@ -497,12 +343,163 @@
 
     refreshGlobalLeaderboardInOverlay(g._submittedPlayerName || null);
 
-    // 绑定举报技能入口按钮
+    // 获取动态创建的举报面板元素
+    const goReportPanel = document.getElementById("goReportPanel");
     const goReportSkillBtn = document.getElementById("goReportSkillBtn");
-    if (goReportSkillBtn) {
-      goReportSkillBtn.addEventListener("click", (e) => {
+    const goReportSkillList = document.getElementById("goReportSkillList");
+    const goReportReasonText = document.getElementById("goReportReasonText");
+    const goReportSubmitStatus = document.getElementById("goReportSubmitStatus");
+    const goReportBackBtn = document.getElementById("goReportBackBtn");
+    const goReportSubmitBtn = document.getElementById("goReportSubmitBtn");
+
+    function populateGoSkillList() {
+      if (!goReportSkillList) return;
+      goSelectedSkills.clear();
+      const cards = getSkillCards(g);
+      if (cards.length === 0) {
+        goReportSkillList.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);padding:20px;">你还没有获得任何技能</div>';
+        return;
+      }
+      var html = "";
+      for (var ci = 0; ci < cards.length; ci++) {
+        var c = cards[ci];
+        html += '<div class="report-skill-item" data-skill="' + escapeHtml(c.name) + '" data-tier="' + c.tier + '">'
+          + '<div class="rsi-check">✓</div>'
+          + '<div class="rsi-icon">' + c.icon + '</div>'
+          + '<div class="rsi-info">'
+          + '<div class="rsi-name">' + escapeHtml(c.name) + '</div>'
+          + '<div class="rsi-desc">' + escapeHtml(c.description) + '</div>'
+          + '</div></div>';
+      }
+      goReportSkillList.innerHTML = html;
+
+      goReportSkillList.querySelectorAll(".report-skill-item").forEach(function(item) {
+        item.addEventListener("click", function() {
+          var name = item.getAttribute("data-skill");
+          if (goSelectedSkills.has(name)) {
+            goSelectedSkills.delete(name);
+            item.classList.remove("selected");
+          } else {
+            goSelectedSkills.add(name);
+            item.classList.add("selected");
+          }
+          if (goReportSubmitBtn) {
+            var count = goSelectedSkills.size;
+            goReportSubmitBtn.textContent = "提交举报 (" + count + ")";
+            goReportSubmitBtn.disabled = count === 0;
+          }
+        });
+      });
+    }
+
+    // 举报技能入口按钮
+    if (goReportSkillBtn && goReportPanel) {
+      goReportSkillBtn.addEventListener("click", function(e) {
         e.stopPropagation();
-        showGoReportPanel();
+        // 显示举报面板，隐藏主内容
+        goReportPanel.style.display = "block";
+        goReportSkillBtn.style.display = "none";
+        populateGoSkillList();
+        if (goReportSubmitStatus) {
+          goReportSubmitStatus.textContent = "";
+          goReportSubmitStatus.className = "submit-status";
+        }
+        if (goReportSubmitBtn) {
+          goReportSubmitBtn.disabled = true;
+          goReportSubmitBtn.textContent = "提交举报 (0)";
+        }
+        if (goReportReasonText) goReportReasonText.style.display = "none";
+      });
+    }
+
+    // 返回按钮
+    if (goReportBackBtn && goReportPanel) {
+      goReportBackBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        goReportPanel.style.display = "none";
+        if (goReportSkillBtn) goReportSkillBtn.style.display = "";
+      });
+    }
+
+    // 举报理由选择
+    if (goReportPanel) {
+      goReportPanel.addEventListener("click", function(e) {
+        var chip = e.target.closest(".report-reason-chip");
+        if (!chip) return;
+        var radio = chip.querySelector("input[type=radio]");
+        if (radio) radio.checked = true;
+        goReportPanel.querySelectorAll(".report-reason-chip").forEach(function(c) { c.classList.remove("selected"); });
+        chip.classList.add("selected");
+        if (goReportReasonText) {
+          goReportReasonText.style.display = (radio && radio.value === "其他") ? "block" : "none";
+        }
+      });
+    }
+
+    // 提交举报
+    if (goReportSubmitBtn) {
+      goReportSubmitBtn.addEventListener("click", async function(e) {
+        e.stopPropagation();
+        if (goSelectedSkills.size === 0) return;
+
+        var reasonRadio = goReportPanel ? goReportPanel.querySelector('input[name="goReportReason"]:checked') : null;
+        var reason = reasonRadio ? reasonRadio.value : "没用";
+        var reasonText = (goReportReasonText && reason === "其他") ? goReportReasonText.value.trim().slice(0, 200) : "";
+
+        var playerName = getStoredPlayerName() || "匿名";
+        var cards = getSkillCards(g);
+
+        var lastRun = g._lastRun || null;
+        var peak = lastRun ? lastRun.peak : 0;
+        var avg = lastRun ? lastRun.avg : 0;
+        var score = lastRun ? lastRun.score : Math.round(0.72 * avg + 0.28 * peak);
+        var level = lastRun ? lastRun.level : g.level;
+
+        var reports = [];
+        goSelectedSkills.forEach(function(skillName) {
+          var card = cards.find(function(c) { return c.name === skillName; });
+          reports.push({
+            skill_name: skillName,
+            skill_tier: card ? card.tier : 1,
+            reason: reason,
+            reason_text: reasonText,
+            player_name: playerName,
+            game_level: level,
+            game_score: score
+          });
+        });
+
+        goReportSubmitBtn.disabled = true;
+        if (goReportSubmitStatus) {
+          goReportSubmitStatus.textContent = "提交中...";
+          goReportSubmitStatus.className = "submit-status";
+        }
+
+        try {
+          if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
+            throw new Error("Supabase not available");
+          }
+          var result = await window.SupabaseAPI.submitSkillReport(reports);
+          if (result.error) {
+            if (goReportSubmitStatus) {
+              goReportSubmitStatus.textContent = "提交失败，请重试";
+              goReportSubmitStatus.className = "submit-status error";
+            }
+            goReportSubmitBtn.disabled = false;
+          } else {
+            if (goReportSubmitStatus) {
+              goReportSubmitStatus.textContent = "举报成功，感谢反馈！";
+              goReportSubmitStatus.className = "submit-status success";
+            }
+            goReportSubmitBtn.textContent = "已提交";
+          }
+        } catch (err) {
+          if (goReportSubmitStatus) {
+            goReportSubmitStatus.textContent = "提交失败，请重试";
+            goReportSubmitStatus.className = "submit-status error";
+          }
+          goReportSubmitBtn.disabled = false;
+        }
       });
     }
 
