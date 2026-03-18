@@ -616,25 +616,55 @@
     };
 
     // ------------------------------
-    // Enemy Director (dynamic spawn & scaling based on combat rating)
+    // Enemy Director (击杀率驱动的怪物生成系统)
+    // ------------------------------
+    // 
+    // 新系统公式说明：
+    //   killsPer10s = 最近10秒内的击杀数（滚动窗口）
+    //   spawnRate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER
+    //
+    // 参数：
+    //   BASE_RATE = 1.5 敌人/秒（保底生成，即使0击杀也有怪物）
+    //   KILL_SPAWN_MULTIPLIER = 0.3（每多击杀1个敌人/10秒 → 多生成0.3个/秒）
+    //
+    // 示例：
+    //   击杀0个/10秒 → 生成速率 = 1.5/秒
+    //   击杀10个/10秒 → 生成速率 = 1.5 + 10×0.3 = 4.5/秒
+    //   击杀30个/10秒 → 生成速率 = 1.5 + 30×0.3 = 10.5/秒
+    //   击杀100个/10秒 → 生成速率 = 1.5 + 100×0.3 = 31.5/秒
+    //
+    // 特点：无上限、无下限限制，纯击杀率驱动
     // ------------------------------
     g.director = {
       lastT: 0,
       spawnBudget: 0,
-      spawnRate: 1.8,      // enemies / sec (increased from 1.2)
-      strength: 0,         // derived from combat rating
+      spawnRate: 1.5,      // enemies / sec (base rate)
+      strength: 0,         // derived from combat rating (保留用于敌人属性缩放)
       diff: 1.0,           // used as enemy HP scaling
       dmgMul: 1.0,         // used as enemy contact damage scaling
-      speedMul: 1.0,       // NEW: enemy speed scaling
-      targetEnemies: 15,   // increased from 12
-      // 动态怪物最小数量 - 基于玩家战力动态调整
-      minEnemies: 4,       // 最小怪物数量
-      eliteChance: 0.06,   // increased from 0.04
+      speedMul: 1.0,       // enemy speed scaling
+      eliteChance: 0.06,
       progress: 0.0,
+      // 击杀率追踪（滚动10秒窗口）
+      _killTimestamps: [],  // 记录每次击杀的时间戳
+      _killsPer10s: 0,      // 最近10秒击杀数（缓存）
+    };
+
+    // 记录一次击杀（由 killEnemy 调用）
+    g.recordKillForSpawn = (t) => {
+      g.director._killTimestamps.push(t);
+    };
+
+    // 计算最近10秒内的击杀数
+    g._computeKillsPer10s = (t) => {
+      const stamps = g.director._killTimestamps;
+      const cutoff = t - 10.0;
+      // 清理过期记录
+      while (stamps.length > 0 && stamps[0] < cutoff) stamps.shift();
+      return stamps.length;
     };
 
     g.directorStep = (t) => {
-      // Use real delta time even when paused, so the director doesn't "burst-spawn" after resuming.
       const d = g.director;
       let dtBase = 0.016;
       if (d.lastT) {
@@ -646,18 +676,15 @@
 
       if (g.isPausedGame || g.isGameOver) return;
 
-      // keep director in sync with simulation time scaling
+      // 时间缩放（时间扭曲 / 命中停顿）
       const timeScale = (g.timeWarpActive && t < g.timeWarpEndTime) ? 0.55 : 1.0;
-
-      // hit stop: optional (see GameConfig.hitStopEnabled)
       let hitScale = 1.0;
       if (GameConfig.hitStopEnabled) {
         hitScale = (g.hitStopEnd && t < g.hitStopEnd) ? (g.hitStopScale || 0.25) : 1.0;
       }
-
       const dt = dtBase * timeScale * hitScale;
 
-      // update combat rating first (so spawns react to current performance)
+      // 更新战力评分（用于敌人属性缩放和精英概率）
       g.updateCombatRating(t);
 
       const p = (g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0;
@@ -665,34 +692,24 @@
       d.strength = strength;
 
       const timeAlive = g._startTime ? Math.max(0, t - g._startTime) : 0;
-      const timeProg = clamp(timeAlive / 240, 0, 1);  // 0~1 in first 4 minutes
+      const timeProg = clamp(timeAlive / 240, 0, 1);
       d.progress = clamp(0.55 * timeProg + 0.45 * clamp(strength / 1.2, 0, 1), 0, 1);
 
-      // difficulty multipliers (bounded) - ENHANCED for more challenge
-      // 玩家攻击力缩放因子：让怪物HP和属性跟随玩家输出成长
+      // 敌人属性缩放（保留：HP、伤害、速度随等级和战力增长）
       const playerDmg = safeNumber(g.bulletDamage, 15);
-      const dmgFactor = clamp(Math.log2(Math.max(1, playerDmg / 15)), 0, 4); // 攻击力每翻倍+1
+      const dmgFactor = clamp(Math.log2(Math.max(1, playerDmg / 15)), 0, 4);
       d.diff = clamp(1.0 + (g.level - 1) * 0.13 + strength * 1.1 + dmgFactor * 0.6, 1.0, 16.0);
       d.dmgMul = clamp(1.0 + (g.level - 1) * 0.12 + strength * 0.35 + dmgFactor * 0.15, 1.0, 8.0);
-      // NEW: speed multiplier - enemies get faster over time
       d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
 
-      // ========================================
-      // 动态怪物数量系统
-      // 基于玩家等级（对数增长）+ 战力（小权重）
-      // ========================================
-      
-      // 等级因子
       const level = g.level;
-      
+
       // ========================================
-      // NB Mode 僵尸围城：怪物刷新无上限
+      // NB Mode 僵尸围城：怪物刷新无上限（保留）
       // ========================================
       if (g.nbModeActive) {
         const timeAliveNB = g._startTime ? Math.max(0, t - g._startTime) : 0;
         const nbTimeFactor = clamp(timeAliveNB / 60, 0, 10);
-        d.minEnemies = 30 + Math.round(nbTimeFactor * 20);
-        d.targetEnemies = 100000000;
         const nbBaseRate = 12 + nbTimeFactor * 4;
         d.spawnRate = clamp(nbBaseRate + level * 0.5 + strength * 2, 12, 60);
         d.eliteChance = clamp(0.10 + 0.06 * strength + 0.06 * d.progress, 0.10, 0.45);
@@ -708,77 +725,35 @@
       }
 
       // ========================================
-      // 动态最小怪物数量 - 基于玩家等级（对数增长）
+      // 击杀率驱动的怪物生成系统（新）
       // ========================================
-      // 最小怪物数量：保证场上始终有一定数量的怪物
-      // 等级1: 4, 等级10: 12, 等级25: 15
-      // 使用对数增长：minEnemies = 4 + 8 * log10(level)
-      d.minEnemies = Math.round(4 + 8 * Math.log10(Math.max(1, level)));
-      d.minEnemies = clamp(d.minEnemies, 4, 20);
-      
-      // 目标怪物数量公式（对数增长）：
-      // 等级1: 6
-      // 等级10: 6 + 44 * log10(10) + 战力 ≈ 50
-      // 等级25: 6 + 44 * log10(25) + 战力 ≈ 67
-      // 等级100: 6 + 44 * 2 + 战力 ≈ 94
-      const baseEnemies = 6;
-      const levelContrib = 44 * Math.log10(Math.max(1, level));  // 对数增长
-      const strengthContrib = strength * 3;  // 战力小权重（最多贡献约5.4）
-      let targetRaw = Math.round(baseEnemies + levelContrib + strengthContrib);
-      // 确保目标不低于最小值（无最大值限制）
-      d.targetEnemies = Math.max(targetRaw, d.minEnemies);
+      const BASE_RATE = 1.5;             // 保底生成速率（敌人/秒）
+      const KILL_SPAWN_MULTIPLIER = 0.3; // 每击杀1个/10秒 → +0.3敌人/秒
 
-      // 生成速率公式（基于等级 + 战力小权重）：
-      // 等级1: ~1.0/秒，等级25: ~5/秒
-      const baseRate = 1.0;
-      const rateTimeScale = Math.pow(timeProg, 0.5);
-      let rate = clamp(
-        baseRate + rateTimeScale * 1.5 + (level - 1) * 0.15 + strength * 0.5,
-        0.8,
-        8.0
-      );
-      
-      // ========================================
-      // 智能生成速率调节 - 接近目标时平滑减速，达到目标时变很慢（但不停止）
-      // ========================================
-      const currentCount = g.enemies.length;
-      const densityRatio = currentCount / Math.max(1, d.targetEnemies);
-      
-      // 当怪物数量低于最小值时，大幅加速生成
-      if (currentCount < d.minEnemies) {
-        const deficit = (d.minEnemies - currentCount) / d.minEnemies;
-        rate *= 1.5 + deficit * 1.5;  // 最多 3x 加速
-      }
-      // 当达到或超过目标数量时，变得很慢（但不完全停止）
-      else if (currentCount >= d.targetEnemies) {
-        rate *= 0.08;  // 保持 8% 的速率，非常慢但不停止
-      }
-      // 当接近目标数量时，开始减速（使用平滑曲线）
-      else if (densityRatio > 0.8) {
-        // 使用平滑的减速曲线，越接近目标减速越明显
-        const slowFactor = 1.0 - Math.pow((densityRatio - 0.8) / 0.2, 0.8) * 0.85;
-        rate *= clamp(slowFactor, 0.1, 1.0);
-      }
+      const killsPer10s = g._computeKillsPer10s(t);
+      d._killsPer10s = killsPer10s;
 
+      // 核心公式：spawnRate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER
+      // 无上限、无下限，纯击杀率驱动
+      const rate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER;
       d.spawnRate = rate;
 
-      // elite chance grows with strength + progress - INCREASED for more challenge
+      // 精英概率：随战力和进度增长
       d.eliteChance = clamp(0.04 + 0.08 * strength + 0.08 * d.progress, 0.04, 0.30);
 
       // ========================================
-      // Boss 生成系统
+      // Boss 生成系统（保留）
       // 每隔一定时间/等级触发Boss出现
       // ========================================
       if (!d._lastBossLevel) d._lastBossLevel = 0;
       if (!d._bossCount) d._bossCount = 0;
-      const bossLevelInterval = 8; // 每8级出现一个Boss
+      const bossLevelInterval = 8;
       if (g.level >= bossLevelInterval && g.level - d._lastBossLevel >= bossLevelInterval) {
         d._lastBossLevel = g.level;
         d._bossCount++;
         const bossIds = ["boss_titan", "boss_storm", "boss_hive", "boss_phantom", "boss_fortress"];
         const bossId = bossIds[(d._bossCount - 1) % bossIds.length];
         const bossDef = g.getEnemyDef(bossId);
-        // Boss从屏幕外随机方向生成
         const bossAng = rand(0, TAU);
         const bossDist = 600;
         const bossX = g.player.x + Math.cos(bossAng) * bossDist;
@@ -786,12 +761,11 @@
         g.createEnemyFromDef(bossDef, bossX, bossY, t);
       }
 
-      // budgeted spawn
+      // 预算制生成
       d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
 
       let spawned = 0;
       const maxLoop = 10;
-      // 无最大值限制，只要有预算就生成
       while (d.spawnBudget >= 1 && spawned < maxLoop) {
         g.spawnEnemy(t);
         d.spawnBudget -= 1;
@@ -1573,6 +1547,9 @@
       // stats / combat window
       if (g.stats) g.stats.kills = (g.stats.kills || 0) + 1;
       if (g.combat && g.combat._acc) g.combat._acc.kills = (g.combat._acc.kills || 0) + 1;
+
+      // 记录击杀时间戳（用于击杀率驱动的怪物生成系统）
+      g.recordKillForSpawn(t);
 
       // 击杀回血
       if (g.killHealAmount > 0) g.heal(g.killHealAmount);

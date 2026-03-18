@@ -2,9 +2,11 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
-  const { overlay, overlayTitle, overlaySubtitle, choicesEl, gameoverStatsEl, restartRow } = GameApp.DOM;
+  const {
+    overlay, overlayTitle, overlaySubtitle, choicesEl, gameoverStatsEl, restartRow
+  } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
-  const { escapeHtml } = GameApp.Helpers;
+  const { escapeHtml, formatTime, getStoredPlayerName, storePlayerName } = GameApp.Helpers;
 
   function clearMovementInputs() {
     const input = GameApp.Input;
@@ -14,13 +16,6 @@
   // Local Leaderboard (by Combat Power)
   // ============================================================
   const LEADERBOARD_KEY = "bigear_leaderboard_v1";
-
-  function formatTime(sec){
-    const s = Math.max(0, Math.floor(sec || 0));
-    const m = Math.floor(s / 60);
-    const r = s % 60;
-    return `${String(m).padStart(2,"0")}:${String(r).padStart(2,"0")}`;
-  }
 
   function loadLeaderboard(){
     try{
@@ -105,44 +100,35 @@
     }).join("");
   }
 
-  function renderLeaderboardTable(list, highlightId){
-    if (!list || list.length === 0) return "";
-    const rows = list.map((r, idx) => {
-      const hi = (r.id === highlightId);
-      const bg = hi ? "rgba(255,214,10,.12)" : "transparent";
-      const bd = hi ? "rgba(255,214,10,.28)" : "rgba(255,255,255,.08)";
-      return `
-        <tr style="background:${bg}; border-bottom: 1px solid ${bd};">
-          <td style="padding:6px 6px; opacity:.9;">${idx + 1}</td>
-          <td style="padding:6px 6px; font-weight:900;">${Math.round(r.score || 0)}</td>
-          <td style="padding:6px 6px; font-weight:900;">${r.tier || ""}</td>
-          <td style="padding:6px 6px;">${formatTime(r.time || 0)}</td>
-          <td style="padding:6px 6px;">Lv.${r.level || 1}</td>
-          <td style="padding:6px 6px;">${r.kills || 0}</td>
-        </tr>`;
-    }).join("");
+  /* ================================================
+     获取技能卡片数据
+     ================================================ */
+  function getSkillCards(g) {
+    if (!g) return [];
+    const allSkills = window.SkillSystem ? window.SkillSystem.generateAllSkills() : [];
+    const cyberSkills = (window.SkillSystem && window.SkillSystem.generateCyberpunkArsenal) ? window.SkillSystem.generateCyberpunkArsenal() : [];
+    const skillPool = allSkills.concat(cyberSkills);
 
-    return `
-      <div style="margin-top:14px; text-align:left;">
-        <div style="font-weight:900; margin-bottom:6px; opacity:.92;">本地排行榜（战力评分）</div>
-        <table style="width:100%; border-collapse:collapse; font-size:13px; border:1px solid rgba(255,255,255,.10); border-radius:10px; overflow:hidden;">
-          <thead>
-            <tr style="background: rgba(255,255,255,.06); border-bottom: 1px solid rgba(255,255,255,.10);">
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">#</th>
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">分</th>
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">段位</th>
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">时间</th>
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">等级</th>
-              <th style="text-align:left; padding:6px 6px; font-weight:900; opacity:.85;">击杀</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div style="margin-top:8px; font-size:12px; opacity:.65; line-height:1.35;">
-          评分 = 0.72×平均战力 + 0.28×峰值战力（平均战力来自 30秒滑窗系统的平滑积分）
-        </div>
-      </div>`;
+    const acquired = g.acquiredSkills || [];
+    const meta = g.acquiredSkillMeta || [];
+    const cards = [];
+
+    for (let i = 0; i < acquired.length; i++) {
+      const name = acquired[i];
+      const tierVal = (meta[i] && meta[i].tier) ? meta[i].tier : 1;
+      const def = skillPool.find(s => s.name === name);
+      const icon = def ? (window.SkillSystem.iconFallback ? window.SkillSystem.iconFallback(def.icon) : def.icon) : "✦";
+      const tierLabel = (window.SkillSystem && window.SkillSystem.tierName) ? window.SkillSystem.tierName(tierVal) : "";
+      cards.push({ name, tier: tierVal, icon, tierLabel, description: def ? def.description : "" });
+    }
+    return cards;
   }
+
+  /* ================================================
+     死亡界面举报技能面板（动态创建，避免污染 level-up）
+     ================================================ */
+  const goSelectedSkills = new Set();
+  let _currentGame = null;
 
   async function fetchGlobalLeaderboard() {
     if (!window.SupabaseAPI) return [];
@@ -181,11 +167,12 @@
   }
 
   async function showGameOverOverlay(g) {
+    _currentGame = g;
     overlay.classList.add("show");
     overlay.classList.add("mode-gameover");
     overlay.classList.remove("mode-levelup");
     clearMovementInputs();
-    overlayTitle.textContent = "GAME OVER";
+    overlayTitle.textContent = "";
     overlayTitle.style.color = "#ff3b30";
     overlaySubtitle.textContent = "";
 
@@ -226,12 +213,14 @@
 
     const rankText = board.rank ? `#${board.rank}` : "—";
     const tierColor = (g._combatTierFromScore ? g._combatTierFromScore(run.score).color : "#fff");
+    const kills = (g.stats && g.stats.kills) ? g.stats.kills : 0;
+    const skillCount = g.acquiredSkills ? g.acquiredSkills.length : 0;
 
     const submitFormHtml = g._scoreSubmitted ? `
-      <div class="submit-status success">分数已提交到全球排行榜!</div>
+      <div class="submit-status success" style="padding:8px 0;">分数已提交到全球排行榜!</div>
     ` : `
-      <div class="gameover-submit-section">
-        <input type="text" id="submitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" value="${getStoredPlayerName()}" />
+      <div class="go-submit-section">
+        <input type="text" id="submitNameInput" placeholder="输入你的名字提交到全球排行榜" maxlength="20" value="${escapeHtml(getStoredPlayerName())}" />
         <button id="submitScoreBtn">提交分数</button>
         <div id="submitStatus" class="submit-status"></div>
       </div>
@@ -254,25 +243,73 @@
     ` : '<div class="leaderboard-empty">暂无本地记录</div>';
 
     gameoverStatsEl.innerHTML = `
-      <div class="gameover-content">
-        <div class="gameover-stats-section">
-          <div style="display:flex; gap:12px; justify-content:center; align-items:baseline; flex-wrap:wrap;">
-            <div>战力评分: <b style="color:${tierColor}; font-size:18px;">${run.score}</b></div>
-            <div>段位: <b style="color:${tierColor}">${run.tier || ""}</b></div>
-            <div>本地排名: <b>${rankText}</b></div>
-          </div>
-          <div style="margin-top:10px; display:flex; gap:16px; justify-content:center; flex-wrap:wrap; font-size:14px;">
-            <div>存活: <b>${formatTime(run.time)}</b></div>
-            <div>等级: <b>${g.level}</b></div>
-            <div>击杀: <b>${(g.stats && g.stats.kills) ? g.stats.kills : 0}</b></div>
-            <div>技能: <b>${g.acquiredSkills.length}</b></div>
-          </div>
-          <div style="margin-top:6px; font-size:12px; opacity:.7;">
-            平均战力: ${run.avg} · 峰值战力: ${run.peak}
+      <div class="go-container">
+        <div class="go-header">
+          <div class="go-skull">💀</div>
+          <h2 class="go-title">GAME OVER</h2>
+          <div class="go-tier-badge" style="color:${tierColor}; border-color:${tierColor};">
+            ${escapeHtml(run.tier || "—")}
           </div>
         </div>
 
+        <div class="go-score-hero">
+          <div class="go-score-value" style="color:${tierColor}">${run.score}</div>
+          <div class="go-score-label">战力评分</div>
+        </div>
+
+        <div class="go-stats-grid">
+          <div class="go-stat-card">
+            <div class="go-stat-icon">⏱️</div>
+            <div class="go-stat-val">${formatTime(run.time)}</div>
+            <div class="go-stat-lbl">存活时间</div>
+          </div>
+          <div class="go-stat-card">
+            <div class="go-stat-icon">⚔️</div>
+            <div class="go-stat-val">${kills}</div>
+            <div class="go-stat-lbl">击杀数</div>
+          </div>
+          <div class="go-stat-card">
+            <div class="go-stat-icon">📈</div>
+            <div class="go-stat-val">Lv.${g.level}</div>
+            <div class="go-stat-lbl">等级</div>
+          </div>
+          <div class="go-stat-card">
+            <div class="go-stat-icon">✨</div>
+            <div class="go-stat-val">${skillCount}</div>
+            <div class="go-stat-lbl">技能</div>
+          </div>
+        </div>
+
+        <div class="go-detail-row">
+          <span>平均战力: <b>${run.avg}</b></span>
+          <span>峰值战力: <b>${run.peak}</b></span>
+          <span>本地排名: <b>${rankText}</b></span>
+        </div>
+
         ${submitFormHtml}
+
+        <button id="goReportSkillBtn" class="go-report-btn">🚩 举报技能</button>
+
+        <div id="goReportPanel" style="display:none;">
+          <h2 class="go-report-title">🚩 举报技能</h2>
+          <p class="go-report-subtitle">选择你认为有问题的技能</p>
+          <div id="goReportSkillList" class="report-skill-list"></div>
+          <div class="report-reason-section">
+            <div class="report-reason-label">举报理由</div>
+            <div class="report-reason-options">
+              <label class="report-reason-chip selected"><input type="radio" name="goReportReason" value="没用" checked /><span>没用</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="太弱" /><span>太弱</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="效果不明显" /><span>效果不明显</span></label>
+              <label class="report-reason-chip"><input type="radio" name="goReportReason" value="其他" /><span>其他</span></label>
+            </div>
+            <textarea id="goReportReasonText" class="go-report-textarea" placeholder="补充说明（可选）" maxlength="200" style="display:none;"></textarea>
+          </div>
+          <div id="goReportSubmitStatus" class="submit-status"></div>
+          <div class="report-buttons">
+            <button id="goReportBackBtn">返回</button>
+            <button id="goReportSubmitBtn" disabled>提交举报 (0)</button>
+          </div>
+        </div>
 
         <div class="dual-leaderboard-container">
           <div class="leaderboard-column">
@@ -305,6 +342,166 @@
     `;
 
     refreshGlobalLeaderboardInOverlay(g._submittedPlayerName || null);
+
+    // 获取动态创建的举报面板元素
+    const goReportPanel = document.getElementById("goReportPanel");
+    const goReportSkillBtn = document.getElementById("goReportSkillBtn");
+    const goReportSkillList = document.getElementById("goReportSkillList");
+    const goReportReasonText = document.getElementById("goReportReasonText");
+    const goReportSubmitStatus = document.getElementById("goReportSubmitStatus");
+    const goReportBackBtn = document.getElementById("goReportBackBtn");
+    const goReportSubmitBtn = document.getElementById("goReportSubmitBtn");
+
+    function populateGoSkillList() {
+      if (!goReportSkillList) return;
+      goSelectedSkills.clear();
+      const cards = getSkillCards(g);
+      if (cards.length === 0) {
+        goReportSkillList.innerHTML = '<div style="text-align:center;color:rgba(255,255,255,.4);padding:20px;">你还没有获得任何技能</div>';
+        return;
+      }
+      var html = "";
+      for (var ci = 0; ci < cards.length; ci++) {
+        var c = cards[ci];
+        html += '<div class="report-skill-item" data-skill="' + escapeHtml(c.name) + '" data-tier="' + c.tier + '">'
+          + '<div class="rsi-check">✓</div>'
+          + '<div class="rsi-icon">' + c.icon + '</div>'
+          + '<div class="rsi-info">'
+          + '<div class="rsi-name">' + escapeHtml(c.name) + '</div>'
+          + '<div class="rsi-desc">' + escapeHtml(c.description) + '</div>'
+          + '</div></div>';
+      }
+      goReportSkillList.innerHTML = html;
+
+      goReportSkillList.querySelectorAll(".report-skill-item").forEach(function(item) {
+        item.addEventListener("click", function() {
+          var name = item.getAttribute("data-skill");
+          if (goSelectedSkills.has(name)) {
+            goSelectedSkills.delete(name);
+            item.classList.remove("selected");
+          } else {
+            goSelectedSkills.add(name);
+            item.classList.add("selected");
+          }
+          if (goReportSubmitBtn) {
+            var count = goSelectedSkills.size;
+            goReportSubmitBtn.textContent = "提交举报 (" + count + ")";
+            goReportSubmitBtn.disabled = count === 0;
+          }
+        });
+      });
+    }
+
+    // 举报技能入口按钮
+    if (goReportSkillBtn && goReportPanel) {
+      goReportSkillBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        // 显示举报面板，隐藏主内容
+        goReportPanel.style.display = "block";
+        goReportSkillBtn.style.display = "none";
+        populateGoSkillList();
+        if (goReportSubmitStatus) {
+          goReportSubmitStatus.textContent = "";
+          goReportSubmitStatus.className = "submit-status";
+        }
+        if (goReportSubmitBtn) {
+          goReportSubmitBtn.disabled = true;
+          goReportSubmitBtn.textContent = "提交举报 (0)";
+        }
+        if (goReportReasonText) goReportReasonText.style.display = "none";
+      });
+    }
+
+    // 返回按钮
+    if (goReportBackBtn && goReportPanel) {
+      goReportBackBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        goReportPanel.style.display = "none";
+        if (goReportSkillBtn) goReportSkillBtn.style.display = "";
+      });
+    }
+
+    // 举报理由选择
+    if (goReportPanel) {
+      goReportPanel.addEventListener("click", function(e) {
+        var chip = e.target.closest(".report-reason-chip");
+        if (!chip) return;
+        var radio = chip.querySelector("input[type=radio]");
+        if (radio) radio.checked = true;
+        goReportPanel.querySelectorAll(".report-reason-chip").forEach(function(c) { c.classList.remove("selected"); });
+        chip.classList.add("selected");
+        if (goReportReasonText) {
+          goReportReasonText.style.display = (radio && radio.value === "其他") ? "block" : "none";
+        }
+      });
+    }
+
+    // 提交举报
+    if (goReportSubmitBtn) {
+      goReportSubmitBtn.addEventListener("click", async function(e) {
+        e.stopPropagation();
+        if (goSelectedSkills.size === 0) return;
+
+        var reasonRadio = goReportPanel ? goReportPanel.querySelector('input[name="goReportReason"]:checked') : null;
+        var reason = reasonRadio ? reasonRadio.value : "没用";
+        var reasonText = (goReportReasonText && reason === "其他") ? goReportReasonText.value.trim().slice(0, 200) : "";
+
+        var playerName = getStoredPlayerName() || "匿名";
+        var cards = getSkillCards(g);
+
+        var lastRun = g._lastRun || null;
+        var peak = lastRun ? lastRun.peak : 0;
+        var avg = lastRun ? lastRun.avg : 0;
+        var score = lastRun ? lastRun.score : Math.round(0.72 * avg + 0.28 * peak);
+        var level = lastRun ? lastRun.level : g.level;
+
+        var reports = [];
+        goSelectedSkills.forEach(function(skillName) {
+          var card = cards.find(function(c) { return c.name === skillName; });
+          reports.push({
+            skill_name: skillName,
+            skill_tier: card ? card.tier : 1,
+            reason: reason,
+            reason_text: reasonText,
+            player_name: playerName,
+            game_level: level,
+            game_score: score
+          });
+        });
+
+        goReportSubmitBtn.disabled = true;
+        if (goReportSubmitStatus) {
+          goReportSubmitStatus.textContent = "提交中...";
+          goReportSubmitStatus.className = "submit-status";
+        }
+
+        try {
+          if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
+            throw new Error("Supabase not available");
+          }
+          var result = await window.SupabaseAPI.submitSkillReport(reports);
+          if (result.error) {
+            if (goReportSubmitStatus) {
+              goReportSubmitStatus.textContent = "提交失败，请重试";
+              goReportSubmitStatus.className = "submit-status error";
+            }
+            goReportSubmitBtn.disabled = false;
+          } else {
+            if (goReportSubmitStatus) {
+              goReportSubmitStatus.textContent = "举报成功，感谢反馈！";
+              goReportSubmitStatus.className = "submit-status success";
+            }
+            goReportSubmitBtn.textContent = "已提交";
+          }
+        } catch (err) {
+          if (goReportSubmitStatus) {
+            goReportSubmitStatus.textContent = "提交失败，请重试";
+            goReportSubmitStatus.className = "submit-status error";
+          }
+          goReportSubmitBtn.disabled = false;
+        }
+      });
+    }
 
     if (!g._scoreSubmitted) {
       const submitBtn = document.getElementById("submitScoreBtn");
@@ -360,20 +557,6 @@
     }
 
     restartRow.style.display = "flex";
-  }
-
-  function getStoredPlayerName() {
-    try {
-      return localStorage.getItem("bigear_player_name") || "";
-    } catch {
-      return "";
-    }
-  }
-
-  function storePlayerName(name) {
-    try {
-      localStorage.setItem("bigear_player_name", name);
-    } catch {}
   }
 
   const ui = GameApp.UI = GameApp.UI || {};
