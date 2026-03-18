@@ -238,7 +238,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"超级蓄力", description:"蓄力速度 +100%，最大加成提升", tier:4, icon:"bolt.batteryblock.fill", effect:(s)=>{ s.chargeSpeed *= 2; s.chargeMaxBonus *= 1.5; }});
   skills.push({ name:"弹幕", description:"同时向所有方向射击", tier:5, icon:"circle.and.line.horizontal.fill", effect:(s)=>{ s.bulletCount += 8; s.spreadAngle = TAU / s.bulletCount; s.allDirectionFire = true; }});
   skills.push({ name:"后座力", description:"射击时向后推动自己，增加灵活性", tier:2, icon:"arrow.backward.to.line", effect:(s)=>{ s.recoilPush = true; }});
-  skills.push({ name:"压制射击", description:"射击方向的敌人移动速度降低", tier:2, icon:"arrow.down.to.line.compact", effect:(s)=>{ s.suppressionEnabled = true; }});
+  skills.push({ name:"弹道偏转", description:"子弹击中敌人后有30%概率弹射至附近敌人", tier:2, icon:"arrow.triangle.branch", effect:(s)=>{ s.bulletBounceChance = 0.3; s.bulletBounceCount = 1; }});
   skills.push({ name:"脆弱标记", description:"击中的敌人受到额外伤害持续 3秒", tier:3, icon:"tag.fill", effect:(s)=>{ s.vulnerabilityMark = true; s.vulnerabilityBonus = 0.3; }});
   skills.push({ name:"移动射击", description:"移动时射速 +30%", tier:2, icon:"arrow.right.and.line.vertical.and.arrow.left", effect:(s)=>{ s.movingFireRateBonus = 0.3; }});
   skills.push({ name:"静止强化", description:"站定时伤害 +40%", tier:2, icon:"stop.fill", effect:(s)=>{ s.stationaryDamageBonus = 0.4; }});
@@ -476,7 +476,7 @@ function generateCyberpunkArsenal() {
     {name: "内存溢出", desc: "经验球爆炸造成伤害", icon: "chip"},
     {name: "过热协议", desc: "射击附带燃烧，由于过热偶尔扣血", icon: "flame"},
     {name: "时间膨胀", desc: "敌人子弹速度减半", icon: "timer"},
-    {name: "幽灵模式", desc: "静止不动时隐身(无敌)", icon: "ghost"},
+    {name: "量子纠缠", desc: "子弹命中后在敌人间产生量子链接，共享伤害", icon: "atom"},
     {name: "数据虹吸", desc: "每秒偷取周围敌人生命", icon: "network"},
     {name: "防火墙",   desc: "生成阻挡敌人的火墙", icon: "shield_tech"},
     {name: "根权限",   desc: "所有技能效果提升10%", icon: "key"}
@@ -494,6 +494,7 @@ function generateCyberpunkArsenal() {
                   g.cyber[`hack_${hack.name}`] = (idx+1);
                   // Apply simple generic buffs alongside specific logic (handled in gameFactory)
                   if(hack.name === "根权限") g.bulletDamage *= 1.1;
+                  if(hack.name === "量子纠缠") { g.quantumEntangleChance = 0.15 + 0.05 * (idx+1); g.quantumEntangleDamageShare = 0.2 + 0.1 * idx; }
               }
           });
       });
@@ -503,7 +504,7 @@ function generateCyberpunkArsenal() {
   const weapons = [
       {name: "磁轨炮", desc: "极高穿透与击退"},
       {name: "声波炮", desc: "宽范围震退敌人"},
-      {name: "奇点枪", desc: "子弹生成微型黑洞"},
+      {name: "脉冲波", desc: "发射震荡脉冲波击退并眩晕敌人"},
       {name: "反物质", desc: "子弹湮灭敌人"},
       {name: "聚变枪", desc: "产生核爆"},
       {name: "冰河",   desc: "绝对零度冻结"},
@@ -524,6 +525,7 @@ function generateCyberpunkArsenal() {
                    if (!g.cyber) g.cyber = {};
                    g.cyber[`weapon_${w.name}`] = (idx+1);
                    g.bulletDamage *= 1.2; // Base buff
+                   if(w.name === "脉冲波") { g.pulseWaveKnockback = 80 + 40 * (idx+1); g.pulseWaveStunChance = 0.2 + 0.05 * idx; g.pulseWaveStunDuration = 0.5 + 0.2 * idx; }
               }
           });
       });
@@ -536,7 +538,7 @@ function generateCyberpunkArsenal() {
       {name: "虚空", desc: "受伤瞬移"},
       {name: "反应", desc: "受击自动反击"},
       {name: "医疗", desc: "大幅提升回复"},
-      {name: "工兵", desc: "自动布雷与维修无人机"},
+      {name: "掠食者", desc: "击杀后获得攻速与暴击加成"},
       {name: "幽灵", desc: "穿透敌人移动"},
       {name: "要塞", desc: "静止时无敌"},
       {name: "狂徒", desc: "血量越低伤害越高"},
@@ -555,6 +557,7 @@ function generateCyberpunkArsenal() {
                    if(s.name==="游侠") { g.playerSpeedMulti *= 1.1; g.dodgeChance += 0.05; }
                    if(s.name==="医疗") { g.regenRate += 2; g.combatRegenBoost = true; }
                    if(s.name==="狂徒") { g.lowHpDamageBoost = true; g.lowHpDamageMulti += 0.5; }
+                   if(s.name==="掠食者") { g.predatorMode = true; g.predatorAtkSpeedBonus = 0.08 * (idx+1); g.predatorCritBonus = 0.04 * (idx+1); g.predatorDuration = 3.0 + 0.5 * idx; }
                    // ... others imply generic buffs
                    g.damageReduction += 0.01 * (idx+1);
               }

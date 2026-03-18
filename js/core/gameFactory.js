@@ -198,7 +198,19 @@
       currentCharge: 0,
       allDirectionFire: false,
       recoilPush: false,
-      suppressionEnabled: false,
+      bulletBounceChance: 0,
+      bulletBounceCount: 0,
+      quantumEntangleChance: 0,
+      quantumEntangleDamageShare: 0,
+      pulseWaveKnockback: 0,
+      pulseWaveStunChance: 0,
+      pulseWaveStunDuration: 0,
+      predatorMode: false,
+      predatorAtkSpeedBonus: 0,
+      predatorCritBonus: 0,
+      predatorDuration: 3.0,
+      _predatorActiveUntil: 0,
+      _predatorKillCount: 0,
       vulnerabilityMark: false,
       vulnerabilityBonus: 0,
       movingFireRateBonus: 0,
@@ -1252,6 +1264,14 @@
         damage *= (1 + bonus);
       }
 
+      // 掠食者模式：击杀后短暂提升暴击
+      if (g.predatorMode && t < g._predatorActiveUntil) {
+        const pCritBonus = Math.min(g._predatorKillCount * g.predatorCritBonus, 0.4);
+        g._predatorCritBonusActive = pCritBonus;
+      } else {
+        g._predatorCritBonusActive = 0;
+      }
+
       // 暴怒
       if (g.rageOnHit && t < g.rageEndTime) {
         damage *= (1 + g.rageDamageBonus);
@@ -1554,6 +1574,12 @@
       // 击杀回血
       if (g.killHealAmount > 0) g.heal(g.killHealAmount);
 
+      // 掠食者模式：击杀后获得攻速与暴击加成
+      if (g.predatorMode) {
+        g._predatorKillCount = (g._predatorKillCount || 0) + 1;
+        g._predatorActiveUntil = t + g.predatorDuration;
+      }
+
       // 时间扭曲
       if (g.timeWarpOnKill && Math.random() < 0.1) {
         g.timeWarpActive = true;
@@ -1767,7 +1793,7 @@
 
       // crit
       let isCrit = false;
-      let actualCritRate = g.critRate;
+      let actualCritRate = g.critRate + (g._predatorCritBonusActive || 0);
       if (g.revengeEnabled && g.revengeNextCrit) {
         actualCritRate = 1.0;
         g.revengeNextCrit = false;
@@ -1911,7 +1937,60 @@
       if (Math.random() < g.overloadChance) {
         g.shoot(t);
       }
-      
+
+      // 弹道偏转：子弹命中后弹射至附近敌人
+      if (g.bulletBounceChance > 0 && !bullet._bounced && Math.random() < g.bulletBounceChance) {
+        let bounceTarget = null;
+        let bestD2 = 200 * 200;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead || e === enemy) continue;
+          const bdx = e.x - enemy.x, bdy = e.y - enemy.y;
+          const d2 = bdx * bdx + bdy * bdy;
+          if (d2 < bestD2) { bestD2 = d2; bounceTarget = e; }
+        }
+        if (bounceTarget) {
+          const bAngle = Math.atan2(bounceTarget.y - enemy.y, bounceTarget.x - enemy.x);
+          const bSpeed = hypot(bullet.vx, bullet.vy) || 400;
+          const bounceBullet = {
+            id: nextId(), x: enemy.x, y: enemy.y, w: bullet.w, h: bullet.h, rot: bAngle,
+            vx: Math.cos(bAngle) * bSpeed, vy: Math.sin(bAngle) * bSpeed,
+            born: t, die: t + 1.0, pierceLeft: 0, _bounced: true, hitIds: []
+          };
+          g.bullets.push(bounceBullet);
+          g.effects.push({ kind:"line", x1:enemy.x, y1:enemy.y, x2:enemy.x + Math.cos(bAngle)*30, y2:enemy.y + Math.sin(bAngle)*30, start:t, end:t+0.15, color:"#ffcc00" });
+        }
+      }
+
+      // 量子纠缠：命中后在附近敌人间产生量子链接，共享伤害
+      if (g.quantumEntangleChance > 0 && Math.random() < g.quantumEntangleChance) {
+        const shareDmg = damage * g.quantumEntangleDamageShare;
+        let entangleCount = 0;
+        for (let i = 0; i < g.enemies.length && entangleCount < 3; i++) {
+          const e = g.enemies[i];
+          if (e._dead || e === enemy) continue;
+          const qdx = e.x - enemy.x, qdy = e.y - enemy.y;
+          if (qdx * qdx + qdy * qdy < 180 * 180) {
+            g.applyDamageToEnemy(e, shareDmg, t, { immediate: true });
+            g.effects.push({ kind:"line", x1:enemy.x, y1:enemy.y, x2:e.x, y2:e.y, start:t, end:t+0.25, color:"#aa00ff" });
+            entangleCount++;
+          }
+        }
+      }
+
+      // 脉冲波：击退并眩晕敌人
+      if (g.pulseWaveKnockback > 0) {
+        const pkForce = g.pulseWaveKnockback;
+        const pvx = enemy.x - bullet.x, pvy = enemy.y - bullet.y;
+        const pLen = hypot(pvx, pvy) || 1;
+        enemy.x += (pvx / pLen) * pkForce * 0.5;
+        enemy.y += (pvy / pLen) * pkForce * 0.5;
+        if (Math.random() < g.pulseWaveStunChance) {
+          enemy._stunUntil = t + g.pulseWaveStunDuration;
+          g.emitSparks({x:enemy.x, y:enemy.y}, 6, "#00ccff", t);
+        }
+      }
+
       // NEW: 魔法系统子弹命中回调
       if (window.MagicSystemLogic && window.MagicSystemLogic.onMagicBulletHit) {
         window.MagicSystemLogic.onMagicBulletHit(g, bullet, enemy, t, isCrit);
@@ -2698,8 +2777,8 @@
 
           let speed = safeNonNeg(e.speed, GameConfig.baseEnemySpeed);
 
-          // suppression
-          if (g.suppressionEnabled && g.isEnemyInFiringDirection(e)) speed *= 0.6;
+          // pulse wave stun
+          if (e._stunUntil && t < e._stunUntil) speed = 0;
 
           // slowed
           if (e.slowed) speed *= 0.5;
@@ -3760,6 +3839,13 @@
       }
       if (g.berserkerMode && (g.playerHealth / g.playerMaxHealth) < g.berserkerThreshold) {
         effectiveShootInterval *= 0.5;
+      }
+      // 掠食者模式：击杀后短暂提升攻速
+      if (g.predatorMode && t < g._predatorActiveUntil) {
+        const pBonus = Math.min(g._predatorKillCount * g.predatorAtkSpeedBonus, 0.6);
+        effectiveShootInterval *= (1.0 - pBonus);
+      } else if (g.predatorMode) {
+        g._predatorKillCount = 0;
       }
       if ((t - g.lastShootTime) > effectiveShootInterval) {
         if (g.enemies.length > 0) {
