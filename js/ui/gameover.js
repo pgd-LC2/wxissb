@@ -248,12 +248,11 @@
       const cards = getSkillCards(_currentGame);
       const cg = _currentGame;
 
-      const t = nowSec();
-      const timeAlive = cg && cg._startTime ? Math.max(0, t - cg._startTime) : 0;
-      const peak = Math.round((cg && cg.combat && cg.combat.peak) ? cg.combat.peak : 0);
-      const avg = Math.round((cg && cg.combat && timeAlive > 0) ? (cg.combat.integral / timeAlive) : ((cg && cg.combat && cg.combat.ratingSmooth) ? cg.combat.ratingSmooth : 0));
-      const score = Math.round(0.72 * avg + 0.28 * peak);
-      const level = cg ? cg.level : 1;
+      const lastRun = cg ? cg._lastRun : null;
+      const peak = lastRun ? lastRun.peak : Math.round((cg && cg.combat && cg.combat.peak) ? cg.combat.peak : 0);
+      const avg = lastRun ? lastRun.avg : 0;
+      const score = lastRun ? lastRun.score : Math.round(0.72 * avg + 0.28 * peak);
+      const level = lastRun ? lastRun.level : (cg ? cg.level : 1);
 
       const reports = [];
       goSelectedSkills.forEach(skillName => {
