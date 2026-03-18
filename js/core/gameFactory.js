@@ -1955,7 +1955,7 @@
           const bounceBullet = {
             id: nextId(), x: enemy.x, y: enemy.y, w: bullet.w, h: bullet.h, rot: bAngle - Math.PI/2,
             vx: Math.cos(bAngle) * bSpeed, vy: Math.sin(bAngle) * bSpeed,
-            born: t, die: t + 1.0, pierceLeft: 0, _bounced: true, hitIds: []
+            born: t, die: t + 1.0, pierceLeft: 0, _bounced: true, hitIds: [enemy.id]
           };
           g.bullets.push(bounceBullet);
           g.effects.push({ kind:"line", x1:enemy.x, y1:enemy.y, x2:enemy.x + Math.cos(bAngle)*30, y2:enemy.y + Math.sin(bAngle)*30, start:t, end:t+0.15, color:"#ffcc00" });
