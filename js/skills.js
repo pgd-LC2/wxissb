@@ -494,7 +494,7 @@ function generateCyberpunkArsenal() {
                   g.cyber[`hack_${hack.name}`] = (idx+1);
                   // Apply simple generic buffs alongside specific logic (handled in gameFactory)
                   if(hack.name === "根权限") g.bulletDamage *= 1.1;
-                  if(hack.name === "量子纠缠") { g.quantumEntangleChance = 0.15 + 0.05 * (idx+1); g.quantumEntangleDamageShare = 0.2 + 0.1 * idx; }
+                  if(hack.name === "量子纠缠") { g.quantumEntangleChance = Math.max(g.quantumEntangleChance, 0.15 + 0.05 * (idx+1)); g.quantumEntangleDamageShare = Math.max(g.quantumEntangleDamageShare, 0.2 + 0.1 * idx); }
               }
           });
       });
@@ -525,7 +525,7 @@ function generateCyberpunkArsenal() {
                    if (!g.cyber) g.cyber = {};
                    g.cyber[`weapon_${w.name}`] = (idx+1);
                    g.bulletDamage *= 1.2; // Base buff
-                   if(w.name === "脉冲波") { g.pulseWaveKnockback = 80 + 40 * (idx+1); g.pulseWaveStunChance = 0.2 + 0.05 * idx; g.pulseWaveStunDuration = 0.5 + 0.2 * idx; }
+                   if(w.name === "脉冲波") { g.pulseWaveKnockback = Math.max(g.pulseWaveKnockback, 80 + 40 * (idx+1)); g.pulseWaveStunChance = Math.max(g.pulseWaveStunChance, 0.2 + 0.05 * idx); g.pulseWaveStunDuration = Math.max(g.pulseWaveStunDuration, 0.5 + 0.2 * idx); }
               }
           });
       });
@@ -557,7 +557,7 @@ function generateCyberpunkArsenal() {
                    if(s.name==="游侠") { g.playerSpeedMulti *= 1.1; g.dodgeChance += 0.05; }
                    if(s.name==="医疗") { g.regenRate += 2; g.combatRegenBoost = true; }
                    if(s.name==="狂徒") { g.lowHpDamageBoost = true; g.lowHpDamageMulti += 0.5; }
-                   if(s.name==="掠食者") { g.predatorMode = true; g.predatorAtkSpeedBonus = 0.08 * (idx+1); g.predatorCritBonus = 0.04 * (idx+1); g.predatorDuration = 3.0 + 0.5 * idx; }
+                   if(s.name==="掠食者") { g.predatorMode = true; g.predatorAtkSpeedBonus = Math.max(g.predatorAtkSpeedBonus, 0.08 * (idx+1)); g.predatorCritBonus = Math.max(g.predatorCritBonus, 0.04 * (idx+1)); g.predatorDuration = Math.max(g.predatorDuration, 3.0 + 0.5 * idx); }
                    // ... others imply generic buffs
                    g.damageReduction += 0.01 * (idx+1);
               }
