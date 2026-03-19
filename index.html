@@ -1010,6 +1010,33 @@
         <!-- 版本信息 -->
         <div class="version">v1.0.0</div>
 
+        <!-- 排行榜重置横幅 -->
+        <div id="resetBanner" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(255,70,85,0.95), rgba(180,30,40,0.95));
+            color: #fff;
+            text-align: center;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            box-shadow: 0 4px 20px rgba(255,70,85,0.5);
+            animation: bannerPulse 2s ease-in-out infinite;
+        ">
+            ⚠️ 排行榜已重置！！！ 彻底重构了战力系统 ⚠️
+        </div>
+        <style>
+            @keyframes bannerPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.85; }
+            }
+        </style>
+
         <!-- 主内容 -->
         <div class="content">
             <div class="logo-container">
@@ -1394,11 +1421,41 @@
             }
         });
 
+        // 排行榜重置横幅逻辑（显示到2026-03-21）
+        function initResetBanner() {
+            const banner = document.getElementById('resetBanner');
+            if (!banner) return;
+            const deadline = new Date('2026-03-21T23:59:59Z');
+            if (new Date() <= deadline) {
+                banner.style.display = 'block';
+            }
+        }
+
+        // 排行榜数据清理（标记旧数据为last=true，只执行一次）
+        function initLeaderboardReset() {
+            const RESET_KEY = 'bigear_lb_reset_v170';
+            try {
+                if (localStorage.getItem(RESET_KEY)) return;
+                // 延迟执行，等Supabase初始化
+                setTimeout(async () => {
+                    if (window.SupabaseAPI && typeof window.SupabaseAPI.markAllAsLast === 'function') {
+                        await window.SupabaseAPI.markAllAsLast();
+                        localStorage.setItem(RESET_KEY, '1');
+                        console.log('[v1.7.0] 排行榜旧数据已标记为last');
+                    }
+                }, 2000);
+            } catch (e) {
+                console.error('排行榜重置失败:', e);
+            }
+        }
+
         // 初始化
         window.addEventListener('load', () => {
             createParticles();
             initBackgroundVideo();
             playBackgroundVideo();
+            initResetBanner();
+            initLeaderboardReset();
             
             // 预加载游戏资源
             setTimeout(() => {

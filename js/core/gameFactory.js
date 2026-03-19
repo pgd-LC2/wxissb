@@ -558,8 +558,7 @@
       const calm = clamp(sinceHit / W, 0, 1);
       const efficiency = dps / Math.max(1, dtps);
 
-      // 线性缩放 - 战力无限增长，没有任何减缓
-      // 每个指标按基准值线性归一化，超过基准值后继续等比例增长
+      // 线性缩放，但战力上限100000
       const nK = Math.max(0, kpm / 80);
       const nD = Math.max(0, dps / 900);
       const nB = Math.max(0, buildDps / 1200);
@@ -579,8 +578,8 @@
         0.05 * calm +
         0.03 * hpRatio;
 
-      // 线性缩放，战力无限增长无减缓
-      const rating = Math.max(0, 1000 * raw);
+      // 线性缩放，战力硬上限100000（不使用log）
+      const rating = Math.min(100000, Math.max(0, 1000 * raw));
       const tc = g._combatTierFromScore(rating);
 
       return {
@@ -660,11 +659,42 @@
       // 击杀率追踪（滚动10秒窗口）
       _killTimestamps: [],  // 记录每次击杀的时间戳
       _killsPer10s: 0,      // 最近10秒击杀数（缓存）
+      // 滑动平均战力（用于平滑难度计算）
+      _recentPowers: [],    // 最近N次战力快照
+      _smoothFrames: 8,     // 滑动平均窗口大小
     };
 
     // 记录一次击杀（由 killEnemy 调用）
     g.recordKillForSpawn = (t) => {
       g.director._killTimestamps.push(t);
+    };
+
+    // 获取滑动平均战力（平滑难度用）
+    g._getSmoothedPower = () => {
+      const d = g.director;
+      const currentPower = (g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0;
+      d._recentPowers.push(currentPower);
+      if (d._recentPowers.length > d._smoothFrames) d._recentPowers.shift();
+      let sum = 0;
+      for (let i = 0; i < d._recentPowers.length; i++) sum += d._recentPowers[i];
+      return d._recentPowers.length > 0 ? sum / d._recentPowers.length : 0;
+    };
+
+    // 根据等级计算预期战力（用于Sigmoid难度映射）
+    g._getExpectedPowerForLevel = (level) => {
+      // 等级1预期战力~50，等级50预期战力~5000
+      return 50 + (level - 1) * 100;
+    };
+
+    // 根据等级计算基准难度
+    g._getBaseDifficultyForLevel = (level) => {
+      let base = 1.0 + (level - 1) * 0.15;
+      // 50关后渐进式难度增长：每10关+5%
+      if (level > 50) {
+        const extra = Math.floor((level - 50) / 10) * 0.05;
+        base *= (1.0 + extra);
+      }
+      return base;
     };
 
     // 计算最近10秒内的击杀数
@@ -699,7 +729,29 @@
       // 更新战力评分（用于敌人属性缩放和精英概率）
       g.updateCombatRating(t);
 
-      const p = (g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0;
+      // === Sigmoid 平滑难度曲线 ===
+      const smoothedPower = g._getSmoothedPower();
+      const expectedPower = g._getExpectedPowerForLevel(g.level);
+      const rawPowerRatio = expectedPower > 0 ? smoothedPower / expectedPower : 1.0;
+
+      // Sigmoid函数：将战力比值压缩到0.5-1.5之间（斜率=4, 中点=1.0）
+      const sigmoid = 1.0 / (1.0 + Math.exp(-4 * (rawPowerRatio - 1.0)));
+      const clampedRatio = 0.5 + sigmoid; // 映射到0.5-1.5
+
+      // 基准难度（含后期递增）
+      const baseDiff = g._getBaseDifficultyForLevel(g.level);
+
+      // 最终难度 = 基准难度 * (0.8 + clampedRatio * 0.7)
+      // clampedRatio范围0.5~1.5 → 乘数范围1.15~1.85
+      let finalDiff = baseDiff * (0.8 + clampedRatio * 0.7);
+
+      // 应用难度上下限：70%~200%基准难度
+      finalDiff = clamp(finalDiff, baseDiff * 0.7, baseDiff * 2.0);
+
+      d.diff = finalDiff;
+
+      // strength 保留用于其他系统（精英概率等）
+      const p = smoothedPower;
       const strength = clamp(p / 650, 0, 1.8);
       d.strength = strength;
 
@@ -707,12 +759,9 @@
       const timeProg = clamp(timeAlive / 240, 0, 1);
       d.progress = clamp(0.55 * timeProg + 0.45 * clamp(strength / 1.2, 0, 1), 0, 1);
 
-      // 敌人属性缩放（保留：HP、伤害、速度随等级和战力增长）
-      const playerDmg = safeNumber(g.bulletDamage, 15);
-      const dmgFactor = clamp(Math.log2(Math.max(1, playerDmg / 15)), 0, 4);
-      d.diff = clamp(1.0 + (g.level - 1) * 0.13 + strength * 1.1 + dmgFactor * 0.6, 1.0, 16.0);
-      d.dmgMul = clamp(1.0 + (g.level - 1) * 0.12 + strength * 0.35 + dmgFactor * 0.15, 1.0, 8.0);
-      d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + strength * 0.25 + timeProg * 0.3, 1.0, 2.0);
+      // 伤害和速度缩放也使用Sigmoid平滑后的值
+      d.dmgMul = clamp(baseDiff * (0.7 + clampedRatio * 0.5), 1.0, 8.0);
+      d.speedMul = clamp(1.0 + (g.level - 1) * 0.04 + (clampedRatio - 0.5) * 0.3 + timeProg * 0.3, 1.0, 2.0);
 
       const level = g.level;
 

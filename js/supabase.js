@@ -154,6 +154,30 @@ const SupabaseAPI = {
   },
 
   /**
+   * 将所有现有排行榜数据标记为旧版本（last = true）
+   * 用于版本重大更新后清空排行榜
+   */
+  async markAllAsLast() {
+    const client = getSupabaseClient();
+    if (!client) {
+      console.error('Supabase client not initialized');
+      return { error: 'Supabase client not initialized' };
+    }
+
+    const { data, error } = await client
+      .from('leaderboard')
+      .update({ last: true })
+      .eq('last', false);
+
+    if (error) {
+      console.error('Error marking leaderboard as last:', error);
+      return { error };
+    }
+
+    return { data };
+  },
+
+  /**
    * 获取排行榜（兼容旧接口）
    * 默认按战力排序，不包含旧版本数据
    */
