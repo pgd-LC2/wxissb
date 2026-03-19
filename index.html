@@ -1431,31 +1431,12 @@
             }
         }
 
-        // 排行榜数据清理（标记旧数据为last=true，只执行一次）
-        function initLeaderboardReset() {
-            const RESET_KEY = 'bigear_lb_reset_v170';
-            try {
-                if (localStorage.getItem(RESET_KEY)) return;
-                // 延迟执行，等Supabase初始化
-                setTimeout(async () => {
-                    if (window.SupabaseAPI && typeof window.SupabaseAPI.markAllAsLast === 'function') {
-                        await window.SupabaseAPI.markAllAsLast();
-                        localStorage.setItem(RESET_KEY, '1');
-                        console.log('[v1.7.0] 排行榜旧数据已标记为last');
-                    }
-                }, 2000);
-            } catch (e) {
-                console.error('排行榜重置失败:', e);
-            }
-        }
-
         // 初始化
         window.addEventListener('load', () => {
             createParticles();
             initBackgroundVideo();
             playBackgroundVideo();
             initResetBanner();
-            initLeaderboardReset();
             
             // 预加载游戏资源
             setTimeout(() => {
