@@ -1939,7 +1939,7 @@
       }
 
       // 弹道偏转：子弹命中后弹射至附近敌人
-      if (g.bulletBounceChance > 0 && !bullet._bounced && Math.random() < g.bulletBounceChance) {
+      if (g.bulletBounceChance > 0 && (bullet._bounceCount || 0) < g.bulletBounceCount && Math.random() < g.bulletBounceChance) {
         let bounceTarget = null;
         let bestD2 = 200 * 200;
         for (let i = 0; i < g.enemies.length; i++) {
@@ -1955,7 +1955,7 @@
           const bounceBullet = {
             id: nextId(), x: enemy.x, y: enemy.y, w: bullet.w, h: bullet.h, rot: bAngle - Math.PI/2,
             vx: Math.cos(bAngle) * bSpeed, vy: Math.sin(bAngle) * bSpeed,
-            born: t, die: t + 1.0, pierceLeft: 0, _bounced: true, hitIds: [enemy.id]
+            born: t, die: t + 1.0, pierceLeft: 0, _bounceCount: (bullet._bounceCount || 0) + 1, hitIds: [enemy.id]
           };
           g.bullets.push(bounceBullet);
           g.effects.push({ kind:"line", x1:enemy.x, y1:enemy.y, x2:enemy.x + Math.cos(bAngle)*30, y2:enemy.y + Math.sin(bAngle)*30, start:t, end:t+0.15, color:"#ffcc00" });
