@@ -622,7 +622,11 @@
       try {
         if (localStorage.getItem(RESET_KEY)) return;
         if (window.SupabaseAPI && typeof window.SupabaseAPI.markAllAsLast === 'function') {
-          await window.SupabaseAPI.markAllAsLast();
+          const result = await window.SupabaseAPI.markAllAsLast();
+          if (result && result.error) {
+            console.error('排行榜重置失败:', result.error);
+            return;
+          }
           localStorage.setItem(RESET_KEY, '1');
           console.log('[v1.7.0] 排行榜旧数据已标记为last');
         }
