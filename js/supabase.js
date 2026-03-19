@@ -164,10 +164,13 @@ const SupabaseAPI = {
       return { error: 'Supabase client not initialized' };
     }
 
+    // 只标记v1.7.0发布前的数据，避免新版本提交的分数被误标记
+    const cutoff = '2026-03-19T00:00:00Z';
     const { data, error } = await client
       .from('leaderboard')
       .update({ last: true })
-      .eq('last', false);
+      .eq('last', false)
+      .lt('created_at', cutoff);
 
     if (error) {
       console.error('Error marking leaderboard as last:', error);
