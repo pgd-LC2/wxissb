@@ -15,6 +15,7 @@
     expFill: document.getElementById("expFill"),
     skillCountEl: document.getElementById("skillCount"),
     powerBadgeEl: document.getElementById("powerBadge"),
+    bladeBadgeEl: document.getElementById("bladeBadge"),
     fpsCounter: document.getElementById("fpsCounter"),
 
 
