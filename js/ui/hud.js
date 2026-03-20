@@ -2,7 +2,7 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
-  const { levelBadge, hpFill, expFill, skillCountEl, powerBadgeEl } = GameApp.DOM;
+  const { levelBadge, hpFill, expFill, skillCountEl, powerBadgeEl, bladeBadgeEl } = GameApp.DOM;
   const { clamp, nowSec } = GameApp.Deps.utils;
 
   // 获取职业武器徽章元素
@@ -42,6 +42,17 @@
         }
       } else {
         classWeaponBadgeEl.style.display = "none";
+      }
+    }
+
+    // 飞刀数量显示
+    if (bladeBadgeEl) {
+      const bladeCount = game.bladeOrbitCount || 0;
+      if (bladeCount > 0) {
+        bladeBadgeEl.style.display = "block";
+        bladeBadgeEl.textContent = `🔪 飞刀: ${bladeCount}`;
+      } else {
+        bladeBadgeEl.style.display = "none";
       }
     }
 
