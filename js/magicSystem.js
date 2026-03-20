@@ -1244,6 +1244,36 @@
       }
     }
     
+    // 棱镜结界 - 子弹命中时折射出多道光线攻击附近敌人
+    if (m.prismDomainEnabled) {
+      const splitCount = m.prismDomainSplitCount || 3;
+      const damageMult = m.prismDomainDamageMult || 0.6;
+      const prismDmg = g.bulletDamage * damageMult;
+      const prismRange = 120;
+      let hits = 0;
+      for (let i = 0; i < g.enemies.length && hits < splitCount; i++) {
+        const e = g.enemies[i];
+        if (e._dead || e === enemy) continue;
+        const dx = e.x - enemy.x, dy = e.y - enemy.y;
+        if (dx * dx + dy * dy < prismRange * prismRange) {
+          if (g.applyDamageToEnemy) {
+            g.applyDamageToEnemy(e, prismDmg, t);
+          }
+          // 折射光线视觉效果
+          if (g.effects) {
+            g.effects.push({
+              kind: 'line',
+              x1: enemy.x, y1: enemy.y,
+              x2: e.x, y2: e.y,
+              color: '#e0aaff',
+              start: t, end: t + 0.12
+            });
+          }
+          hits++;
+        }
+      }
+    }
+
     // 绝对零度
     if (m.absoluteZero && enemy.frozenUntil && t < enemy.frozenUntil) {
       const bonusDamage = g.bulletDamage * (m.frozenDamageBonus || 0.50);
