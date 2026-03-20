@@ -216,8 +216,6 @@
         effect: g => { g.magic.thunderRage = true; g.magic.thunderRageMaxBonus = 1.0; }},
       { name: "电磁脉冲", tier: 3, desc: "每10秒释放电磁脉冲，眩晕敌人",
         effect: g => { g.magic.empEnabled = true; g.magic.empInterval = 10; g.magic.empStunDuration = 1.5; }},
-      { name: "闪电传送", tier: 3, desc: "受到致命伤害时闪电传送到安全位置",
-        effect: g => { g.magic.lightningEscape = true; }},
       { name: "雷神降临", tier: 5, desc: "变身雷神形态，所有攻击附带雷电",
         effect: g => { g.magic.thorForm = true; g.magic.allAttacksLightning = true; }},
       
@@ -241,7 +239,9 @@
       { name: "离子风暴", tier: 4, desc: "创建离子风暴区域，持续雷击",
         effect: g => { g.magic.ionStormEnabled = true; g.magic.ionStormRadius = 200; }},
       { name: "雷帝之怒", tier: 5, desc: "雷电伤害+100%，免疫麻痹，所有雷电效果翻倍",
-        effect: g => { g.magic.thunderEmperor = true; g.magic.elementalAffinity.lightning += 1.0; }}
+        effect: g => { g.magic.thunderEmperor = true; g.magic.elementalAffinity.lightning += 1.0; }},
+      { name: "雷霆之锚", tier: 3, desc: "在当前位置放置雷锚，5秒内可瞬移回去并引爆雷锚对周围敌人造成伤害",
+        effect: g => { g.magic.thunderAnchor = true; g.magic.thunderAnchorDamage = 80; g.magic.thunderAnchorDuration = 5; }}
     ];
     
     // 风系 (10个)
@@ -257,8 +257,6 @@
       { name: "风暴召唤", tier: 4, desc: "召唤风暴笼罩战场，所有敌人减速",
         effect: g => { g.magic.stormCallEnabled = true; g.magic.stormSlowAmount = 0.30; }},
       
-      { name: "气流操控", tier: 2, desc: "可以推开敌人的弹道攻击",
-        effect: g => { g.magic.airControlEnabled = true; }},
       { name: "旋风斩", tier: 3, desc: "旋转时释放旋风斩伤害周围敌人",
         effect: g => { g.magic.whirlwindEnabled = true; g.magic.whirlwindDamage = 30; }},
       { name: "风之精通", tier: 2, desc: "所有风系技能效果+30%",
@@ -266,7 +264,9 @@
       { name: "风神疾行", tier: 4, desc: "移动速度+50%，受击时有几率闪避",
         effect: g => { g.playerSpeedMulti *= 1.5; g.dodgeChance += 0.15; }},
       { name: "风王结界", tier: 5, desc: "创建风之结界，敌人无法接近",
-        effect: g => { g.magic.windBarrierEnabled = true; g.magic.windBarrierRadius = 120; }}
+        effect: g => { g.magic.windBarrierEnabled = true; g.magic.windBarrierRadius = 120; }},
+      { name: "风压屏障", tier: 2, desc: "近身敌人被风压弹开，并受到少量伤害",
+        effect: g => { g.magic.windPressureBarrier = true; g.magic.windPressureKnockback = 120; g.magic.windPressureDamage = 15; }}
     ];
     
     // 土系 (10个)
@@ -363,17 +363,17 @@
         effect: g => { g.magic.stoneGolemCount = (g.magic.stoneGolemCount||0) + 1; }},
       { name: "石傀儡强化", tier: 3, desc: "石傀儡生命+200，攻击击退敌人",
         effect: g => { g.magic.stoneGolemHealthBonus = 200; g.magic.stoneGolemKnockback = true; }},
-      { name: "召唤铁傀儡", tier: 3, desc: "召唤铁傀儡，高护甲高伤害",
-        effect: g => { g.magic.ironGolemCount = (g.magic.ironGolemCount||0) + 1; }},
       { name: "召唤水晶傀儡", tier: 3, desc: "召唤水晶傀儡，反弹敌人攻击",
         effect: g => { g.magic.crystalGolemCount = (g.magic.crystalGolemCount||0) + 1; }},
       { name: "召唤熔岩傀儡", tier: 4, desc: "召唤熔岩傀儡，接触敌人造成持续燃烧",
         effect: g => { g.magic.lavaGolemCount = (g.magic.lavaGolemCount||0) + 1; }},
+      { name: "召唤暗影刺客", tier: 3, desc: "召唤隐身暗影刺客，优先暗杀低血量敌人",
+        effect: g => { g.magic.shadowAssassinCount = (g.magic.shadowAssassinCount||0) + 1; g.magic.shadowAssassinDamage = 60; }},
       
       { name: "傀儡制造者", tier: 4, desc: "所有傀儡数量+1",
         effect: g => { 
           g.magic.stoneGolemCount = (g.magic.stoneGolemCount||0) + 1;
-          g.magic.ironGolemCount = (g.magic.ironGolemCount||0) + 1;
+          g.magic.shadowAssassinCount = (g.magic.shadowAssassinCount||0) + 1;
         }},
       { name: "傀儡爆炸", tier: 3, desc: "傀儡死亡时爆炸",
         effect: g => { g.magic.golemExplosion = true; g.magic.golemExplosionDamage = 100; }},
@@ -498,8 +498,6 @@
         effect: g => { g.dodgeChance += 0.30; g.magic.futureVision = true; }},
       { name: "时间碎片", tier: 3, desc: "击杀敌人掉落时间碎片加速技能冷却",
         effect: g => { g.magic.timeShardDrop = true; }},
-      { name: "永恒瞬间", tier: 5, desc: "暴击时有几率触发时间暂停效果",
-        effect: g => { g.magic.eternalMoment = true; g.magic.eternalMomentChance = 0.10; }},
       
       { name: "加速光环", tier: 2, desc: "周围召唤物攻速+30%",
         effect: g => { g.magic.hasteAura = true; g.magic.hasteAuraBonus = 0.30; }},
@@ -522,6 +520,8 @@
         effect: g => { g.magic.timeLoop = true; g.magic.timeLoopChance = 0.20; }},
       { name: "时间大师", tier: 5, desc: "所有时间技能效果翻倍",
         effect: g => { g.magic.timeMaster = true; }},
+      { name: "时间侵蚀", tier: 5, desc: "敌人在战场上每秒变弱1%，最大生命和伤害持续降低",
+        effect: g => { g.magic.timeErosion = true; g.magic.timeErosionRate = 0.01; g.magic.timeErosionMax = 0.50; }},
       
       // 空间系 (30个)
       { name: "空间折叠", tier: 3, desc: "瞬间移动到随机安全位置",
@@ -535,8 +535,6 @@
       { name: "维度切割", tier: 4, desc: "攻击切割维度造成大量伤害",
         effect: g => { g.magic.dimensionCut = true; g.magic.dimensionCutDamage = 100; }},
       
-      { name: "空间护盾", tier: 2, desc: "扭曲空间偏转攻击",
-        effect: g => { g.damageReduction += 0.15; g.magic.spaceShield = true; }},
       { name: "虚空之门", tier: 5, desc: "打开虚空之门吞噬敌人",
         effect: g => { g.magic.voidGateEnabled = true; }},
       { name: "空间锚定", tier: 3, desc: "锁定敌人位置使其无法移动",
@@ -556,6 +554,8 @@
         effect: g => { g.magic.voidWalker = true; }},
       { name: "空间大师", tier: 5, desc: "所有空间技能效果翻倍",
         effect: g => { g.magic.spaceMaster = true; }},
+      { name: "维度棱镜", tier: 2, desc: "攻击经过棱镜折射，分裂为3束射向附近敌人",
+        effect: g => { g.magic.dimensionPrism = true; g.magic.dimensionPrismSplits = 3; g.magic.dimensionPrismDamage = 0.4; }},
       
       { name: "折叠时空", tier: 5, desc: "攻击范围翻倍",
         effect: g => { g.magic.foldedSpace = true; g.magic.spellAreaBonus += 1.0; }},
@@ -917,8 +917,6 @@
         effect: g => { g.playerMaxHealth += 30; g.playerHealth += 30; g.regenRate += 1; }},
       { name: "生命力", tier: 3, desc: "最大生命+15%",
         effect: g => { g.playerMaxHealth = Math.round(g.playerMaxHealth * 1.15); g.playerHealth = Math.round(g.playerHealth * 1.15); }},
-      { name: "回春", tier: 2, desc: "每次升级回复全部生命",
-        effect: g => { g.magic.levelUpHeal = true; }},
       { name: "生命泉", tier: 3, desc: "击杀10个敌人后释放治愈脉冲",
         effect: g => { g.magic.killHealPulse = true; g.magic.killHealPulseThreshold = 10; }},
       
@@ -931,7 +929,9 @@
       { name: "生命绽放", tier: 4, desc: "击杀敌人时绽放生命能量回复周围",
         effect: g => { g.magic.lifeBloom = true; }},
       { name: "永生", tier: 5, desc: "无法被杀死，但受到伤害+50%",
-        effect: g => { g.magic.immortality = true; g.damageReduction -= 0.50; }}
+        effect: g => { g.magic.immortality = true; g.damageReduction -= 0.50; }},
+      { name: "战斗冥想", tier: 2, desc: "连续3秒未受伤时每秒回复5%最大生命",
+        effect: g => { g.magic.combatMeditation = true; g.magic.combatMeditationDelay = 3; g.magic.combatMeditationHealPercent = 0.05; }}
     ];
     
     skills.push(...healingSkills.map(s => ({ ...s, icon: "heart.fill", category: "healing" })));

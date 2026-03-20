@@ -247,8 +247,15 @@
       bladeOrbitExecute: false,        // 死亡飞刀：斩杀效果
       bladeOrbitExecuteThreshold: 0,   // 斩杀血线
       bladeOrbitExecuteMult: 1,        // 斩杀倍率
-      bladeOrbitFrozenBonusDamage: 1,  // 冰碎：对冰冻敌人额外倍率
+      bladeOrbitFrozenBonusDamage: 1,  // 冰碎：对冰冻敌人额外倍率（已移除）
       bladeOrbitBurnBonusDamage: 1,    // 火焰爆发：对燃烧敌人额外倍率
+      bladeOrbitArmorShred: false,     // 破甲飞旋：命中降低敌人护甲
+      bladeOrbitArmorShredAmount: 0,   // 破甲比例
+      bladeOrbitArmorShredDuration: 0, // 破甲持续时间
+
+      // 重力场属性
+      gravityFieldEnabled: false,
+      gravityFieldStrength: 0,
 
       // 飞刀新增属性 - 冰霜效果
       bladeOrbitSlowChance: 0,         // 减速几率
@@ -2080,10 +2087,6 @@
         damage *= (1 + g.bladeOrbitCounterBonus);
       }
 
-      // 冰碎：对冰冻敌人额外伤害
-      if (g.bladeOrbitFrozenBonusDamage > 1 && enemy.frozenUntil && t < enemy.frozenUntil) {
-        damage *= g.bladeOrbitFrozenBonusDamage;
-      }
 
       // 火焰爆发：对燃烧敌人额外伤害
       if (g.bladeOrbitBurnBonusDamage > 1 && enemy.burnEnd && t < enemy.burnEnd) {
@@ -2131,6 +2134,14 @@
       SFX.blade(t);
       g.hitStop(0.02, 0.35, t);
       g.shakeCamera(isCrit ? 0.10 : 0.07, isCrit ? 6 : 4, t);
+
+      // 破甲飞旋：命中降低敌人护甲
+      if (g.bladeOrbitArmorShred && enemy.armor > 0) {
+        enemy._armorShredEnd = t + g.bladeOrbitArmorShredDuration;
+        enemy._armorShredAmount = g.bladeOrbitArmorShredAmount;
+        if (!enemy._originalArmor) enemy._originalArmor = enemy.armor;
+        enemy.armor = enemy._originalArmor * (1 - enemy._armorShredAmount);
+      }
 
       // 飞刀命中附加状态效果
       g.applyBladeStatusEffects(enemy, t);
@@ -2748,6 +2759,25 @@
 
       for (let i = 0; i < g.enemies.length; i++) {
         const e = g.enemies[i];
+
+        // 重力场：将敌人轻微拉向玩家
+        if (g.gravityFieldEnabled && g.gravityFieldStrength > 0) {
+          const gdx = g.player.x - e.x;
+          const gdy = g.player.y - e.y;
+          const gDist = Math.sqrt(gdx * gdx + gdy * gdy);
+          if (gDist > 30 && gDist < 400) {
+            const pullForce = g.gravityFieldStrength * dt / Math.max(gDist, 60);
+            e.x += gdx * pullForce * 0.01;
+            e.y += gdy * pullForce * 0.01;
+          }
+        }
+
+        // 破甲飞旋：护甲削减恢复
+        if (e._armorShredEnd && t > e._armorShredEnd && e._originalArmor) {
+          e.armor = e._originalArmor;
+          e._armorShredEnd = 0;
+          e._originalArmor = 0;
+        }
 
         // 检测敌人是否距离玩家过远（超出4个屏幕距离）
         // 如果过远，则将敌人传送到屏幕外附近

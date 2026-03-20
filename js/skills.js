@@ -140,7 +140,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"远程打击", description:"子弹存活时间 +0.5秒", tier:1, icon:"scope", effect:(s)=>{ s.bulletLifetime += 0.5; }});
   skills.push({ name:"精准射手", description:"暴击率 +8%", tier:1, icon:"target", effect:(s)=>{ s.critRate += 0.08; }});
   skills.push({ name:"暴击大师", description:"暴击伤害 +30%", tier:2, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.critDamageMulti += 0.3; }});
-  skills.push({ name:"磁铁体质", description:"拾取范围 +40%", tier:1, icon:"magnet", effect:(s)=>{ s.pickupRange *= 1.4; }});
+  skills.push({ name:"重力场", description:"敌人被轻微拉向玩家，更容易命中", tier:1, icon:"magnet", effect:(s)=>{ s.gravityFieldEnabled = true; s.gravityFieldStrength = (s.gravityFieldStrength||0) + 30; }});
   skills.push({ name:"万有引力", description:"自动吸取所有经验球，无需靠近", tier:3, icon:"sparkles", effect:(s)=>{ s.expMagnetAll = true; }});
   skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
   skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
@@ -305,6 +305,8 @@ function generateCyberpunkArsenal() {
 
   elements.forEach(elem => {
     forms.forEach(form => {
+      // 跳过被举报的生化弹头组合
+      if (elem.id === 'bio' && form.id === 'bullet') return;
       levels.forEach((lvl, idx) => {
         const tier = idx + 1;
         const power = levelMult[idx];
@@ -478,8 +480,8 @@ function generateCyberpunkArsenal() {
     {name: "时间膨胀", desc: "敌人子弹速度减半", icon: "timer"},
     {name: "量子纠缠", desc: "子弹命中后在敌人间产生量子链接，共享伤害", icon: "atom"},
     {name: "数据虹吸", desc: "每秒偷取周围敌人生命", icon: "network"},
-    {name: "防火墙",   desc: "生成阻挡敌人的火墙", icon: "shield_tech"},
-    {name: "根权限",   desc: "所有技能效果提升10%", icon: "key"}
+    {name: "根权限",   desc: "所有技能效果提升10%", icon: "key"},
+    {name: "入侵协议", desc: "黑入敌人系统使其攻击友方", icon: "glitch"}
   ];
   
   hacks.forEach(hack => {
@@ -536,13 +538,13 @@ function generateCyberpunkArsenal() {
       {name: "泰坦", desc: "极大提升生命与护甲"},
       {name: "游侠", desc: "提升移速与闪避"},
       {name: "虚空", desc: "受伤瞬移"},
-      {name: "反应", desc: "受击自动反击"},
       {name: "医疗", desc: "大幅提升回复"},
       {name: "掠食者", desc: "击杀后获得攻速与暴击加成"},
       {name: "幽灵", desc: "穿透敌人移动"},
       {name: "要塞", desc: "静止时无敌"},
       {name: "狂徒", desc: "血量越低伤害越高"},
-      {name: "主宰", desc: "免疫控制与击退"}
+      {name: "主宰", desc: "免疫控制与击退"},
+      {name: "聚能", desc: "受击积累能量释放冲击波"}
   ];
 
   suits.forEach(s => {
@@ -647,7 +649,7 @@ function generateExtraBladeSkills() {
     { name:"冰封刀舞", description:"飞刀冰冻几率 +25%，冰冻持续 1.5秒", tier:3, icon:"snowflake", effect:(s)=>{ s.bladeOrbitFreezeChance = Math.min(1, (s.bladeOrbitFreezeChance||0) + 0.25); s.bladeOrbitFreezeDuration = Math.max(s.bladeOrbitFreezeDuration||0, 1.5); } },
     { name:"绝对零度", description:"飞刀必定冰冻敌人 2秒", tier:5, icon:"snowflake", effect:(s)=>{ s.bladeOrbitFreezeChance = 1.0; s.bladeOrbitFreezeDuration = Math.max(s.bladeOrbitFreezeDuration||0, 2.0); } },
     { name:"霜刃减速", description:"飞刀命中减速敌人 30%，持续 2秒", tier:2, icon:"snowflake", effect:(s)=>{ s.bladeOrbitSlowChance = Math.min(1, (s.bladeOrbitSlowChance||0) + 0.50); s.bladeOrbitSlowAmount = 0.30; s.bladeOrbitSlowDuration = 2.0; } },
-    { name:"冰碎", description:"冰冻的敌人受到飞刀伤害 +80%", tier:3, icon:"snowflake", effect:(s)=>{ s.bladeOrbitFrozenBonusDamage = (s.bladeOrbitFrozenBonusDamage||1) * 1.80; } },
+    { name:"破甲飞旋", description:"飞刀命中使敌人护甲降低25%，持续3秒", tier:3, icon:"snowflake", effect:(s)=>{ s.bladeOrbitArmorShred = true; s.bladeOrbitArmorShredAmount = (s.bladeOrbitArmorShredAmount||0) + 0.25; s.bladeOrbitArmorShredDuration = 3.0; } },
     { name:"寒气弥漫", description:"飞刀半径 +25，命中散发寒气减速周围敌人", tier:3, icon:"snowflake", effect:(s)=>{ s.bladeOrbitRadius += 25; s.bladeOrbitFrostAura = true; } },
     { name:"冰刃连锁", description:"飞刀冰冻敌人时，冰冻效果扩散到附近敌人", tier:4, icon:"snowflake", effect:(s)=>{ s.bladeOrbitFreezeSpread = true; } },
     { name:"冰晶爆裂", description:"冰冻的敌人被再次命中时爆炸，造成范围伤害", tier:4, icon:"snowflake", effect:(s)=>{ s.bladeOrbitIceExplosion = true; } },
