@@ -886,8 +886,9 @@
         effect: g => { g.emergencyHealActive = true; }},
       { name: "生命祝福", tier: 4, desc: "最大生命+100，回复+3/秒",
         effect: g => { g.playerMaxHealth += 100; g.playerHealth += 100; g.regenRate += 3; }},
-      { name: "不死之身", tier: 5, desc: "受到致命伤害时免疫并回复30%生命",
-        effect: g => { g.magic.undying = true; g.magic.undyingCooldown = 60; }},
+      // 不死之身已被举报删除，替换为生命脉冲
+      { name: "生命脉冲", tier: 5, desc: "生命低于10%时释放生命脉冲，回复50%生命并击退周围敌人（每60秒一次）",
+        effect: g => { g.magic.lifePulse = true; g.magic.lifePulseCooldown = 60; g.magic.lifePulseHealPercent = 0.5; g.magic.lifePulseKnockback = 200; }},
       
       { name: "生命之树", tier: 4, desc: "召唤生命之树持续治愈",
         effect: g => { g.magic.treeOfLife = true; }},

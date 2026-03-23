@@ -307,6 +307,8 @@ function generateCyberpunkArsenal() {
     forms.forEach(form => {
       // 跳过被举报的生化弹头组合
       if (elem.id === 'bio' && form.id === 'bullet') return;
+      // 跳过被举报的虚空陷阱系列（替换为等离子陷阱增强版，见下方）
+      if (elem.id === 'void' && form.id === 'mine') return;
       levels.forEach((lvl, idx) => {
         const tier = idx + 1;
         const power = levelMult[idx];
@@ -326,6 +328,27 @@ function generateCyberpunkArsenal() {
           }
         });
       });
+    });
+  });
+
+  // 替换被举报的虚空陷阱系列：重力井陷阱（全新元素组合）
+  // 5个等级的重力井陷阱，拥有独特的引力塌缩机制
+  levels.forEach((lvl, idx) => {
+    const tier = idx + 1;
+    const power = levelMult[idx];
+    skills.push({
+      name: `重力井陷阱 ${lvl}`,
+      description: `部署重力井陷阱，将范围内敌人拉向中心并造成${Math.round(15*power)}点挤压伤害。持续${(2 + idx).toFixed(0)}秒。`,
+      tier: tier,
+      icon: "magnet_tech",
+      effect: (g) => {
+        if (!g.cyber) g.cyber = {};
+        const key = 'gravity_well_trap';
+        g.cyber[key] = (g.cyber[key] || 0) + power;
+        // 增强重力场效果
+        g.gravityFieldEnabled = true;
+        g.gravityFieldStrength = (g.gravityFieldStrength || 0) + 20 * (idx + 1);
+      }
     });
   });
 
@@ -414,7 +437,7 @@ function generateCyberpunkArsenal() {
   // 10 个部位 x 2 种倾向 x 5 个等级
   const parts = [
      {name: "光学义眼", attr: "暴击", var1: "精准", var2: "致命"},
-     {name: "液压臂", attr: "近战/击退", var1: "强力", var2: "粉碎"},
+     {name: "液压臂", attr: "近战/击退", var1: "强力", var2: "冲击"},
      {name: "强化骨骼", attr: "生命", var1: "钛金", var2: "复合"},
      {name: "突触加速器", attr: "攻速", var1: "超频", var2: "反应"},
      {name: "皮下护甲", attr: "减伤", var1: "石墨烯", var2: "力场"},
@@ -726,7 +749,8 @@ function generateExtraBladeSkills() {
     // --- 防御与护盾类 (6个) ---
     { name:"刀盾", description:"飞刀提供 5% 伤害减免（每把）", tier:2, icon:"shield.fill", effect:(s)=>{ s.bladeOrbitDamageReduction = (s.bladeOrbitDamageReduction||0) + 0.05; } },
     { name:"铁壁刀阵", description:"飞刀提供 10% 伤害减免（每把）", tier:3, icon:"shield.fill", effect:(s)=>{ s.bladeOrbitDamageReduction = (s.bladeOrbitDamageReduction||0) + 0.10; } },
-    { name:"刃之守护", description:"受到致命伤害时飞刀数量-1但免疫此次伤害", tier:4, icon:"shield.fill", effect:(s)=>{ s.bladeOrbitDeathSave = true; } },
+    // 刃之守护已被举报删除，替换为刀阵漩涡
+    { name:"刀阵漩涡", description:"飞刀高速旋转形成漩涡，持续吸引半径内敌人靠近", tier:4, icon:"tornado", effect:(s)=>{ s.bladeOrbitVortex = true; s.bladeOrbitVortexRange = 120; s.bladeOrbitVortexStrength = 60; } },
     { name:"反击飞刃", description:"受到伤害时所有飞刀伤害 +20%（持续3秒）", tier:2, icon:"shield.fill", effect:(s)=>{ s.bladeOrbitCounterAttack = true; s.bladeOrbitCounterBonus = 0.20; } },
     { name:"荆棘飞刀", description:"敌人被飞刀命中后，攻击该敌人回复1生命", tier:3, icon:"leaf.fill", effect:(s)=>{ s.bladeOrbitThornHeal = true; } },
     { name:"绝对防御", description:"飞刀数量>10时，免疫所有控制效果", tier:5, icon:"shield.fill", effect:(s)=>{ s.bladeOrbitCCImmune = true; s.bladeOrbitCCImmuneThreshold = 10; } },
