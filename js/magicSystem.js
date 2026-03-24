@@ -1422,7 +1422,6 @@
     
     // 灵魂烙印：被标记敌人死亡时引发连锁爆炸（首次击杀也触发，后续仅烙印敌人触发）
     if (m.soulBrand && (enemy._soulBranded || !m._soulBrandFirstTriggered)) {
-      m._soulBrandFirstTriggered = true;
       const sbRadius = m.soulBrandExplosionRadius || 60;
       const sbDamage = m.soulBrandDamage || 40;
       let chainCount = 0;
@@ -1437,6 +1436,7 @@
         }
       }
       if (chainCount > 0) {
+        m._soulBrandFirstTriggered = true;
         if (g.createExplosionEffect) g.createExplosionEffect({ x: enemy.x, y: enemy.y }, sbRadius, t);
         if (g.emitBurst) g.emitBurst({ x: enemy.x, y: enemy.y }, 15, '#ff66ff', t, 400);
       }
