@@ -309,6 +309,8 @@ function generateCyberpunkArsenal() {
       if (elem.id === 'bio' && form.id === 'bullet') return;
       // 跳过被举报的虚空陷阱系列（替换为等离子陷阱增强版，见下方）
       if (elem.id === 'void' && form.id === 'mine') return;
+      // 跳过被举报的霓虹新星系列（玩家反馈没用）
+      if (elem.id === 'neon' && form.id === 'nova') return;
       levels.forEach((lvl, idx) => {
         const tier = idx + 1;
         const power = levelMult[idx];
@@ -348,6 +350,28 @@ function generateCyberpunkArsenal() {
         // 增强重力场效果
         g.gravityFieldEnabled = true;
         g.gravityFieldStrength = (g.gravityFieldStrength || 0) + 20 * (idx + 1);
+      }
+    });
+  });
+
+  // 替换被举报的霓虹新星系列：等离子风暴（全新元素组合）
+  // 5个等级的等离子风暴，受击时释放等离子冲击波
+  levels.forEach((lvl, idx) => {
+    const tier = idx + 1;
+    const power = levelMult[idx];
+    skills.push({
+      name: `等离子风暴 ${lvl}`,
+      description: `受击时释放等离子冲击波，对周围敌人造成${Math.round(25*power)}点等离子伤害并附带灼烧效果。冷却${Math.max(1, 4 - idx)}秒。`,
+      tier: tier,
+      icon: "atom",
+      effect: (g) => {
+        if (!g.cyber) g.cyber = {};
+        g.cyber.plasmaStorm = (g.cyber.plasmaStorm || 0) + power;
+        // 受击时释放等离子冲击波
+        g.plasmaStormEnabled = true;
+        g.plasmaStormDamage = (g.plasmaStormDamage || 0) + 25 * power;
+        g.plasmaStormRadius = Math.max(g.plasmaStormRadius || 0, 80 + 20 * idx);
+        g.plasmaStormCooldown = Math.max(1, 4 - idx);
       }
     });
   });
@@ -496,7 +520,7 @@ function generateCyberpunkArsenal() {
   // 5. 战术黑客协议 (50个)
   const hacks = [
     {name: "系统崩溃", desc: "全屏敌人瘫痪3秒", icon: "lock_shield"},
-    {name: "病毒上传", desc: "击杀敌人时传染DoT", icon: "wifi"},
+    {name: "纳米蚀刻", desc: "击中敌人后在其身上刻下纳米符文持续侵蚀", icon: "scribble"},
     {name: "逻辑炸弹", desc: "受击时释放EMP冲击波", icon: "bomb"},
     {name: "内存溢出", desc: "经验球爆炸造成伤害", icon: "chip"},
     {name: "过热协议", desc: "射击附带燃烧，由于过热偶尔扣血", icon: "flame"},
@@ -504,7 +528,7 @@ function generateCyberpunkArsenal() {
     {name: "量子纠缠", desc: "子弹命中后在敌人间产生量子链接，共享伤害", icon: "atom"},
     {name: "数据虹吸", desc: "每秒偷取周围敌人生命", icon: "network"},
     {name: "根权限",   desc: "所有技能效果提升10%", icon: "key"},
-    {name: "入侵协议", desc: "黑入敌人系统使其攻击友方", icon: "glitch"}
+    {name: "量子隧穿", desc: "子弹穿过敌人时复制自身攻击周围敌人", icon: "atom"}
   ];
   
   hacks.forEach(hack => {
@@ -520,6 +544,8 @@ function generateCyberpunkArsenal() {
                   // Apply simple generic buffs alongside specific logic (handled in gameFactory)
                   if(hack.name === "根权限") g.bulletDamage *= 1.1;
                   if(hack.name === "量子纠缠") { g.quantumEntangleChance = Math.max(g.quantumEntangleChance, 0.15 + 0.05 * (idx+1)); g.quantumEntangleDamageShare = Math.max(g.quantumEntangleDamageShare, 0.2 + 0.1 * idx); }
+                  if(hack.name === "纳米蚀刻") { g.nanoEtchEnabled = true; g.nanoEtchDamage = (g.nanoEtchDamage || 0) + 3 * (idx+1); g.nanoEtchDuration = Math.max(g.nanoEtchDuration || 0, 3 + idx); }
+                  if(hack.name === "量子隧穿") { g.quantumTunnelEnabled = true; g.quantumTunnelChance = Math.min(1.0, (g.quantumTunnelChance || 0) + 0.15 * (idx+1)); g.quantumTunnelCount = Math.max(g.quantumTunnelCount || 0, 1 + idx); }
               }
           });
       });
@@ -528,7 +554,7 @@ function generateCyberpunkArsenal() {
   // 6. 实验性武器 (50个)
   const weapons = [
       {name: "磁轨炮", desc: "极高穿透与击退"},
-      {name: "声波炮", desc: "宽范围震退敌人"},
+      {name: "引力炮", desc: "发射引力弹扭曲空间吸引并压缩敌人"},
       {name: "脉冲波", desc: "发射震荡脉冲波击退并眩晕敌人"},
       {name: "反物质", desc: "子弹湮灭敌人"},
       {name: "聚变枪", desc: "产生核爆"},

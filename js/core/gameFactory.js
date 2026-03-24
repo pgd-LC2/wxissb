@@ -1917,6 +1917,33 @@
           }
       }
 
+      // 纳米蚀刻：子弹命中后刻下纳米符文持续侵蚀
+      if (g.nanoEtchEnabled) {
+        enemy._nanoEtchActive = true;
+        enemy._nanoEtchDamage = g.nanoEtchDamage || 6;
+        enemy._nanoEtchEnd = t + (g.nanoEtchDuration || 4);
+        enemy._nanoEtchNextTick = enemy._nanoEtchNextTick || t + 0.5;
+        g.emitSparks({x:enemy.x, y:enemy.y}, 4, "#00ffcc", t);
+      }
+
+      // 量子隧穿：子弹命中后有几率复制自身攻击周围敌人
+      if (g.quantumTunnelEnabled && Math.random() < (g.quantumTunnelChance || 0.2)) {
+        const tunnelCount = g.quantumTunnelCount || 1;
+        let tunneled = 0;
+        for (let i = 0; i < g.enemies.length && tunneled < tunnelCount; i++) {
+          const e = g.enemies[i];
+          if (e === enemy || e._dead) continue;
+          const dx = e.x - enemy.x, dy = e.y - enemy.y;
+          if (dx*dx + dy*dy < 120*120) {
+            const angle = Math.atan2(dy, dx);
+            g.createSplitBullet({x:enemy.x, y:enemy.y}, angle, t);
+            tunneled++;
+            // 量子隧穿视觉效果
+            g.effects.push({ kind:"line", x1:enemy.x, y1:enemy.y, x2:e.x, y2:e.y, color:"#00ffff", start:t, end:t+0.15 });
+          }
+        }
+      }
+
       // status
       g.applyStatusEffects(enemy, t);
 
@@ -2344,6 +2371,26 @@
 
       // Revenge
       if (g.revengeEnabled) g.revengeNextCrit = true;
+
+      // 等离子风暴：受击时释放等离子冲击波
+      if (g.plasmaStormEnabled && (!g._plasmaStormCooldownEnd || t >= g._plasmaStormCooldownEnd)) {
+        g._plasmaStormCooldownEnd = t + (g.plasmaStormCooldown || 3);
+        const stormRadius = g.plasmaStormRadius || 100;
+        const stormDmg = g.plasmaStormDamage || 30;
+        g.createExplosionEffect({x:g.player.x, y:g.player.y}, stormRadius, t);
+        g.emitBurst({x:g.player.x, y:g.player.y}, 20, "#00ffff", t, stormRadius * 3);
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < stormRadius*stormRadius) {
+            g.applyDamageToEnemy(e, stormDmg, t, { immediate: true });
+            // 附带灼烧效果
+            e.burnEnd = t + 3;
+            e._burnDmg = (g.burnDamage || 5);
+          }
+        }
+      }
 
       g.player.lastHit = t;
       g.lastDamageTime = t;
@@ -2840,6 +2887,17 @@
             e.slowed = false;
           }
           e._bladePoisonSlowEnd = null;
+        }
+
+        // 纳米蚀刻DoT处理：每0.5秒造成一次侵蚀伤害
+        if (e._nanoEtchActive && t < e._nanoEtchEnd) {
+          if (t >= (e._nanoEtchNextTick || 0)) {
+            g.applyDamageToEnemy(e, e._nanoEtchDamage || 6, t, { immediate: true });
+            g.emitSparks({x:e.x, y:e.y}, 2, "#00ffcc", t);
+            e._nanoEtchNextTick = t + 0.5;
+          }
+        } else if (e._nanoEtchActive && t >= e._nanoEtchEnd) {
+          e._nanoEtchActive = false;
         }
 
         const frozen = (e.frozenUntil && t < e.frozenUntil);
