@@ -313,7 +313,7 @@
 
       // 飞刀新增属性 - 防御与治疗
       bladeOrbitDamageReduction: 0,    // 刀盾减伤（每把）
-      bladeOrbitDeathSave: false,      // 刃之守护
+      bladeOrbitDeathSave: false,      // 刃之守护（已被举报删除，保留属性以防兼容性问题）
       bladeOrbitCounterAttack: false,  // 反击飞刃
       bladeOrbitCounterBonus: 0,       // 反击伤害加成
       bladeOrbitThornHeal: false,      // 荆棘飞刀
@@ -322,6 +322,11 @@
       bladeOrbitRegenPerBlade: 0,      // 每把飞刀每秒回血
       bladeOrbitBloodSacrifice: false, // 血祭飞刃
       bladeOrbitOverhealShield: false, // 不死之刃
+
+      // 飞刀新增属性 - 刀阵漩涡（替换刃之守护）
+      bladeOrbitVortex: false,         // 刀阵漩涡
+      bladeOrbitVortexRange: 120,      // 漩涡吸引范围
+      bladeOrbitVortexStrength: 60,    // 漩涡吸引力度
 
       // 飞刀新增属性 - 终极技能
       bladeOrbitSkyfall: false,        // 天降飞刀
@@ -2367,17 +2372,8 @@
       g.flash("#ff3b30", 0.30, 0.20, t);
 
       if (g.playerHealth <= 0) {
-        // 刃之守护：飞刀数量足够时免死一次
-        if (g.bladeOrbitDeathSave && g.bladeOrbitCount >= 5) {
-          g.playerHealth = safeNonNeg(g.playerMaxHealth * 0.25, 1);
-          g.bladeOrbitDeathSave = false; // 只触发一次
-          g.flash("#00ffff", 0.30, 0.20, t);
-          g.emitBurst({x: g.player.x, y: g.player.y}, 30, "#00ffff", t, 600);
-          // 触发刀阵爆发作为反击
-          if (g.bladeOrbitCount > 0) {
-            g.triggerBladeBurst(t);
-          }
-        } else if (g.phoenixRevive && Math.random() < g.phoenixChance) {
+        // 刃之守护已被举报删除，跳过此分支
+        if (g.phoenixRevive && Math.random() < g.phoenixChance) {
           g.playerHealth = safeNonNeg(g.playerMaxHealth * 0.3, 1);
           g.phoenixRevive = false;
           g.showPhoenixEffect(t);
@@ -3159,6 +3155,40 @@
         }
       }
 
+      // 刀阵漩涡：飞刀旋转形成漩涡，吸引范围内敌人靠近玩家
+      if (g.bladeOrbitVortex && g.bladeOrbitCount > 0) {
+        const vortexRange = g.bladeOrbitVortexRange || 120;
+        const vortexStr = g.bladeOrbitVortexStrength || 60;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead || e.frozen) continue;
+          const dx = g.player.x - e.x, dy = g.player.y - e.y;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < vortexRange && d > 25) {
+            // 越靠近飞刀轨道吸力越强
+            const distFactor = 1 - (d / vortexRange);
+            const pull = vortexStr * distFactor * dt;
+            e.x += (dx / d) * pull;
+            e.y += (dy / d) * pull;
+          }
+        }
+        // 漩涡视觉效果
+        if (g.effects.length < 600 && Math.random() < 0.15) {
+          const vAngle = Math.random() * Math.PI * 2;
+          const vDist = g.bladeOrbitRadius + Math.random() * 20;
+          g.effects.push({
+            kind: "spark",
+            x: g.player.x + Math.cos(vAngle) * vDist,
+            y: g.player.y + Math.sin(vAngle) * vDist,
+            vx: -Math.sin(vAngle) * 40,
+            vy: Math.cos(vAngle) * 40,
+            color: "#00ccff",
+            start: t,
+            end: t + 0.25
+          });
+        }
+      }
+
       // 影刃：生成影子飞刀（视觉效果，不占数量但增加伤害范围）
       if (g.bladeOrbitShadowBlade && g.effects.length < 600) {
         for (let i = 0; i < g.orbitals.length && i < 3; i++) {
@@ -3765,6 +3795,36 @@
              // Poison cloud around player
              g.createPoisonExplosion({x:g.player.x, y:g.player.y}, t);
          }
+      }
+
+      // 重力井陷阱：周期性将范围内敌人拉向中心并造成挤压伤害
+      if (g.gravityFieldEnabled && cyber.gravity_well_trap) {
+        const gwPower = cyber.gravity_well_trap;
+        const gwStr = g.gravityFieldStrength || 60;
+        const gwRange = 140 + gwPower * 20;
+        const gwDmg = 15 * gwPower;
+        if (!g._gravityWellNext) g._gravityWellNext = t + 3;
+        if (t >= g._gravityWellNext) {
+          g._gravityWellNext = t + 3;
+          // 以玩家为中心创建重力井效果
+          for (let i = 0; i < g.enemies.length; i++) {
+            const e = g.enemies[i];
+            if (e._dead) continue;
+            const dx = g.player.x - e.x, dy = g.player.y - e.y;
+            const d = Math.sqrt(dx * dx + dy * dy);
+            if (d < gwRange && d > 15) {
+              // 拉向中心
+              const pullForce = gwStr * (1 - d / gwRange);
+              e.x += (dx / d) * pullForce;
+              e.y += (dy / d) * pullForce;
+              // 挤压伤害
+              g.applyDamageToEnemy(e, gwDmg, t);
+            }
+          }
+          // 视觉效果：引力塌缩波纹
+          g.effects.push({ kind: "ring", x: g.player.x, y: g.player.y, r: gwRange, color: "#9944ff", start: t, end: t + 0.4 });
+          if (g.emitBurst) g.emitBurst({ x: g.player.x, y: g.player.y }, 12, '#9944ff', t);
+        }
       }
 
       // 2. Drones

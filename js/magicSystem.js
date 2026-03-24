@@ -1434,6 +1434,37 @@
       }
     }
     
+    // 生命脉冲：生命低于10%时释放脉冲，回复生命并击退周围敌人
+    if (m.lifePulse && (g.playerHealth - finalDamage) <= g.playerMaxHealth * 0.10 && (g.playerHealth - finalDamage) > 0) {
+      if (!m._lifePulseLastUse || (t - m._lifePulseLastUse) >= (m.lifePulseCooldown || 60)) {
+        m._lifePulseLastUse = t;
+        // 回复生命
+        const healAmt = g.playerMaxHealth * (m.lifePulseHealPercent || 0.5);
+        if (g.heal) g.heal(healAmt);
+        // 击退周围敌人
+        const pulseRadius = 180;
+        const knockStr = m.lifePulseKnockback || 200;
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          const d2 = dx * dx + dy * dy;
+          if (d2 < pulseRadius * pulseRadius && d2 > 1) {
+            const d = Math.sqrt(d2);
+            e.x += (dx / d) * knockStr;
+            e.y += (dy / d) * knockStr;
+          }
+        }
+        // 视觉效果
+        if (g.effects) {
+          g.effects.push({ kind: 'shockwave', x: g.player.x, y: g.player.y, r: pulseRadius, color: '#00ff88', start: t, end: t + 0.4 });
+        }
+        if (g.emitBurst) g.emitBurst({ x: g.player.x, y: g.player.y }, 25, '#00ff88', t, 500);
+        if (g.flash) g.flash('#00ff88', 0.30, 0.20, t);
+        finalDamage = 0; // 免疫此次伤害
+      }
+    }
+
     // 闪电逃脱
     if (m.lightningEscape && finalDamage >= g.playerHealth) {
       if (!m._lightningEscapeUsed) {
