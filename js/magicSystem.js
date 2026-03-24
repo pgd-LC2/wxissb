@@ -822,8 +822,12 @@
               if (dx*dx + dy*dy < domain.radius*domain.radius) {
                 e._weakened = true;
                 e._weakenEnd = t + 0.5;
-                e.damageMul = Math.max(0.3, (e._baseDamageMul || e.damageMul || 1.0) * (1 - (domain.attackReduction || 0.35)));
-                if (e.armor) e.armor = Math.max(0, (e._baseArmor || e.armor) * (1 - (domain.defenseReduction || 0.25)));
+                if (!e._baseDamageMul) e._baseDamageMul = e.damageMul || 1.0;
+                e.damageMul = Math.max(0.3, e._baseDamageMul * (1 - (domain.attackReduction || 0.35)));
+                if (e.armor) {
+                  if (!e._baseArmor) e._baseArmor = e.armor;
+                  e.armor = Math.max(0, e._baseArmor * (1 - (domain.defenseReduction || 0.25)));
+                }
               }
             }
             break;
@@ -1416,8 +1420,9 @@
       if (g.heal) g.heal(m.soulCurseHeal || 20);
     }
     
-    // 灵魂烙印：被标记敌人死亡时引发连锁爆炸
-    if (m.soulBrand) {
+    // 灵魂烙印：被标记敌人死亡时引发连锁爆炸（首次击杀也触发，后续仅烙印敌人触发）
+    if (m.soulBrand && (enemy._soulBranded || !m._soulBrandFirstTriggered)) {
+      m._soulBrandFirstTriggered = true;
       const sbRadius = m.soulBrandExplosionRadius || 60;
       const sbDamage = m.soulBrandDamage || 40;
       let chainCount = 0;

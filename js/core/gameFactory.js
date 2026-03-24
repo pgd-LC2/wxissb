@@ -2387,7 +2387,7 @@
             g.applyDamageToEnemy(e, stormDmg, t, { immediate: true });
             // 附带灼烧效果
             e.burnEnd = t + 3;
-            e._burnDmg = (g.burnDamage || 5);
+            e.burnDmg = (g.burnDamage || 5);
           }
         }
       }
