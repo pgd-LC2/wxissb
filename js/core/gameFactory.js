@@ -2900,6 +2900,20 @@
           e._nanoEtchActive = false;
         }
 
+        // 衰弱领域效果到期清除
+        if (e._weakened && e._weakenEnd != null && t >= e._weakenEnd) {
+          e._weakened = false;
+          if (e._baseDamageMul != null) {
+            e.damageMul = e._baseDamageMul;
+            e._baseDamageMul = null;
+          }
+          if (e._baseArmor != null) {
+            e.armor = e._baseArmor;
+            e._baseArmor = null;
+          }
+          e._weakenEnd = null;
+        }
+
         const frozen = (e.frozenUntil && t < e.frozenUntil);
 
         if (!frozen) {

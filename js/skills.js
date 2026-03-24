@@ -371,7 +371,7 @@ function generateCyberpunkArsenal() {
         g.plasmaStormEnabled = true;
         g.plasmaStormDamage = (g.plasmaStormDamage || 0) + 25 * power;
         g.plasmaStormRadius = Math.max(g.plasmaStormRadius || 0, 80 + 20 * idx);
-        g.plasmaStormCooldown = Math.max(1, 4 - idx);
+        g.plasmaStormCooldown = Math.min(g.plasmaStormCooldown || Infinity, Math.max(1, 4 - idx));
       }
     });
   });
