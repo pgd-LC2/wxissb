@@ -359,8 +359,8 @@
     
     // 魔法傀儡 (20个)
     const golemSummons = [
-      { name: "召唤石傀儡", tier: 2, desc: "召唤石傀儡吸引敌人仇恨",
-        effect: g => { g.magic.stoneGolemCount = (g.magic.stoneGolemCount||0) + 1; }},
+      { name: "召唤雷电傀儡", tier: 2, desc: "召唤雷电傀儡，攻击时释放链式闪电跳跃至3个敌人",
+        effect: g => { g.magic.thunderGolemCount = (g.magic.thunderGolemCount||0) + 1; }},
       { name: "石傀儡强化", tier: 3, desc: "石傀儡生命+200，攻击击退敌人",
         effect: g => { g.magic.stoneGolemHealthBonus = 200; g.magic.stoneGolemKnockback = true; }},
       { name: "召唤水晶傀儡", tier: 3, desc: "召唤水晶傀儡，反弹敌人攻击",
