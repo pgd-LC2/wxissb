@@ -522,6 +522,24 @@
       }
     }
     
+    // 魔法光束（链式闪电等）
+    if (g.magicBeams) {
+      for (let i = 0; i < g.magicBeams.length; i++) {
+        const beam = g.magicBeams[i];
+        const life = clamp(1 - (t - beam.born) / beam.duration, 0, 1);
+        ctx.save();
+        ctx.strokeStyle = colorWithAlpha(beam.color || '#ffee00', life * 0.9);
+        ctx.lineWidth = 3 * life;
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = beam.color || '#ffee00';
+        ctx.beginPath();
+        ctx.moveTo(sx(beam.x1), sy(beam.y1));
+        ctx.lineTo(sx(beam.x2), sy(beam.y2));
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+    
     // 魔法护盾显示
     if (g.magic && g.magic._magicShield && g.magic._magicShield.current > 0) {
       const shieldRatio = g.magic._magicShield.current / g.magic._magicShield.max;

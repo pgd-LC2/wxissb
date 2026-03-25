@@ -1196,6 +1196,13 @@
       m._chaosElement = ['fire', 'ice', 'lightning', 'poison'][Math.floor(Math.random() * 4)];
     }
     
+    // 清理过期的魔法光束
+    for (let i = g.magicBeams.length - 1; i >= 0; i--) {
+      if (t - g.magicBeams[i].born > g.magicBeams[i].duration) {
+        g.magicBeams.splice(i, 1);
+      }
+    }
+    
     // ========================================
     // 14. 射击时触发的魔法效果
     // ========================================

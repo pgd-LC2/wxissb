@@ -374,6 +374,7 @@
         effect: g => { 
           g.magic.stoneGolemCount = (g.magic.stoneGolemCount||0) + 1;
           g.magic.shadowAssassinCount = (g.magic.shadowAssassinCount||0) + 1;
+          g.magic.thunderGolemCount = (g.magic.thunderGolemCount||0) + 1;
         }},
       { name: "傀儡爆炸", tier: 3, desc: "傀儡死亡时爆炸",
         effect: g => { g.magic.golemExplosion = true; g.magic.golemExplosionDamage = 100; }},
