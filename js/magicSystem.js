@@ -537,7 +537,7 @@
     // ========================================
     
     // 傀儡系统
-    const golemTypes = ['stone', 'iron', 'crystal', 'lava', 'bone', 'wood', 'ice'];
+    const golemTypes = ['stone', 'iron', 'crystal', 'lava', 'bone', 'wood', 'ice', 'thunder'];
     for (const golemType of golemTypes) {
       const countKey = `${golemType}GolemCount`;
       const targetCount = m[countKey] || 0;
@@ -558,6 +558,7 @@
           case 'bone': hp = 120; damage = 25; size = 30; color = '#ddddcc'; break;
           case 'wood': hp = 100; damage = 15; size = 35; color = '#886644'; break;
           case 'ice': hp = 180; damage = 25; color = '#88ddff'; break;
+          case 'thunder': hp = 160; damage = 35; color = '#ffee00'; break;
         }
         
         if (m.stoneGolemHealthBonus) hp += m.stoneGolemHealthBonus;
@@ -641,6 +642,34 @@
             if (golem.type === 'ice') {
               target.slowed = true;
               target._chillSlowFactor = 0.5;
+            }
+            if (golem.type === 'thunder') {
+              // 链式闪电：跳跃至最多3个附近敌人
+              let chainTarget = target;
+              const chainedIds = new Set([target.id]);
+              for (let c = 0; c < 3; c++) {
+                let bestDist = 150 * 150;
+                let nextTarget = null;
+                for (let ei = 0; ei < g.enemies.length; ei++) {
+                  const ce = g.enemies[ei];
+                  if (ce._dead || chainedIds.has(ce.id)) continue;
+                  const cdx = ce.x - chainTarget.x, cdy = ce.y - chainTarget.y;
+                  const cd2 = cdx * cdx + cdy * cdy;
+                  if (cd2 < bestDist) { bestDist = cd2; nextTarget = ce; }
+                }
+                if (!nextTarget) break;
+                chainedIds.add(nextTarget.id);
+                const chainDmg = damage * (0.7 - c * 0.15);
+                applyDamageToEnemy(nextTarget, chainDmg, t, { immediate: true });
+                g.magicBeams.push({
+                  id: nextId(), type: 'chainLightning',
+                  x1: chainTarget.x, y1: chainTarget.y,
+                  x2: nextTarget.x, y2: nextTarget.y,
+                  color: '#ffee00', duration: 0.15, born: t
+                });
+                emitParticles({ x: nextTarget.x, y: nextTarget.y }, 5, '#ffee00');
+                chainTarget = nextTarget;
+              }
             }
             
             emitParticles({ x: target.x, y: target.y }, 8, golem.color);
@@ -1241,6 +1270,13 @@
     // 混沌附魔 - 随机元素效果
     if (m.chaosEnchant) {
       m._chaosElement = ['fire', 'ice', 'lightning', 'poison'][Math.floor(Math.random() * 4)];
+    }
+    
+    // 清理过期的魔法光束
+    for (let i = g.magicBeams.length - 1; i >= 0; i--) {
+      if (t - g.magicBeams[i].born > g.magicBeams[i].duration) {
+        g.magicBeams.splice(i, 1);
+      }
     }
     
     // ========================================
