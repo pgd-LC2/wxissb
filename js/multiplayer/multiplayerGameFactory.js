@@ -63,7 +63,8 @@
       knockbackForce: 0,
       spreadAngle: 0.15,
       pickupRange: 100,
-      expMagnetAll: false,
+      // energySiphon (multiplayer not yet implemented, placeholder for consistency)
+      energySiphonEnabled: false,
       critRate: 0.05,
       critDamageMulti: 2.0,
       damageReduction: 0,
@@ -983,7 +984,7 @@
           const dist = Math.sqrt(dx * dx + dy * dy);
           
           // 磁吸效果 (dist > 0 防止除零导致 NaN)
-          if ((dist < p.pickupRange || p.expMagnetAll) && dist > 0) {
+          if (dist < p.pickupRange && dist > 0) {
             const speed = 300;
             orb.x += (dx / dist) * speed * dt;
             orb.y += (dy / dist) * speed * dt;
