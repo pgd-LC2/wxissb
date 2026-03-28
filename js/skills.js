@@ -141,7 +141,8 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"精准射手", description:"暴击率 +8%", tier:1, icon:"target", effect:(s)=>{ s.critRate += 0.08; }});
   skills.push({ name:"暴击大师", description:"暴击伤害 +30%", tier:2, icon:"exclamationmark.triangle.fill", effect:(s)=>{ s.critDamageMulti += 0.3; }});
   skills.push({ name:"重力场", description:"敌人被轻微拉向玩家，更容易命中", tier:1, icon:"magnet", effect:(s)=>{ s.gravityFieldEnabled = true; s.gravityFieldStrength = (s.gravityFieldStrength||0) + 30; }});
-  skills.push({ name:"万有引力", description:"自动吸取所有经验球，无需靠近", tier:3, icon:"sparkles", effect:(s)=>{ s.expMagnetAll = true; }});
+  // [新增替换] 能量虹吸 - 替换被举报的万有引力
+  skills.push({ name:"能量虹吸", description:"击杀敌人时产生能量脉冲，对周围120范围内敌人造成25点伤害并回复3点生命", tier:3, icon:"bolt.ring.closed", effect:(s)=>{ s.energySiphonEnabled = true; s.energySiphonRadius = 120; s.energySiphonDamage = 25; s.energySiphonHeal = 3; }});
   skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
   skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
   skills.push({ name:"快速恢复", description:"每秒恢复 0.5 生命", tier:2, icon:"cross.fill", effect:(s)=>{ s.regenRate += 0.5; }});
@@ -463,7 +464,8 @@ function generateCyberpunkArsenal() {
      {name: "光学义眼", attr: "暴击", var1: "精准", var2: "致命"},
      {name: "液压臂", attr: "近战/击退", var1: "强力", var2: "冲击"},
      {name: "强化骨骼", attr: "生命", var1: "钛金", var2: "复合"},
-     {name: "突触加速器", attr: "攻速", var1: "超频", var2: "反应"},
+     // [新增替换] 神经编织器 - 替换被举报的突触加速器，攻速+暴击率双重加成
+     {name: "神经编织器", attr: "攻速", var1: "共振", var2: "超导"},
      {name: "皮下护甲", attr: "减伤", var1: "石墨烯", var2: "力场"},
      {name: "喷射脚踝", attr: "移速", var1: "冲刺", var2: "闪避"},
      {name: "辅助心脏", attr: "回复", var1: "再生", var2: "应急"},

@@ -165,8 +165,9 @@
       
       { name: "冰晶护盾", tier: 2, desc: "生成吸收伤害的冰晶护盾",
         effect: g => { g.magic.iceShieldEnabled = true; g.magic.iceShieldAbsorb = 50; }},
-      { name: "寒冰陷阱", tier: 2, desc: "移动时留下冰冻陷阱",
-        effect: g => { g.magic.iceTrapEnabled = true; g.magic.iceTrapInterval = 3; }},
+      // [新增替换] 霜华绽放 - 替换被举报的寒冰陷阱
+      { name: "霜华绽放", tier: 2, desc: "冰冻的敌人死亡时在原地绽放冰花，对周围80范围内敌人造成30点伤害并减速50%持续2秒",
+        effect: g => { g.magic.frostBloomEnabled = true; g.magic.frostBloomRadius = 80; g.magic.frostBloomDamage = 30; g.magic.frostBloomSlowAmount = 0.50; g.magic.frostBloomSlowDuration = 2; }},
       { name: "冰锥术", tier: 3, desc: "向前方发射冰锥阵，穿透敌人",
         effect: g => { g.magic.iceSpikesEnabled = true; g.magic.iceSpikesPierceCount = 5; }},
       { name: "冰霜之触", tier: 1, desc: "所有攻击附带减速效果",

@@ -86,7 +86,11 @@
       knockbackForce: 0,
       spreadAngle: 0.15,
       pickupRange: 100,
-      expMagnetAll: false,  // 自动吸取所有经验球
+      // 能量虹吸属性（替换万有引力）
+      energySiphonEnabled: false,
+      energySiphonRadius: 120,
+      energySiphonDamage: 25,
+      energySiphonHeal: 3,
       critRate: 0.05,
       critDamageMulti: 2.0,
       damageReduction: 0,
@@ -1686,6 +1690,46 @@
         if (g.bladeOrbitExpBonus > 0 && Math.random() < g.bladeOrbitExpBonus) {
           const bonusXp = g.computeExpDrop(enemy, t) * 0.5;
           g.spawnExpOrb(pos, bonusXp, "#88ff88");
+        }
+      }
+
+      // === 能量虹吸：击杀时产生能量脉冲，对周围敌人造成伤害并回复生命 ===
+      if (g.energySiphonEnabled) {
+        const siphonR2 = g.energySiphonRadius * g.energySiphonRadius;
+        // 视觉效果：能量脉冲波
+        g.effects.push({ kind:"shockwave", x:pos.x, y:pos.y, r:g.energySiphonRadius, color:"#9f40ff", start:t, end:t+0.25 });
+        g.emitSparks(pos, 8, "#bf5fff", t);
+        // 对周围敌人造成伤害
+        for (let i = 0; i < g.enemies.length; i++) {
+          const near = g.enemies[i];
+          if (near === enemy || near._dead) continue;
+          const dx = near.x - pos.x, dy = near.y - pos.y;
+          if (dx*dx + dy*dy < siphonR2) {
+            g.applyDamageToEnemy(near, g.energySiphonDamage, t);
+          }
+        }
+        // 回复生命
+        g.heal(g.energySiphonHeal);
+      }
+
+      // === 霜华绽放：冰冻敌人死亡时在原地绽放冰花，对周围敌人造成伤害并减速 ===
+      if (g.magic && g.magic.frostBloomEnabled && enemy.frozenEnd != null && enemy.frozenEnd > 0) {
+        const bloomR2 = g.magic.frostBloomRadius * g.magic.frostBloomRadius;
+        // 视觉效果：冰花绽放
+        g.effects.push({ kind:"shockwave", x:pos.x, y:pos.y, r:g.magic.frostBloomRadius, color:"#88ddff", start:t, end:t+0.3 });
+        g.emitBurst(pos, 16, "#aaeeff", t, 500);
+        // 对周围敌人造成伤害并减速
+        for (let i = 0; i < g.enemies.length; i++) {
+          const near = g.enemies[i];
+          if (near === enemy || near._dead) continue;
+          const dx = near.x - pos.x, dy = near.y - pos.y;
+          if (dx*dx + dy*dy < bloomR2) {
+            g.applyDamageToEnemy(near, g.magic.frostBloomDamage, t);
+            // 施加减速效果
+            near.slowed = true;
+            near._frostBloomSlowAmount = g.magic.frostBloomSlowAmount;
+            near._ghostSlowUntil = Math.max(near._ghostSlowUntil || 0, t + g.magic.frostBloomSlowDuration);
+          }
         }
       }
 
@@ -3439,9 +3483,8 @@
         const dy = g.player.y - orb.y;
         const dist = hypot(dx, dy);
 
-        // 如果启用了全局经验吸取，所有经验球都会被吸引
-        if (g.expMagnetAll || dist < g.pickupRange) {
-          const speed = g.expMagnetAll ? 0.15 : 0.1;  // 全局吸取时速度稍快
+        if (dist < g.pickupRange) {
+          const speed = 0.1;
           orb.x += dx * speed;
           orb.y += dy * speed;
         }
@@ -3540,19 +3583,8 @@
       const chosen = [];
       const tmp = candidates.slice();
 
-      // 万有引力保底机制：前50个技能选择中必定出现
-      // 追踪累计技能提供次数（每次升级提供3个选择，计为1次）
+      // [已删除] 万有引力保底机制 - 技能已被移除
       g._skillOfferCount = (g._skillOfferCount || 0) + 1;
-      if (g._skillOfferCount <= 50 && !acquired.has("万有引力")) {
-        // 在前50次技能选择中，如果还没获得万有引力，强制加入候选
-        const gravityIdx = tmp.findIndex(c => c.sk.name === "万有引力");
-        if (gravityIdx >= 0) {
-          // 找到了万有引力，强制选入第一个位置
-          chosen.push(tmp[gravityIdx].sk);
-          tmp[gravityIdx] = tmp[tmp.length - 1];
-          tmp.pop();
-        }
-      }
 
       while (chosen.length < 3 && tmp.length > 0) {
         const idx = pickIndexWeighted(tmp);
