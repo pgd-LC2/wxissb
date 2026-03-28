@@ -1713,7 +1713,7 @@
       }
 
       // === 霜华绽放：冰冻敌人死亡时在原地绽放冰花，对周围敌人造成伤害并减速 ===
-      if (g.magic && g.magic.frostBloomEnabled && enemy.frozenEnd != null && enemy.frozenEnd > 0) {
+      if (g.magic && g.magic.frostBloomEnabled && enemy.frozenUntil && t < enemy.frozenUntil) {
         const bloomR2 = g.magic.frostBloomRadius * g.magic.frostBloomRadius;
         // 视觉效果：冰花绽放
         g.effects.push({ kind:"shockwave", x:pos.x, y:pos.y, r:g.magic.frostBloomRadius, color:"#88ddff", start:t, end:t+0.3 });
