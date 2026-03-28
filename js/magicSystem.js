@@ -326,6 +326,48 @@
       }
     }
     
+    // 雷霆领域
+    if (m.thunderDomainEnabled) {
+      if (!m._thunderDomainActive) {
+        m._thunderDomainActive = true;
+        const radius = 140;
+        g.domains.push({
+          id: nextId(),
+          type: 'thunderDomain',
+          x: g.player.x, y: g.player.y,
+          radius: radius,
+          damage: m.thunderDomainDamage || 15,
+          born: t,
+          end: t + 9999,
+          nextTick: t,
+          followPlayer: true,
+          color: '#ffff00'
+        });
+      }
+    }
+    
+    // 衰弱领域
+    if (m.weakenDomainEnabled) {
+      if (!m._weakenDomainActive) {
+        m._weakenDomainActive = true;
+        const radius = 130;
+        g.domains.push({
+          id: nextId(),
+          type: 'weakenDomain',
+          x: g.player.x, y: g.player.y,
+          radius: radius,
+          damage: 0,
+          attackReduction: m.weakenDomainAttackReduction || 0.35,
+          defenseReduction: m.weakenDomainDefenseReduction || 0.25,
+          born: t,
+          end: t + 9999,
+          nextTick: t,
+          followPlayer: true,
+          color: '#aa66aa'
+        });
+      }
+    }
+    
     // 极寒领域
     if (m.chillAuraEnabled) {
       const radius = m.chillAuraRadius || 180;
@@ -781,6 +823,43 @@
               }
             }
             break;
+          
+          case 'thunderDomain':
+            // 雷霆领域：持续电击并减速敌人
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = e.x - domain.x, dy = e.y - domain.y;
+              if (dx*dx + dy*dy < domain.radius*domain.radius) {
+                applyDamageToEnemy(e, domain.damage * powerBonus, t);
+                e.slowed = true;
+                e._ghostSlowUntil = t + 0.5;
+                // 闪电视觉效果
+                if (Math.random() < 0.15 && g.effects) {
+                  g.effects.push({ kind:'line', x1:domain.x, y1:domain.y, x2:e.x, y2:e.y, color:'#ffff00', start:t, end:t+0.1 });
+                }
+              }
+            }
+            break;
+          
+          case 'weakenDomain':
+            // 衰弱领域：削弱敌人攻击力和防御力
+            for (let j = 0; j < g.enemies.length; j++) {
+              const e = g.enemies[j];
+              if (e._dead) continue;
+              const dx = e.x - domain.x, dy = e.y - domain.y;
+              if (dx*dx + dy*dy < domain.radius*domain.radius) {
+                e._weakened = true;
+                e._weakenEnd = t + 0.5;
+                if (!e._baseDamageMul) e._baseDamageMul = e.damageMul || 1.0;
+                e.damageMul = Math.max(0.3, e._baseDamageMul * (1 - (domain.attackReduction || 0.35)));
+                if (e.armor) {
+                  if (!e._baseArmor) e._baseArmor = e.armor;
+                  e.armor = Math.max(0, e._baseArmor * (1 - (domain.defenseReduction || 0.25)));
+                }
+              }
+            }
+            break;
         }
       }
     }
@@ -961,10 +1040,7 @@
         e._fearEnd = t + 2;
       }
       
-      // 诅咒标记
-      if (m.curseMark && e._cursed) {
-        e._curseMarkBonus = m.curseMarkBonus || 0.30;
-      }
+      // 诅咒标记已被举报移除
       
       // 死亡诅咒
       if (m.deathCurse && Math.random() < (m.deathCurseChance || 0.02) * dt) {
@@ -1264,13 +1340,7 @@
       enemy._frostTouchUntil = t + 1;
     }
     
-    // 诅咒标记伤害加成
-    if (enemy._cursed && enemy._curseMarkBonus) {
-      const bonusDamage = g.bulletDamage * enemy._curseMarkBonus;
-      if (g.applyDamageToEnemy) {
-        g.applyDamageToEnemy(enemy, bonusDamage, t);
-      }
-    }
+    // 诅咒标记已被举报移除
     
     // 火焰印记
     if (m.flameMarkEnabled && enemy.burnEnd && t < enemy.burnEnd) {
@@ -1384,6 +1454,28 @@
     // 灵魂诅咒回复
     if (m.soulCurse && enemy._cursed) {
       if (g.heal) g.heal(m.soulCurseHeal || 20);
+    }
+    
+    // 灵魂烙印：被标记敌人死亡时引发连锁爆炸（首次击杀也触发，后续仅烙印敌人触发）
+    if (m.soulBrand && (enemy._soulBranded || !m._soulBrandFirstTriggered)) {
+      const sbRadius = m.soulBrandExplosionRadius || 60;
+      const sbDamage = m.soulBrandDamage || 40;
+      let chainCount = 0;
+      for (let i = 0; i < g.enemies.length; i++) {
+        const e = g.enemies[i];
+        if (e._dead || e === enemy) continue;
+        const dx = e.x - enemy.x, dy = e.y - enemy.y;
+        if (dx*dx + dy*dy < sbRadius*sbRadius) {
+          if (g.applyDamageToEnemy) g.applyDamageToEnemy(e, sbDamage, t);
+          e._soulBranded = true; // 标记被烙印，下次死亡也会爆炸
+          chainCount++;
+        }
+      }
+      if (chainCount > 0) {
+        m._soulBrandFirstTriggered = true;
+        if (g.createExplosionEffect) g.createExplosionEffect({ x: enemy.x, y: enemy.y }, sbRadius, t);
+        if (g.emitBurst) g.emitBurst({ x: enemy.x, y: enemy.y }, 15, '#ff66ff', t, 400);
+      }
     }
     
     // 诅咒爆炸
