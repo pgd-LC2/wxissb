@@ -639,24 +639,24 @@
     };
 
     // ------------------------------
-    // Enemy Director (击杀率驱动的怪物生成系统)
+    // Enemy Director (数量控制式怪物生成系统)
     // ------------------------------
     // 
-    // 新系统公式说明：
+    // 系统公式说明：
     //   killsPer10s = 最近10秒内的击杀数（滚动窗口）
-    //   spawnRate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER
+    //   targetEnemyCount = max(MIN_ENEMIES, killsPer10s * KILL_COUNT_MULTIPLIER)
     //
     // 参数：
-    //   BASE_RATE = 1.5 敌人/秒（保底生成，即使0击杀也有怪物）
-    //   KILL_SPAWN_MULTIPLIER = 0.3（每多击杀1个敌人/10秒 → 多生成0.3个/秒）
+    //   MIN_ENEMIES = 5（保底场上敌人数，即使0击杀也有怪物）
+    //   KILL_COUNT_MULTIPLIER = 1.5（场上敌人数 = 每10秒击杀数 × 1.5）
     //
     // 示例：
-    //   击杀0个/10秒 → 生成速率 = 1.5/秒
-    //   击杀10个/10秒 → 生成速率 = 1.5 + 10×0.3 = 4.5/秒
-    //   击杀30个/10秒 → 生成速率 = 1.5 + 30×0.3 = 10.5/秒
-    //   击杀100个/10秒 → 生成速率 = 1.5 + 100×0.3 = 31.5/秒
+    //   击杀0个/10秒 → 场上目标敌人数 = 5（保底）
+    //   击杀10个/10秒 → 场上目标敌人数 = 15
+    //   击杀30个/10秒 → 场上目标敌人数 = 45
+    //   击杀100个/10秒 → 场上目标敌人数 = 150
     //
-    // 特点：无上限、无下限限制，纯击杀率驱动
+    // 特点：场上敌人数量直接与击杀能力挂钩，杀得越快怪越多
     // ------------------------------
     g.director = {
       lastT: 0,
@@ -798,18 +798,28 @@
       }
 
       // ========================================
-      // 击杀率驱动的怪物生成系统（新）
+      // 数量控制式怪物生成系统
+      // 场上敌人数量 = 每10秒击杀数 × 1.5
       // ========================================
-      const BASE_RATE = 1.5;             // 保底生成速率（敌人/秒）
-      const KILL_SPAWN_MULTIPLIER = 0.3; // 每击杀1个/10秒 → +0.3敌人/秒
+      const MIN_ENEMIES = 5;               // 保底场上敌人数
+      const KILL_COUNT_MULTIPLIER = 1.5;   // 场上敌人数 = killsPer10s × 1.5
+      const FILL_RATE = 8;                 // 每秒最多补充的敌人数（防止瞬间刷一大堆）
 
       const killsPer10s = g._computeKillsPer10s(t);
       d._killsPer10s = killsPer10s;
 
-      // 核心公式：spawnRate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER
-      // 无上限、无下限，纯击杀率驱动
-      const rate = BASE_RATE + killsPer10s * KILL_SPAWN_MULTIPLIER;
-      d.spawnRate = rate;
+      // 核心公式：目标场上敌人数 = max(MIN_ENEMIES, killsPer10s × KILL_COUNT_MULTIPLIER)
+      const targetCount = Math.max(MIN_ENEMIES, Math.ceil(killsPer10s * KILL_COUNT_MULTIPLIER));
+      d._targetEnemyCount = targetCount;
+
+      // 当前场上敌人数
+      const currentCount = g.enemies.length;
+
+      // 需要补充的敌人数
+      const deficit = targetCount - currentCount;
+
+      // 用 spawnRate 控制补充速度（不会一帧刷完）
+      d.spawnRate = deficit > 0 ? FILL_RATE : 0;
 
       // 精英概率：随战力和进度增长
       d.eliteChance = clamp(0.04 + 0.08 * strength + 0.08 * d.progress, 0.04, 0.30);
@@ -834,11 +844,15 @@
         g.createEnemyFromDef(bossDef, bossX, bossY, t);
       }
 
-      // 预算制生成
-      d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
+      // 预算制生成（仅在场上敌人不足时补充）
+      if (deficit > 0) {
+        d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
+      } else {
+        d.spawnBudget = 0; // 场上敌人已够，不再生成
+      }
 
       let spawned = 0;
-      const maxLoop = 10;
+      const maxLoop = Math.min(10, deficit); // 每帧最多补充deficit个，上限10
       while (d.spawnBudget >= 1 && spawned < maxLoop) {
         g.spawnEnemy(t);
         d.spawnBudget -= 1;
