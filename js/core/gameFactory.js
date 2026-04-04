@@ -2898,7 +2898,9 @@
 
         // clear timed slow from ghost
         if (e._ghostSlowUntil != null && t >= e._ghostSlowUntil) {
-          e.slowed = false;
+          if (!e._bladeSlowEnd && !e._bladePoisonSlowEnd && !(e._empSlowUntil && t < e._empSlowUntil)) {
+            e.slowed = false;
+          }
           e._ghostSlowUntil = null;
         }
 
@@ -2922,7 +2924,7 @@
 
         // 飞刀减速效果到期清除
         if (e._bladeSlowEnd != null && t >= e._bladeSlowEnd) {
-          if (!e._ghostSlowUntil && !e._bladePoisonSlowEnd) {
+          if (!e._ghostSlowUntil && !e._bladePoisonSlowEnd && !(e._empSlowUntil && t < e._empSlowUntil)) {
             e.slowed = false;
           }
           e._bladeSlowEnd = null;
@@ -2931,7 +2933,7 @@
 
         // 飞刀毒素减速到期清除
         if (e._bladePoisonSlowEnd != null && t >= e._bladePoisonSlowEnd) {
-          if (!e._ghostSlowUntil && !e._bladeSlowEnd) {
+          if (!e._ghostSlowUntil && !e._bladeSlowEnd && !(e._empSlowUntil && t < e._empSlowUntil)) {
             e.slowed = false;
           }
           e._bladePoisonSlowEnd = null;
@@ -3431,7 +3433,9 @@
         const e = g.enemies[i];
         if (e._dead) continue;
         if (e._ghostSlowUntil != null && t >= e._ghostSlowUntil) {
-          e.slowed = false;
+          if (!e._bladeSlowEnd && !e._bladePoisonSlowEnd && !(e._empSlowUntil && t < e._empSlowUntil)) {
+            e.slowed = false;
+          }
           e._ghostSlowUntil = null;
         }
       }
