@@ -166,6 +166,13 @@
       blackHoleAbility: false,
       blackHolePower: 1.0,
 
+      // MARK: 属性系统 - 电磁脉冲
+      empPulseEnabled: false,
+      empPulseInterval: 8,
+      empPulseSlowRate: 0.5,
+      empPulseDuration: 2.0,
+      _lastEmpPulseTime: 0,
+
       // MARK: 属性系统 - 触发机制
       killStreakEnabled: false,
       killStreakMaxBonus: 1.0,
@@ -1931,6 +1938,15 @@
           }
       }
 
+      // 灵魂镣铐：子弹命中有几率束缚敌人原地不动
+      if (g.magic && g.magic.soulShackleChance > 0 && Math.random() < g.magic.soulShackleChance) {
+        enemy._soulShackled = true;
+        enemy._soulShackleUntil = t + (g.magic.soulShackleDuration || 1.5);
+        enemy.frozenUntil = Math.max(enemy.frozenUntil || 0, t + (g.magic.soulShackleDuration || 1.5));
+        enemy.color = "#9933ff";
+        g.emitBurst({x:enemy.x, y:enemy.y}, 8, "#9933ff", t, 300);
+      }
+
       // 纳米蚀刻：子弹命中后刻下纳米符文持续侵蚀
       if (g.nanoEtchEnabled) {
         enemy._nanoEtchActive = true;
@@ -2884,6 +2900,24 @@
         if (e._ghostSlowUntil != null && t >= e._ghostSlowUntil) {
           e.slowed = false;
           e._ghostSlowUntil = null;
+        }
+
+        // EMP脉冲减速到期清除
+        if (e._empSlowUntil != null && t >= e._empSlowUntil) {
+          if (!e._ghostSlowUntil && !e._bladeSlowEnd && !e._bladePoisonSlowEnd) {
+            e.slowed = false;
+          }
+          e._empSlowUntil = null;
+          e._empSlowRate = 0;
+        }
+
+        // 灵魂镣铐到期清除
+        if (e._soulShackled && e._soulShackleUntil != null && t >= e._soulShackleUntil) {
+          e._soulShackled = false;
+          e._soulShackleUntil = null;
+          if (!e.frozenUntil || t >= e.frozenUntil) {
+            e.color = e.baseColor || e.color;
+          }
         }
 
         // 飞刀减速效果到期清除
@@ -4108,6 +4142,27 @@
         const pos = cluster || { x: g.player.x, y: g.player.y };
         g.createBlackHole(pos, t, false);
         g.lastBlackHoleTime = t;
+      }
+
+      // 6.5 EMP pulse - 电磁脉冲：周期性释放脉冲使周围敌人减速
+      if (g.empPulseEnabled && (t - g._lastEmpPulseTime) > g.empPulseInterval) {
+        g._lastEmpPulseTime = t;
+        const empRadius = 180;
+        // 视觉效果：蓝色脉冲波
+        g.effects.push({ kind:"ring", x:g.player.x, y:g.player.y, r:empRadius, color:"#00aaff", start:t, end:t+0.3 });
+        g.emitBurst({x:g.player.x, y:g.player.y}, 20, "#00aaff", t, 500);
+        g.flash("#00aaff", 0.05, 0.15, t);
+        // 对范围内敌人施加减速
+        for (let i = 0; i < g.enemies.length; i++) {
+          const e = g.enemies[i];
+          if (e._dead) continue;
+          const dx = e.x - g.player.x, dy = e.y - g.player.y;
+          if (dx*dx + dy*dy < empRadius*empRadius) {
+            e.slowed = true;
+            e._empSlowRate = g.empPulseSlowRate;
+            e._empSlowUntil = t + g.empPulseDuration;
+          }
+        }
       }
 
       // 7. kill streak decay

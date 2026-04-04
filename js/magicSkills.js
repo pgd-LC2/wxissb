@@ -321,8 +321,8 @@
     
     // 黑暗系 (10个)
     const darkSkills = [
-      { name: "暗影箭", tier: 1, desc: "射出暗影箭，无视部分护甲",
-        effect: g => { g.magic.shadowArrowEnabled = true; g.magic.armorPenetration = 0.30; }},
+      { name: "灵魂镣铐", tier: 1, desc: "攻击有15%几率束缚敌人原地1.5秒",
+        effect: g => { g.magic.soulShackleChance = 0.15; g.magic.soulShackleDuration = 1.5; }},
       { name: "暗影步", tier: 2, desc: "短暂进入暗影状态，免疫伤害",
         effect: g => { g.magic.shadowStepEnabled = true; g.magic.shadowStepCooldown = 5; }},
       { name: "恐惧", tier: 2, desc: "附近敌人有几率被恐惧逃跑",
