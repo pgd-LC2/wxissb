@@ -144,7 +144,7 @@ function generateAllSkills(baseBladeSkills = []) {
   skills.push({ name:"万有引力", description:"自动吸取所有经验球，无需靠近", tier:3, icon:"sparkles", effect:(s)=>{ s.expMagnetAll = true; }});
   skills.push({ name:"基础护甲", description:"受到伤害 -10%", tier:1, icon:"shield.fill", effect:(s)=>{ s.damageReduction += 0.1; }});
   skills.push({ name:"学习天赋", description:"获得经验 +15%", tier:1, icon:"book.fill", effect:(s)=>{ s.expMultiplier *= 1.15; }});
-  skills.push({ name:"快速恢复", description:"每秒恢复 0.5 生命", tier:2, icon:"cross.fill", effect:(s)=>{ s.regenRate += 0.5; }});
+  skills.push({ name:"电磁脉冲", description:"每8秒释放电磁脉冲，使周围敌人减速50%持续2秒", tier:2, icon:"wifi", effect:(s)=>{ s.empPulseEnabled = true; s.empPulseInterval = 8; s.empPulseSlowRate = 0.5; s.empPulseDuration = 2.0; }});
 
   // ------------------------------
   // 子弹变体类 (原有)
