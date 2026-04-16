@@ -7,6 +7,21 @@
   } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
   const { escapeHtml, formatTime, getStoredPlayerName, storePlayerName } = GameApp.Helpers;
+  const Shared = GameApp.UIShared || {};
+  const Api = GameApp.Infra && GameApp.Infra.Api ? GameApp.Infra.Api : {};
+  const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : {};
+  const getSharedSkillCards = Shared.getSkillCards || (() => []);
+  const computeRunSummary = Shared.computeRunSummary || (() => ({
+    timeAlive: 0,
+    peak: 0,
+    avg: 0,
+    score: 0,
+    tierObj: { tier: "", color: "#fff" },
+    kills: 0,
+    skillCount: 0,
+    level: 1
+  }));
+  const submitSharedSkillReports = Shared.submitSkillReports || (async () => ({ error: "submitSkillReports unavailable" }));
 
   function clearMovementInputs() {
     const input = GameApp.Input;
@@ -19,7 +34,7 @@
 
   function loadLeaderboard(){
     try{
-      const raw = localStorage.getItem(LEADERBOARD_KEY);
+      const raw = Storage.safeGet ? Storage.safeGet(LEADERBOARD_KEY, "[]") : localStorage.getItem(LEADERBOARD_KEY);
       const list = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(list)) return [];
       return list.filter(x => x && typeof x.score === "number").slice(0, 50);
@@ -30,7 +45,9 @@
 
   function saveLeaderboard(list){
     try{
-      localStorage.setItem(LEADERBOARD_KEY, JSON.stringify(list));
+      const serialized = JSON.stringify(list);
+      if (Storage.safeSet) Storage.safeSet(LEADERBOARD_KEY, serialized);
+      else localStorage.setItem(LEADERBOARD_KEY, serialized);
     }catch{}
   }
 
@@ -104,24 +121,7 @@
      获取技能卡片数据
      ================================================ */
   function getSkillCards(g) {
-    if (!g) return [];
-    const allSkills = window.SkillSystem ? window.SkillSystem.generateAllSkills() : [];
-    const cyberSkills = (window.SkillSystem && window.SkillSystem.generateCyberpunkArsenal) ? window.SkillSystem.generateCyberpunkArsenal() : [];
-    const skillPool = allSkills.concat(cyberSkills);
-
-    const acquired = g.acquiredSkills || [];
-    const meta = g.acquiredSkillMeta || [];
-    const cards = [];
-
-    for (let i = 0; i < acquired.length; i++) {
-      const name = acquired[i];
-      const tierVal = (meta[i] && meta[i].tier) ? meta[i].tier : 1;
-      const def = skillPool.find(s => s.name === name);
-      const icon = def ? (window.SkillSystem.iconFallback ? window.SkillSystem.iconFallback(def.icon) : def.icon) : "✦";
-      const tierLabel = (window.SkillSystem && window.SkillSystem.tierName) ? window.SkillSystem.tierName(tierVal) : "";
-      cards.push({ name, tier: tierVal, icon, tierLabel, description: def ? def.description : "" });
-    }
-    return cards;
+    return getSharedSkillCards(g);
   }
 
   /* ================================================
@@ -131,8 +131,9 @@
   let _currentGame = null;
 
   async function fetchGlobalLeaderboard() {
-    if (!window.SupabaseAPI) return [];
-    const result = await window.SupabaseAPI.getLeaderboard(20);
+    const leaderboardApi = Api.leaderboard;
+    if (!leaderboardApi || !leaderboardApi.getLeaderboard) return [];
+    const result = await leaderboardApi.getLeaderboard(20);
     return result.data || [];
   }
 
@@ -180,27 +181,21 @@
     gameoverStatsEl.style.display = "block";
 
     const endT = nowSec();
-    const timeAlive = g._startTime ? Math.max(0, endT - g._startTime) : 0;
+    const summary = computeRunSummary(g, endT);
 
     let run = g._lastRun || null;
     let board = { list: loadLeaderboard(), rank: null };
 
     if (!run) {
-      const peak = Math.round((g.combat && g.combat.peak) ? g.combat.peak : 0);
-      const avg = Math.round((g.combat && timeAlive > 0) ? (g.combat.integral / timeAlive) : ((g.combat && g.combat.ratingSmooth) ? g.combat.ratingSmooth : 0));
-      const score = Math.round(0.72 * avg + 0.28 * peak);
-
-      const tierObj = (g._combatTierFromScore ? g._combatTierFromScore(score) : { tier: "", color: "#fff" });
-
       run = {
         id: g._runId || `${Date.now()}_${Math.floor(Math.random()*1e9)}`,
-        score,
-        tier: tierObj.tier,
-        time: timeAlive,
-        level: g.level,
-        kills: (g.stats && g.stats.kills) ? g.stats.kills : 0,
-        peak,
-        avg,
+        score: summary.score,
+        tier: summary.tierObj.tier,
+        time: summary.timeAlive,
+        level: summary.level,
+        kills: summary.kills,
+        peak: summary.peak,
+        avg: summary.avg,
         when: Date.now()
       };
 
@@ -213,8 +208,8 @@
 
     const rankText = board.rank ? `#${board.rank}` : "—";
     const tierColor = (g._combatTierFromScore ? g._combatTierFromScore(run.score).color : "#fff");
-    const kills = (g.stats && g.stats.kills) ? g.stats.kills : 0;
-    const skillCount = g.acquiredSkills ? g.acquiredSkills.length : 0;
+    const kills = summary.kills;
+    const skillCount = summary.skillCount;
 
     const submitFormHtml = g._scoreSubmitted ? `
       <div class="submit-status success" style="padding:8px 0;">分数已提交到全球排行榜!</div>
@@ -450,24 +445,8 @@
         var cards = getSkillCards(g);
 
         var lastRun = g._lastRun || null;
-        var peak = lastRun ? lastRun.peak : 0;
-        var avg = lastRun ? lastRun.avg : 0;
-        var score = lastRun ? lastRun.score : Math.round(0.72 * avg + 0.28 * peak);
-        var level = lastRun ? lastRun.level : g.level;
-
-        var reports = [];
-        goSelectedSkills.forEach(function(skillName) {
-          var card = cards.find(function(c) { return c.name === skillName; });
-          reports.push({
-            skill_name: skillName,
-            skill_tier: card ? card.tier : 1,
-            reason: reason,
-            reason_text: reasonText,
-            player_name: playerName,
-            game_level: level,
-            game_score: score
-          });
-        });
+        var score = lastRun ? lastRun.score : summary.score;
+        var level = lastRun ? lastRun.level : summary.level;
 
         goReportSubmitBtn.disabled = true;
         if (goReportSubmitStatus) {
@@ -476,10 +455,15 @@
         }
 
         try {
-          if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
-            throw new Error("Supabase not available");
-          }
-          var result = await window.SupabaseAPI.submitSkillReport(reports);
+          var result = await submitSharedSkillReports(
+            goSelectedSkills,
+            cards,
+            reason,
+            reasonText,
+            playerName,
+            level,
+            score
+          );
           if (result.error) {
             if (goReportSubmitStatus) {
               goReportSubmitStatus.textContent = "提交失败，请重试";
@@ -523,8 +507,9 @@
 
           storePlayerName(playerName);
 
-          if (window.SupabaseAPI) {
-            const result = await window.SupabaseAPI.submitScore(
+          const leaderboardApi = Api.leaderboard;
+          if (leaderboardApi && leaderboardApi.submitScore) {
+            const result = await leaderboardApi.submitScore(
               playerName,
               run.score,
               run.level,

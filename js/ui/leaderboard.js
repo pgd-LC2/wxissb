@@ -4,17 +4,19 @@
   const GameApp = window.GameApp = window.GameApp || {};
   const { leaderboardToggle, globalLeaderboard, globalLeaderboardContent, closeLeaderboard } = GameApp.DOM;
   const { escapeHtml, formatTime } = GameApp.Helpers;
+  const Api = GameApp.Infra && GameApp.Infra.Api ? GameApp.Infra.Api : {};
 
   async function loadGlobalLeaderboard() {
     if (!globalLeaderboardContent) return;
     globalLeaderboardContent.innerHTML = '<div class="lb-loading">加载中...</div>';
 
-    if (!window.SupabaseAPI) {
+    const leaderboardApi = Api.leaderboard;
+    if (!leaderboardApi || !leaderboardApi.getLeaderboard) {
       globalLeaderboardContent.innerHTML = '<div class="lb-loading">Supabase 未初始化</div>';
       return;
     }
 
-    const result = await window.SupabaseAPI.getLeaderboard(50);
+    const result = await leaderboardApi.getLeaderboard(50);
     if (result.error) {
       globalLeaderboardContent.innerHTML = '<div class="lb-loading">加载失败</div>';
       return;

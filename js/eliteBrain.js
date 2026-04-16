@@ -574,7 +574,7 @@
     simulateFuture(g, moveDir, frames) {
       const player = g.player;
       const enemies = g.enemies || [];
-      const playerSpeed = (window.GameConfig?.basePlayerSpeed || 200) * (g.playerSpeedMulti || 1);
+      const playerSpeed = ((GameApp.Config && GameApp.Config.game ? GameApp.Config.game.basePlayerSpeed : 200) || 200) * (g.playerSpeedMulti || 1);
       const playerRadius = player.r || 15;
       
       let simPlayer = { x: player.x, y: player.y };
@@ -665,7 +665,7 @@
      */
     evaluateMove(g, moveDir, threats, spatialAnalysis) {
       const player = g.player;
-      const playerSpeed = (window.GameConfig?.basePlayerSpeed || 200) * (g.playerSpeedMulti || 1);
+      const playerSpeed = ((GameApp.Config && GameApp.Config.game ? GameApp.Config.game.basePlayerSpeed : 200) || 200) * (g.playerSpeedMulti || 1);
       
       // 模拟未来状态
       const simulation = this.predictionSystem.simulateFuture(g, moveDir, CONFIG.DECISION_TREE_DEPTH);

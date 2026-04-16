@@ -6,6 +6,9 @@
 (function() {
   "use strict";
 
+  const GameApp = window.GameApp = window.GameApp || {};
+  const Progression = GameApp.Progression = GameApp.Progression || {};
+
   /**
    * 技能等级权重配置
    * 每个等级的权重会根据玩家等级动态调整
@@ -80,8 +83,7 @@
     return Math.max(0, weight);
   }
 
-  // 导出到全局
-  window.SkillDropRates = {
+  Progression.SkillDropRates = {
     config: SKILL_DROP_RATES,
     calculateWeight: calculateSkillWeight
   };

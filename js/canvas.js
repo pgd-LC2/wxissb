@@ -21,6 +21,10 @@
 
   function wrapRender(game) {
     if (!game) return;
+    if (GameApp.RenderSystems && GameApp.RenderSystems.attachRenderer) {
+      GameApp.RenderSystems.attachRenderer(game);
+      return;
+    }
     game.render = (t) => {
       const { w, h } = getCssSize();
       GameApp.Render.renderWithCssSize(game, t, w, h);

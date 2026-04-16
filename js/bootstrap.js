@@ -12,7 +12,6 @@
 
   function resetGame() {
     const game = GameApp.makeGame();
-    GameApp.Canvas.wrapRender(game);
 
     runtime.setGame(game);
 
@@ -33,7 +32,9 @@
       // 开挂模式下自动随机选择技能，不弹出选择框
       if (game.nbModeActive) {
         // 过滤掉移速技能
-        const isSpeedSkill = window.isSpeedSkill || (() => false);
+        const isSpeedSkill = GameApp.Debug && GameApp.Debug.isSpeedSkill
+          ? GameApp.Debug.isSpeedSkill
+          : (() => false);
         const validChoices = game.skillChoices.filter(sk => !isSpeedSkill(sk));
         
         if (validChoices.length > 0) {

@@ -97,17 +97,6 @@
 - PR 链接
 ```
 
-### PPO AI 训练系统
-
-项目包含一个基于PPO（Proximal Policy Optimization）算法的AI训练系统，文件位于：
-
-- `js/ai/ppoNet.js` - 纯JS实现的PPO神经网络（Actor-Critic架构）
-- `js/ai/ppoTrainer.js` - 游戏环境接口和训练驱动器
-- `pages/ai-train.html` - AI训练可视化页面
-
-状态向量（14维）：HP比例、移动方向、最近敌人位置/距离、附近敌人数、经验/等级/战力、经验球位置
-动作空间（9个离散动作）：停、W、A、S、D、WA、WD、SA、SD
-
 ### 文件编码要求
 
 - 所有文件统一采用 UTF-8 编码。禁止使用其他编码方式进行查看、编辑或保存。

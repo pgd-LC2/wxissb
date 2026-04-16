@@ -543,6 +543,31 @@
             width: 160px;
         }
 
+        .setting-section {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(255,255,255,0.12);
+        }
+
+        .setting-section-title {
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            color: #fff;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+
+        .setting-text {
+            color: var(--ui-sub);
+            line-height: 1.6;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .setting-text:last-of-type {
+            margin-bottom: 0;
+        }
+
         /* Modal */
         .modal {
             position: fixed;
@@ -1008,7 +1033,7 @@
         <div id="particles"></div>
 
         <!-- 版本信息 -->
-        <div class="version">v1.7.0</div>
+            <div class="version">v1.7.10</div>
 
         <!-- 排行榜重置横幅 -->
         <div id="resetBanner" style="
@@ -1049,7 +1074,7 @@
             </div>
 
             <div class="menu">
-                <button class="btn btn-primary" onclick="startGame()">
+                <button class="btn btn-primary" id="startGameBtn">
                     <span class="btn-scan"></span>
                     <span class="btn-decorator tl"></span>
                     <span class="btn-decorator tr"></span>
@@ -1057,15 +1082,7 @@
                     <span class="btn-decorator br"></span>
                     🎮 开始游戏
                 </button>
-                <button class="btn" onclick="startMultiplayer()">
-                    <span class="btn-scan"></span>
-                    <span class="btn-decorator tl"></span>
-                    <span class="btn-decorator tr"></span>
-                    <span class="btn-decorator bl"></span>
-                    <span class="btn-decorator br"></span>
-                    🤝 多人联机
-                </button>
-                <button class="btn" onclick="showLeaderboard()">
+                <button class="btn" id="leaderboardBtn">
                     <span class="btn-scan"></span>
                     <span class="btn-decorator tl"></span>
                     <span class="btn-decorator tr"></span>
@@ -1073,15 +1090,7 @@
                     <span class="btn-decorator br"></span>
                     🏆 排行榜
                 </button>
-                <button class="btn" onclick="showHelp()">
-                    <span class="btn-scan"></span>
-                    <span class="btn-decorator tl"></span>
-                    <span class="btn-decorator tr"></span>
-                    <span class="btn-decorator bl"></span>
-                    <span class="btn-decorator br"></span>
-                    ❓ 游戏说明
-                </button>
-                <button class="btn" onclick="showSettings()">
+                <button class="btn" id="settingsBtn">
                     <span class="btn-scan"></span>
                     <span class="btn-decorator tl"></span>
                     <span class="btn-decorator tr"></span>
@@ -1101,7 +1110,7 @@
             <div class="modal-panel">
                 <div class="modal-header">
                     <div class="modal-title" id="modalTitle">标题</div>
-                    <button class="modal-close" onclick="closeModal()">×</button>
+                    <button class="modal-close" id="modalCloseBtn">×</button>
                 </div>
                 <div class="modal-body" id="modalBody"></div>
             </div>
@@ -1128,336 +1137,8 @@
     </div>
 
     <script src="js/music.js"></script>
-    <script>
-        // 创建粒子效果
-        function createParticles() {
-            const container = document.getElementById('particles');
-            const count = 30;
-            
-            for (let i = 0; i < count; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.setProperty('--drift', (Math.random() - 0.5) * 100 + 'px');
-                particle.style.animationDuration = (15 + Math.random() * 15) + 's';
-                particle.style.animationDelay = Math.random() * 10 + 's';
-                container.appendChild(particle);
-            }
-        }
-
-        const PREF_MUTED = "bigear_pref_muted"; // "1" = muted
-        const PREF_SHAKE = "bigear_pref_shake"; // "1" = enabled
-
-        function navigateTo(url) {
-            const loading = document.getElementById('loading');
-            if (loading) loading.classList.add('show');
-            playSound('start');
-            setTimeout(() => {
-                window.location.href = url;
-            }, 800);
-        }
-
-        // 开始游戏
-        function startGame() {
-            navigateTo('pages/game.html?play=1');
-        }
-
-        // 开始多人联机
-        function startMultiplayer() {
-            navigateTo('pages/multiplayer.html');
-        }
-
-        // 显示排行榜（跳转到游戏内排行榜）
-        function showLeaderboard() {
-            playSound('click');
-            navigateTo('pages/leaderboard.html');
-        }
-
-        function openModal(title, html) {
-            const modal = document.getElementById('modal');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalBody = document.getElementById('modalBody');
-            if (!modal || !modalTitle || !modalBody) return;
-            modalTitle.textContent = title;
-            modalBody.innerHTML = html;
-            modal.classList.add('show');
-        }
-
-        function closeModal() {
-            const modal = document.getElementById('modal');
-            if (modal) modal.classList.remove('show');
-        }
-
-        // 显示帮助
-        function showHelp() {
-            playSound('click');
-            openModal('游戏说明', `
-                <div>
-                    <strong>操作方式</strong><br>
-                    • WASD 或 摇杆移动<br>
-                    • 自动射击最近的敌人<br>
-                    • M 键静音/取消静音<br><br>
-                    <strong>游戏目标</strong><br>
-                    • 击败敌人获得经验值<br>
-                    • 升级时选择强大技能<br>
-                    • 尽可能存活更长时间<br>
-                    • 挑战全球排行榜<br><br>
-                    <strong>肉鸽特色</strong><br>
-                    • 每局技能随机<br>
-                    • 永久死亡机制<br>
-                    • 策略搭配技能
-                </div>
-            `);
-        }
-
-        function getPref(key, fallback) {
-            try {
-                const v = localStorage.getItem(key);
-                if (v === null || v === undefined || v === '') return fallback;
-                return v;
-            } catch {
-                return fallback;
-            }
-        }
-
-        function setPref(key, value) {
-            try {
-                localStorage.setItem(key, value);
-            } catch {}
-        }
-
-        // 显示设置
-        function showSettings() {
-            playSound('click');
-            openModal('设置', `
-                <div class="setting-row">
-                    <span>音效</span>
-                    <label class="switch">
-                        <input type="checkbox" id="settingSound">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-row">
-                    <span>屏幕震动</span>
-                    <label class="switch">
-                        <input type="checkbox" id="settingShake">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-                <div class="setting-row">
-                    <span>当前歌曲</span>
-                    <span class="music-current" id="musicCurrent">-</span>
-                </div>
-                <div class="setting-row">
-                    <span>音乐音量</span>
-                    <input type="range" class="range" id="settingMusicVolume" min="0" max="100" value="60">
-                </div>
-                <div class="setting-row">
-                    <span>播放控制</span>
-                    <div class="music-actions">
-                        <button class="btn btn-mini" id="musicPrev">上一首</button>
-                        <button class="btn btn-mini" id="musicNext">下一首</button>
-                    </div>
-                </div>
-                <div style="margin-top:10px; font-size:12px; opacity:.7;">
-                    设置将同步到游戏内（可在游戏里随时修改）。
-                </div>
-            `);
-
-            const soundToggle = document.getElementById('settingSound');
-            const shakeToggle = document.getElementById('settingShake');
-            const muted = getPref(PREF_MUTED, "0") === "1";
-            const shakeEnabled = getPref(PREF_SHAKE, "1") === "1";
-
-            if (soundToggle) {
-                soundToggle.checked = !muted;
-                soundToggle.onchange = () => {
-                    const isMuted = !soundToggle.checked;
-                    setPref(PREF_MUTED, isMuted ? "1" : "0");
-                };
-            }
-
-            if (shakeToggle) {
-                shakeToggle.checked = shakeEnabled;
-                shakeToggle.onchange = () => {
-                    setPref(PREF_SHAKE, shakeToggle.checked ? "1" : "0");
-                };
-            }
-
-            setupMusicSettings();
-        }
-
-        let musicSettingsBound = false;
-        function setupMusicSettings() {
-            const player = window.MusicPlayer;
-            const musicVolume = document.getElementById('settingMusicVolume');
-            const musicPrev = document.getElementById('musicPrev');
-            const musicNext = document.getElementById('musicNext');
-            const musicCurrent = document.getElementById('musicCurrent');
-
-            if (!player) {
-                if (musicCurrent) musicCurrent.textContent = '音乐系统未初始化';
-                return;
-            }
-
-            function renderNow() {
-                const state = player.getState();
-                if (musicVolume) musicVolume.value = Math.round(player.getVolume() * 100);
-                if (!musicCurrent) return;
-                if (!state.list.length || !state.current) {
-                    musicCurrent.textContent = '未找到音乐文件';
-                    return;
-                }
-                musicCurrent.textContent = state.current.replace(/\.[^/.]+$/, '');
-            }
-
-            if (musicVolume) {
-                musicVolume.value = Math.round(player.getVolume() * 100);
-                musicVolume.oninput = () => {
-                    const v = Math.max(0, Math.min(100, Number(musicVolume.value || 0)));
-                    player.setVolume(v / 100);
-                };
-            }
-
-            if (musicPrev) {
-                musicPrev.onclick = () => player.prev();
-            }
-
-            if (musicNext) {
-                musicNext.onclick = () => player.next();
-            }
-
-            renderNow();
-            if (!musicSettingsBound) {
-                player.onUpdate(renderNow);
-                musicSettingsBound = true;
-            }
-        }
-
-        // 简单音效函数
-        function playSound(type) {
-            // 这里可以添加音效播放逻辑
-            try {
-                const audio = new Audio();
-                // 根据type播放不同音效
-            } catch (e) {
-                // 忽略音效错误
-            }
-        }
-
-        function enterSite() {
-            const gate = document.getElementById('entryGate');
-            if (!gate || gate.classList.contains('hide')) return;
-            gate.classList.add('hide');
-            playBackgroundVideo();
-            if (window.MusicPlayer && typeof window.MusicPlayer.play === 'function') {
-                window.MusicPlayer.play();
-            }
-            setTimeout(() => {
-                gate.remove();
-            }, 700);
-        }
-
-        const BG_PLAYBACK_RATE = 0.7;
-        const BG_VIDEOS = [
-            '/public/background/HomeScreen_CN_OB.mp4',
-            '/public/background/Contract%20Glitches.webm'
-        ];
-        let bgVideoIndex = 0;
-        let bgVideoEl = null;
-
-        function setBackgroundVideo(index, autoplay) {
-            if (!bgVideoEl || BG_VIDEOS.length === 0) return;
-            bgVideoIndex = ((index % BG_VIDEOS.length) + BG_VIDEOS.length) % BG_VIDEOS.length;
-            bgVideoEl.src = BG_VIDEOS[bgVideoIndex];
-            bgVideoEl.load();
-            if (autoplay) playBackgroundVideo();
-        }
-
-        function playBackgroundVideo() {
-            if (!bgVideoEl) initBackgroundVideo();
-            if (!bgVideoEl) return;
-            bgVideoEl.playbackRate = BG_PLAYBACK_RATE;
-            const p = bgVideoEl.play();
-            if (p && typeof p.then === 'function') {
-                p.then(() => {
-                    bgVideoEl.dataset.playing = '1';
-                }).catch(() => {});
-            }
-        }
-
-        function nextBackgroundVideo() {
-            setBackgroundVideo(bgVideoIndex + 1, true);
-        }
-
-        function initBackgroundVideo() {
-            bgVideoEl = document.getElementById('bgVideo');
-            if (!bgVideoEl) return;
-            bgVideoEl.addEventListener('loadedmetadata', () => {
-                bgVideoEl.playbackRate = BG_PLAYBACK_RATE;
-            });
-            bgVideoEl.addEventListener('ended', () => {
-                nextBackgroundVideo();
-            });
-            bgVideoEl.addEventListener('error', () => {
-                nextBackgroundVideo();
-            });
-            setBackgroundVideo(0, false);
-        }
-
-        // 键盘事件
-        document.addEventListener('keydown', (e) => {
-            const gate = document.getElementById('entryGate');
-            const gateVisible = gate && !gate.classList.contains('hide');
-            if (e.key === 'Enter') {
-                if (gateVisible) {
-                    enterSite();
-                    return;
-                }
-                startGame();
-            }
-            if ((e.code === 'Space' || e.key === ' ') && gateVisible) {
-                enterSite();
-            }
-        });
-
-        // 排行榜重置横幅逻辑（显示到2026-03-21）
-        function initResetBanner() {
-            const banner = document.getElementById('resetBanner');
-            if (!banner) return;
-            const deadline = new Date('2026-03-21T23:59:59Z');
-            if (new Date() <= deadline) {
-                banner.style.display = 'block';
-            }
-        }
-
-        // 初始化
-        window.addEventListener('load', () => {
-            createParticles();
-            initBackgroundVideo();
-            playBackgroundVideo();
-            initResetBanner();
-            
-            // 预加载游戏资源
-            setTimeout(() => {
-                const img = new Image();
-                img.src = 'pages/game.html?play=1'; // 预加载主页面
-            }, 100);
-        });
-
-        const entryGate = document.getElementById('entryGate');
-        if (entryGate) {
-            entryGate.addEventListener('click', enterSite);
-            entryGate.addEventListener('touchstart', enterSite, { passive: true });
-        }
-
-        // 点击遮罩关闭弹窗
-        const modal = document.getElementById('modal');
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) closeModal();
-            });
-        }
-    </script>
+    <script src="js/infra/preferences.js"></script>
+    <script src="js/ui/homePage.js"></script>
+    <script src="js/homeEntry.js"></script>
 </body>
 </html>

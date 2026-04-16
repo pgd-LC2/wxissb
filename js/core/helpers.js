@@ -2,6 +2,7 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
+  const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : {};
 
   function escapeHtml(text) {
     const div = document.createElement("div");
@@ -17,17 +18,17 @@
   }
 
   function getStoredPlayerName() {
-    try {
-      return localStorage.getItem("bigear_player_name") || "";
-    } catch {
-      return "";
-    }
+    if (Storage.getPlayerName) return Storage.getPlayerName();
+    if (Storage.safeGet) return Storage.safeGet("bigear_player_name", "");
+    return "";
   }
 
   function storePlayerName(name) {
-    try {
-      localStorage.setItem("bigear_player_name", name);
-    } catch {}
+    if (Storage.setPlayerName) {
+      Storage.setPlayerName(name || "");
+      return;
+    }
+    if (Storage.safeSet) Storage.safeSet("bigear_player_name", name || "");
   }
 
   GameApp.Helpers = {

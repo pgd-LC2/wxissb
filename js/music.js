@@ -1,6 +1,8 @@
 (() => {
   "use strict";
 
+  const GameApp = window.GameApp = window.GameApp || {};
+
   const PREF_ENABLED = "bigear_music_enabled"; // "1" = enabled
   const PREF_VOLUME = "bigear_music_volume"; // "0.0~1.0"
   const PREF_ORDER = "bigear_music_order";
@@ -28,7 +30,13 @@
 
   let lastSaveTs = 0;
 
+  function getStorage() {
+    return GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : null;
+  }
+
   function safeGet(key, fallback) {
+    const storage = getStorage();
+    if (storage && storage.safeGet) return storage.safeGet(key, fallback);
     try {
       const v = localStorage.getItem(key);
       if (v === null || v === undefined || v === "") return fallback;
@@ -39,6 +47,11 @@
   }
 
   function safeSet(key, value) {
+    const storage = getStorage();
+    if (storage && storage.safeSet) {
+      storage.safeSet(key, value);
+      return;
+    }
     try {
       localStorage.setItem(key, value);
     } catch {}
@@ -309,6 +322,8 @@
     }
   };
 
-  window.MusicPlayer = api;
+  GameApp.Infra = GameApp.Infra || {};
+  GameApp.Infra.Audio = GameApp.Infra.Audio || {};
+  GameApp.Infra.Audio.musicPlayer = api;
   api.init();
 })();

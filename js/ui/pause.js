@@ -28,6 +28,18 @@
   } = GameApp.DOM;
   const { nowSec } = GameApp.Deps.utils;
   const { formatTime, getStoredPlayerName, storePlayerName, escapeHtml } = GameApp.Helpers;
+  const Shared = GameApp.UIShared || {};
+  const getSharedSkillCards = Shared.getSkillCards || (() => []);
+  const computeRunSummary = Shared.computeRunSummary || (() => ({
+    timeAlive: 0,
+    score: 0,
+    tierObj: { tier: "", color: "#fff" },
+    kills: 0,
+    skillCount: 0,
+    level: 1
+  }));
+  const submitSharedSkillReports = Shared.submitSkillReports || (async () => ({ error: "submitSkillReports unavailable" }));
+  const Api = GameApp.Infra && GameApp.Infra.Api ? GameApp.Infra.Api : {};
   const runtime = GameApp.Runtime;
 
   let game = null;
@@ -105,24 +117,7 @@
      左右技能滚动列 - 酷炫动画
      ================================================ */
   function getSkillCards() {
-    if (!game) return [];
-    const allSkills = window.SkillSystem ? window.SkillSystem.generateAllSkills() : [];
-    const cyberSkills = (window.SkillSystem && window.SkillSystem.generateCyberpunkArsenal) ? window.SkillSystem.generateCyberpunkArsenal() : [];
-    const skillPool = [...allSkills, ...cyberSkills];
-
-    const acquired = game.acquiredSkills || [];
-    const meta = game.acquiredSkillMeta || [];
-    const cards = [];
-
-    for (let i = 0; i < acquired.length; i++) {
-      const name = acquired[i];
-      const tierVal = (meta[i] && meta[i].tier) ? meta[i].tier : 1;
-      const def = skillPool.find(s => s.name === name);
-      const icon = def ? (window.SkillSystem.iconFallback ? window.SkillSystem.iconFallback(def.icon) : def.icon) : "✦";
-      const tierLabel = window.SkillSystem && window.SkillSystem.tierName ? window.SkillSystem.tierName(tierVal) : "";
-      cards.push({ name, tier: tierVal, icon, tierLabel, description: def ? def.description : "" });
-    }
-    return cards;
+    return getSharedSkillCards(game);
   }
 
   function buildScrollColumn(container, cards) {
@@ -285,25 +280,7 @@
       const cards = getSkillCards();
 
       const t = nowSec();
-      const timeAlive = game && game._startTime ? Math.max(0, t - game._startTime) : 0;
-      const peak = Math.round((game && game.combat && game.combat.peak) ? game.combat.peak : 0);
-      const avg = Math.round((game && game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game && game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
-      const score = Math.round(0.72 * avg + 0.28 * peak);
-      const level = game ? game.level : 1;
-
-      const reports = [];
-      for (const skillName of selectedSkills) {
-        const card = cards.find(c => c.name === skillName);
-        reports.push({
-          skill_name: skillName,
-          skill_tier: card ? card.tier : 1,
-          reason: reason,
-          reason_text: reasonText,
-          player_name: playerName || "匿名",
-          game_level: level,
-          game_score: score
-        });
-      }
+      const summary = computeRunSummary(game, t);
 
       reportSubmitBtn.disabled = true;
       if (reportSubmitStatus) {
@@ -312,10 +289,15 @@
       }
 
       try {
-        if (!window.SupabaseAPI || !window.SupabaseAPI.submitSkillReport) {
-          throw new Error("Supabase not available");
-        }
-        const result = await window.SupabaseAPI.submitSkillReport(reports);
+        const result = await submitSharedSkillReports(
+          selectedSkills,
+          cards,
+          reason,
+          reasonText,
+          playerName || "匿名",
+          summary.level,
+          summary.score
+        );
         if (result.error) {
           if (reportSubmitStatus) {
             reportSubmitStatus.textContent = "提交失败，请重试";
@@ -352,22 +334,17 @@
     if (input && input.clearMovementInputs) input.clearMovementInputs();
 
     const t = nowSec();
-    const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
-    const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
-    const avg = Math.round((game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
-    const score = Math.round(0.72 * avg + 0.28 * peak);
-    const tierObj = (game._combatTierFromScore ? game._combatTierFromScore(score) : { tier: "", color: "#fff" });
-    const kills = (game.stats && game.stats.kills) ? game.stats.kills : 0;
+    const summary = computeRunSummary(game, t);
 
     if (pauseStats) {
       pauseStats.innerHTML = `
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-          <div>战力评分: <strong>${score}</strong></div>
-          <div>段位: <strong style="color:${tierObj.color}">${escapeHtml(tierObj.tier)}</strong></div>
-          <div>存活时间: <strong>${formatTime(timeAlive)}</strong></div>
-          <div>等级: <strong>Lv.${game.level}</strong></div>
-          <div>击杀: <strong>${kills}</strong></div>
-          <div>技能: <strong>${game.acquiredSkills.length}</strong></div>
+          <div>战力评分: <strong>${summary.score}</strong></div>
+          <div>段位: <strong style="color:${summary.tierObj.color}">${escapeHtml(summary.tierObj.tier)}</strong></div>
+          <div>存活时间: <strong>${formatTime(summary.timeAlive)}</strong></div>
+          <div>等级: <strong>Lv.${summary.level}</strong></div>
+          <div>击杀: <strong>${summary.kills}</strong></div>
+          <div>技能: <strong>${summary.skillCount}</strong></div>
         </div>
       `;
     }
@@ -473,7 +450,9 @@
     pauseSubmitScoreBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
 
-      if (!game || !window.SupabaseAPI) {
+      const leaderboardApi = Api.leaderboard;
+
+      if (!game || !leaderboardApi || !leaderboardApi.submitScore) {
         if (pauseSubmitStatus) {
           pauseSubmitStatus.textContent = "无法连接到服务器";
           pauseSubmitStatus.className = "submit-status error";
@@ -492,13 +471,7 @@
 
       storePlayerName(playerName);
 
-      const t = nowSec();
-      const timeAlive = game._startTime ? Math.max(0, t - game._startTime) : 0;
-      const peak = Math.round((game.combat && game.combat.peak) ? game.combat.peak : 0);
-      const avg = Math.round((game.combat && timeAlive > 0) ? (game.combat.integral / timeAlive) : ((game.combat && game.combat.ratingSmooth) ? game.combat.ratingSmooth : 0));
-      const score = Math.round(0.72 * avg + 0.28 * peak);
-      const tierObj = (game._combatTierFromScore ? game._combatTierFromScore(score) : { tier: "", color: "#fff" });
-      const kills = (game.stats && game.stats.kills) ? game.stats.kills : 0;
+      const summary = computeRunSummary(game, nowSec());
 
       if (pauseSubmitStatus) {
         pauseSubmitStatus.textContent = "提交中...";
@@ -506,13 +479,13 @@
       }
 
       try {
-        const result = await window.SupabaseAPI.submitScore(
+        const result = await leaderboardApi.submitScore(
           playerName,
-          score,
-          game.level,
-          kills,
-          Math.round(timeAlive),
-          tierObj.tier
+          summary.score,
+          summary.level,
+          summary.kills,
+          Math.round(summary.timeAlive),
+          summary.tierObj.tier
         );
 
         if (result.error) {

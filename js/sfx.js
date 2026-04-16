@@ -136,5 +136,7 @@ const SFX = (() => {
   return { unlock, setMuted, isMuted, shoot, hit, blade, kill, pickup, levelup };
 })();
 
-// 导出音效系统供其他模块使用
-window.SFX = SFX;
+window.GameApp = window.GameApp || {};
+window.GameApp.Infra = window.GameApp.Infra || {};
+window.GameApp.Infra.Audio = window.GameApp.Infra.Audio || {};
+window.GameApp.Infra.Audio.sfx = SFX;

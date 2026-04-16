@@ -2,13 +2,13 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
-  const utils = window.GameUtils;
+  const Audio = GameApp.Infra && GameApp.Infra.Audio ? GameApp.Infra.Audio : {};
 
   GameApp.Deps = {
-    utils,
-    SFX: window.SFX,
-    GameConfig: window.GameConfig,
-    SkillSystem: window.SkillSystem,
-    nextId: window.nextId
+    utils: GameApp.Utils,
+    SFX: Audio.sfx,
+    GameConfig: GameApp.Config ? GameApp.Config.game : null,
+    SkillSystem: GameApp.SkillSystem || null,
+    nextId: GameApp.nextId
   };
 })();

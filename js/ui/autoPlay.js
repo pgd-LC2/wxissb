@@ -8,8 +8,30 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
-  const PREF_AUTOPLAY = "bigear_pref_autoplay";
-  const PREF_ELITE_MODE = "bigear_pref_elite_ai";
+  const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : null;
+  const storageKeys = Storage && Storage.keys ? Storage.keys : {};
+  const PREF_AUTOPLAY = storageKeys.autoPlayEnabled || "bigear_pref_autoplay";
+  const PREF_ELITE_MODE = storageKeys.eliteAiEnabled || "bigear_pref_elite_ai";
+
+  function safeGet(key, fallback = "") {
+    if (Storage && Storage.safeGet) return Storage.safeGet(key, fallback);
+    try {
+      const value = localStorage.getItem(key);
+      return value === null || value === undefined || value === "" ? fallback : value;
+    } catch {
+      return fallback;
+    }
+  }
+
+  function safeSet(key, value) {
+    if (Storage && Storage.safeSet) {
+      Storage.safeSet(key, value);
+      return;
+    }
+    try {
+      localStorage.setItem(key, value);
+    } catch {}
+  }
 
   let game = null;
   let currentGameId = 0;
@@ -44,9 +66,7 @@
 
   function setEnabled(enabled) {
     state.enabled = !!enabled;
-    try {
-      localStorage.setItem(PREF_AUTOPLAY, state.enabled ? "1" : "0");
-    } catch {}
+    safeSet(PREF_AUTOPLAY, state.enabled ? "1" : "0");
     refreshAutoPlayIcon();
   }
 
@@ -56,9 +76,7 @@
 
   function setEliteMode(enabled) {
     state.eliteMode = !!enabled;
-    try {
-      localStorage.setItem(PREF_ELITE_MODE, state.eliteMode ? "1" : "0");
-    } catch {}
+    safeSet(PREF_ELITE_MODE, state.eliteMode ? "1" : "0");
     refreshAutoPlayIcon();
   }
 
@@ -91,7 +109,7 @@
 
   // 计算子弹最大射程
   function getBulletMaxRange(g) {
-    const GameConfig = window.GameConfig || { baseBulletSpeed: 600 };
+    const GameConfig = GameApp.Config && GameApp.Config.game ? GameApp.Config.game : { baseBulletSpeed: 600 };
     const speed = GameConfig.baseBulletSpeed * (g.bulletSpeedMulti || 1.0);
     const lifetime = g.bulletLifetime || 1.5;
     // 保持在最大射程的70%左右，留有余地
@@ -388,18 +406,16 @@
   }
 
   // 初始化状态
-  try {
-    const pref = localStorage.getItem(PREF_AUTOPLAY);
-    if (pref === "1") {
-      state.enabled = true;
-    }
-    const elitePref = localStorage.getItem(PREF_ELITE_MODE);
-    if (elitePref === "0") {
-      state.eliteMode = false;
-    } else {
-      state.eliteMode = true;  // 默认启用Elite模式
-    }
-  } catch {}
+  const pref = safeGet(PREF_AUTOPLAY, "0");
+  if (pref === "1") {
+    state.enabled = true;
+  }
+  const elitePref = safeGet(PREF_ELITE_MODE, "1");
+  if (elitePref === "0") {
+    state.eliteMode = false;
+  } else {
+    state.eliteMode = true;  // 默认启用Elite模式
+  }
 
   const autoPlayBtn = GameApp.DOM && GameApp.DOM.autoPlayToggle;
   if (autoPlayBtn) {

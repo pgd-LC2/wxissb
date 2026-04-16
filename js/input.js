@@ -2,6 +2,92 @@
   "use strict";
 
   const GameApp = window.GameApp = window.GameApp || {};
+  const { joystickEl, joyKnob } = GameApp.DOM;
+  const { hypot } = GameApp.Deps.utils;
+
+  let game = null;
+  GameApp.Runtime.onGameChange((g) => { game = g; });
+
+  // Joystick pointer control
+  let joyActive = false;
+  let joyPointerId = null;
+  let joyCenter = { x: 0, y: 0 };
+
+  // 动态获取摇杆半径（基于元素实际大小）
+  function getJoyRadius() {
+    if (!joystickEl) return 70;
+    const rect = joystickEl.getBoundingClientRect();
+    return rect.width / 2;
+  }
+
+  // 动态获取手柄大小（基于 joyKnob 实际大小）
+  function getKnobSize() {
+    if (!joyKnob) return 22;
+    const rect = joyKnob.getBoundingClientRect();
+    return rect.width / 2;
+  }
+
+  function setJoyKnob(dx, dy) {
+    const joyRadius = getJoyRadius();
+    const knobSize = getKnobSize();
+    const maxMove = joyRadius - knobSize;
+    const px = dx * maxMove;
+    const py = dy * maxMove;
+    joyKnob.style.transform = `translate(${px}px, ${py}px) translate(-50%, -50%)`;
+  }
+
+  if (joystickEl) {
+    joystickEl.addEventListener("pointerdown", (e) => {
+      joyActive = true;
+      joyPointerId = e.pointerId;
+      joystickEl.setPointerCapture(joyPointerId);
+
+      const rect = joystickEl.getBoundingClientRect();
+      joyCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+      setJoyKnob(0, 0);
+    });
+
+    joystickEl.addEventListener("pointermove", (e) => {
+      if (!joyActive || e.pointerId !== joyPointerId) return;
+      const dx = e.clientX - joyCenter.x;
+      const dy = e.clientY - joyCenter.y;
+      const dist = hypot(dx, dy);
+      if (dist <= 0.0001) {
+        if (game) game.joystickVector = { dx: 0, dy: 0 };
+        setJoyKnob(0, 0);
+        return;
+      }
+      const joyRadius = getJoyRadius();
+      const factor = Math.min(dist, joyRadius) / dist;
+      const ndx = (dx * factor) / joyRadius;
+      const ndy = (dy * factor) / joyRadius;
+      if (game) game.joystickVector = { dx: ndx, dy: ndy };
+      setJoyKnob(ndx, ndy);
+    });
+
+    function endJoy(e) {
+      if (!joyActive) return;
+      joyActive = false;
+      joyPointerId = null;
+      if (game) game.joystickVector = { dx: 0, dy: 0 };
+      setJoyKnob(0, 0);
+      try { joystickEl.releasePointerCapture(e.pointerId); } catch {}
+    }
+
+    joystickEl.addEventListener("pointerup", endJoy);
+    joystickEl.addEventListener("pointercancel", endJoy);
+    joystickEl.addEventListener("pointerleave", endJoy);
+  }
+
+  const input = GameApp.Input = GameApp.Input || {};
+  input.isJoyActive = () => joyActive;
+  input.setJoyKnob = setJoyKnob;
+})();
+
+(() => {
+  "use strict";
+
+  const GameApp = window.GameApp = window.GameApp || {};
 
   // 检测是否为桌面设备（非触摸设备）
   function isDesktopDevice() {
@@ -236,4 +322,84 @@
     showJoystickDialog,
     initJoystickForDesktop
   };
+})();
+
+(() => {
+  "use strict";
+
+  const GameApp = window.GameApp = window.GameApp || {};
+  const { hypot } = GameApp.Deps.utils;
+  const { SFX } = GameApp.Deps;
+
+  let game = null;
+  GameApp.Runtime.onGameChange((g) => { game = g; });
+
+  const keys = new Set();
+  function recomputeKeyVector() {
+    let dx = 0, dy = 0;
+    if (keys.has("w")) dy -= 1;
+    if (keys.has("s")) dy += 1;
+    if (keys.has("a")) dx -= 1;
+    if (keys.has("d")) dx += 1;
+    if (dx !== 0 || dy !== 0) {
+      const len = hypot(dx, dy);
+      dx /= len;
+      dy /= len;
+    }
+    return { dx, dy };
+  }
+
+  window.addEventListener("keydown", (e) => {
+    // 如果焦点在输入框中，完全不处理，让浏览器默认行为处理输入
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      return; // 直接返回，不阻止任何默认行为
+    }
+
+    const k = e.key.toLowerCase();
+
+    // unlock audio on user gesture (autoplay policies)
+    SFX.unlock();
+
+    // toggle mute
+    if (k === "m") {
+      SFX.setMuted(!SFX.isMuted());
+      const ui = GameApp.UI;
+      if (ui && ui.refreshSoundIcon) ui.refreshSoundIcon();
+      e.preventDefault();
+      return;
+    }
+
+    if (["w", "a", "s", "d"].includes(k)) {
+      keys.add(k);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  window.addEventListener("keyup", (e) => {
+    // 如果焦点在输入框中，完全不处理
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === "INPUT" || activeEl.tagName === "TEXTAREA")) {
+      return; // 直接返回，不阻止任何默认行为
+    }
+
+    const k = e.key.toLowerCase();
+    if (["w", "a", "s", "d"].includes(k)) {
+      keys.delete(k);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  function clearMovementInputs() {
+    keys.clear();
+    if (game) game.joystickVector = { dx: 0, dy: 0 };
+    const input = GameApp.Input;
+    if (input && input.setJoyKnob) input.setJoyKnob(0, 0);
+  }
+  window.addEventListener("blur", clearMovementInputs);
+  document.addEventListener("visibilitychange", () => { if (document.hidden) clearMovementInputs(); });
+
+  const input = GameApp.Input = GameApp.Input || {};
+  input.recomputeKeyVector = recomputeKeyVector;
+  input.clearMovementInputs = clearMovementInputs;
 })();
