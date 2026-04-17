@@ -1,0 +1,24 @@
+:root{
+  --ui-bg: rgba(0,0,0,.55);
+  --ui-panel: rgba(0,0,0,.72);
+  --ui-border: rgba(255,255,255,.12);
+  --ui-text: rgba(255,255,255,.92);
+  --ui-sub: rgba(255,255,255,.72);
+  --hp: #ff3b30;
+  --exp: #34c759;
+  --uncommon: #4aa3ff;
+  --rare: #34c759;
+  --epic: #bf5af2;
+  --legend: #ffd60a;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  height: 100%;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--ui-text);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;

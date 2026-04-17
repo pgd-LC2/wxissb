@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { levelBadge, hpFill, expFill, skillCountEl, powerBadgeEl, bladeBadgeEl } = GameApp.DOM;
   const { clamp, nowSec } = GameApp.Deps.utils;
 

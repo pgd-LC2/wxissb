@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { nowSec } = GameApp.Deps.utils;
   const { overlay, restartBtn, homeBtn } = GameApp.DOM;
   const runtime = GameApp.Runtime;

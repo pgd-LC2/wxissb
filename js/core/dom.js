@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
 
   const canvas = document.getElementById("c");
   const ctx = canvas.getContext("2d", { alpha: false });

@@ -1,9 +1,3 @@
-(() => {
-  "use strict";
-
-  window.addEventListener("load", () => {
-    if (window.GameApp && window.GameApp.LeaderboardPage && window.GameApp.LeaderboardPage.init) {
-      window.GameApp.LeaderboardPage.init();
-    }
-  }, { once: true });
-})();
+// 该文件已退役。
+// 新排行榜入口迁移到 js/app/leaderboardPage.js。
+export {};

@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { leaderboardToggle, globalLeaderboard, globalLeaderboardContent, closeLeaderboard } = GameApp.DOM;
   const { escapeHtml, formatTime } = GameApp.Helpers;
   const Api = GameApp.Infra && GameApp.Infra.Api ? GameApp.Infra.Api : {};

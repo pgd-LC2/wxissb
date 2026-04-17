@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { joystickEl, joyKnob } = GameApp.DOM;
   const { hypot } = GameApp.Deps.utils;
 
@@ -87,7 +88,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
 
   // 检测是否为桌面设备（非触摸设备）
   function isDesktopDevice() {
@@ -327,7 +328,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { hypot } = GameApp.Deps.utils;
   const { SFX } = GameApp.Deps;
 

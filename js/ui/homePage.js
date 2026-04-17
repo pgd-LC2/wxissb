@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : null;
 
   const BG_PLAYBACK_RATE = 0.7;

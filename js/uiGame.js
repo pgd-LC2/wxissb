@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const CLASSES = GameApp.Content && GameApp.Content.Classes ? GameApp.Content.Classes.CLASSES : {};
   const WEAPONS = GameApp.Content && GameApp.Content.Classes ? GameApp.Content.Classes.WEAPONS : {};
   const SelectionState = GameApp.State ? GameApp.State.Selection : null;
@@ -238,7 +239,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const dom = GameApp.DOM || {};
   const { soundToggle, musicToggle, shakeToggle } = dom;
   const fallbackRuntime = { shakeEnabled: true };

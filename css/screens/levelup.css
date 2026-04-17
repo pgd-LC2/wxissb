@@ -1,0 +1,138 @@
+/* Overlay */
+#overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  background: rgba(0,0,0,.78);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  box-sizing: border-box;
+}
+#overlay.show { display: flex; }
+#panel {
+  width: min(560px, 100%);
+  background: rgba(20,20,20,.92);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  padding: 22px;
+  box-sizing: border-box;
+}
+#panel h1 {
+  margin: 0 0 8px 0;
+  font-size: 34px;
+  letter-spacing: .5px;
+  text-align: center;
+}
+#panel p {
+  margin: 0 0 16px 0;
+  text-align: center;
+  color: var(--ui-sub);
+}
+#choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+.skillBtn {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255,255,255,.06);
+  border: 2px solid rgba(255,255,255,.10);
+  cursor: pointer;
+}
+.skillBtn:hover { background: rgba(255,255,255,.09); }
+.skillIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.10);
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+.skillMeta { flex: 1 1 auto; }
+.skillTitleRow {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.skillName {
+  font-weight: 900;
+  font-size: 16px;
+}
+.skillTier {
+  font-size: 12px;
+  opacity: .9;
+  font-weight: 800;
+}
+.skillDesc {
+  margin-top: 2px;
+  font-size: 13px;
+  color: rgba(255,255,255,.80);
+  line-height: 1.25;
+}
+.tier1 { color: rgba(255,255,255,.95); }
+.tier2 { color: var(--uncommon); }
+.tier3 { color: var(--rare); }
+.tier4 { color: var(--epic); }
+.tier5 { color: var(--legend); }
+
+#gameoverStats{
+  margin-top: 10px;
+  display: none;
+  text-align: center;
+  color: rgba(255,255,255,.86);
+  font-size: 16px;
+  line-height: 1.6;
+}
+#restartRow{
+  margin-top: 18px;
+  display: none;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#restartRow .gameover-btn{
+  border: none;
+  background: rgba(255,255,255,.92);
+  color: #000;
+  font-weight: 900;
+  font-size: 18px;
+  padding: 12px 22px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+#restartRow .gameover-btn.primary:hover { background: #fff; }
+#restartRow .gameover-btn.secondary{
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.25);
+}
+#restartRow .gameover-btn.secondary:hover { background: rgba(255,255,255,.2); }
+
+/* Overlay "juicy" animation */
+@keyframes popIn {
+  0% { transform: scale(0.92); opacity: 0; }
+  60% { transform: scale(1.02); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+#overlay.show #panel { animation: popIn .18s ease-out; transform-origin: 50% 50%; }
+
+@keyframes levelGlow {
+  0%, 100% { text-shadow: 0 0 0 rgba(255,214,10,0); transform: scale(1); }
+  50% { text-shadow: 0 0 18px rgba(255,214,10,.55); transform: scale(1.03); }
+}
+#overlay.mode-levelup #overlayTitle{ animation: levelGlow .9s ease-in-out infinite; }
+@media (max-width: 420px){
+  .bar { width: 180px; }
+  /* 摇杆大小已由 vmin 自动适配，无需额外设置 */
+}

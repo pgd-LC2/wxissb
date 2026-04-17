@@ -1,0 +1,485 @@
+/* Submit Score Form in Game Over */
+.submit-score-form {
+  margin-top: 14px;
+  padding: 14px;
+  background: rgba(255,255,255,.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+}
+.submit-score-form input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.submit-score-form input::placeholder { color: rgba(255,255,255,.45); }
+.submit-score-form button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,214,10,.85);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+.submit-score-form button:hover { background: rgba(255,214,10,1); }
+.submit-score-form button:disabled {
+  background: rgba(255,255,255,.25);
+  color: rgba(255,255,255,.45);
+  cursor: not-allowed;
+}
+.submit-status {
+  margin-top: 8px;
+  font-size: 13px;
+  text-align: center;
+}
+.submit-status.success { color: rgba(52,199,89,.95); }
+.submit-status.error { color: rgba(255,59,48,.95); }
+
+/* Game Over Dual Leaderboard Layout */
+#overlay.mode-gameover #panel {
+  width: min(900px, 95%);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.gameover-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.gameover-stats-section {
+  text-align: center;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+
+.gameover-submit-section {
+  padding: 14px;
+  background: rgba(255,255,255,.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.gameover-submit-section input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.gameover-submit-section input::placeholder {
+  color: rgba(255,255,255,.45);
+}
+
+.gameover-submit-section button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,214,10,.85);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.gameover-submit-section button:hover {
+  background: rgba(255,214,10,1);
+}
+
+.gameover-submit-section button:disabled {
+  background: rgba(255,255,255,.25);
+  color: rgba(255,255,255,.45);
+  cursor: not-allowed;
+}
+
+.dual-leaderboard-container {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.leaderboard-column {
+  flex: 1;
+  min-width: 0;
+}
+
+.leaderboard-title {
+  font-weight: 900;
+  font-size: 15px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leaderboard-title .icon {
+  font-size: 16px;
+}
+
+.leaderboard-title.local {
+  color: rgba(255,214,10,.95);
+}
+
+.leaderboard-title.global {
+  color: rgba(52,199,89,.95);
+}
+
+.leaderboard-table-wrapper {
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.leaderboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.leaderboard-table th,
+.leaderboard-table td {
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.leaderboard-table th {
+  font-weight: 800;
+  opacity: .85;
+  background: rgba(255,255,255,.06);
+  border-bottom: 1px solid rgba(255,255,255,.10);
+  position: sticky;
+  top: 0;
+}
+
+.leaderboard-table tr {
+  border-bottom: 1px solid rgba(255,255,255,.06);
+}
+
+.leaderboard-table tr:last-child {
+  border-bottom: none;
+}
+
+.leaderboard-table tr.highlight {
+  background: rgba(255,214,10,.12);
+}
+
+.leaderboard-table tr.highlight td {
+  border-color: rgba(255,214,10,.28);
+}
+
+.leaderboard-loading {
+  padding: 20px;
+  text-align: center;
+  color: rgba(255,255,255,.55);
+  font-size: 13px;
+}
+
+.leaderboard-empty {
+  padding: 20px;
+  text-align: center;
+  color: rgba(255,255,255,.45);
+  font-size: 13px;
+}
+
+.leaderboard-note {
+  margin-top: 8px;
+  font-size: 11px;
+  opacity: .55;
+  line-height: 1.35;
+}
+
+/* ================================================
+   Game Over - Beautified UI
+   ================================================ */
+.go-container {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: center;
+}
+
+.go-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 8px;
+}
+
+.go-skull {
+  font-size: 48px;
+  line-height: 1;
+  filter: drop-shadow(0 0 12px rgba(255, 59, 48, .5));
+  animation: go-skull-pulse 2s ease-in-out infinite;
+}
+
+@keyframes go-skull-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: .85; }
+}
+
+.go-title {
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  color: #ff3b30;
+  margin: 0;
+  text-shadow: 0 0 20px rgba(255, 59, 48, .4);
+}
+
+.go-tier-badge {
+  display: inline-block;
+  padding: 4px 16px;
+  border: 2px solid;
+  border-radius: 20px;
+  font-weight: 900;
+  font-size: 14px;
+  letter-spacing: 1px;
+  background: rgba(255,255,255,.06);
+}
+
+.go-score-hero {
+  padding: 12px 0 8px;
+}
+
+.go-score-value {
+  font-size: 52px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -1px;
+  text-shadow: 0 0 30px currentColor;
+}
+
+.go-score-label {
+  font-size: 13px;
+  opacity: .6;
+  margin-top: 4px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.go-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.go-stat-card {
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 12px;
+  padding: 10px 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: background .2s;
+}
+
+.go-stat-card:hover {
+  background: rgba(255,255,255,.10);
+}
+
+.go-stat-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.go-stat-val {
+  font-size: 16px;
+  font-weight: 900;
+  line-height: 1.2;
+}
+
+.go-stat-lbl {
+  font-size: 11px;
+  opacity: .55;
+}
+
+.go-detail-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  opacity: .75;
+  padding: 4px 0;
+}
+
+.go-detail-row b {
+  font-weight: 800;
+}
+
+.go-submit-section {
+  padding: 14px;
+  background: rgba(255,255,255,.06);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+}
+
+.go-submit-section input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 14px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.go-submit-section input::placeholder {
+  color: rgba(255,255,255,.45);
+}
+
+.go-submit-section button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: none;
+  background: rgba(255,214,10,.85);
+  color: #000;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background .2s;
+}
+
+.go-submit-section button:hover {
+  background: rgba(255,214,10,1);
+}
+
+.go-submit-section button:disabled {
+  background: rgba(255,255,255,.25);
+  color: rgba(255,255,255,.45);
+  cursor: not-allowed;
+}
+
+.go-report-btn {
+  width: 100%;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,59,48,.35);
+  background: rgba(255,59,48,.12);
+  color: rgba(255,120,100,.95);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .2s;
+}
+
+.go-report-btn:hover {
+  background: rgba(255,59,48,.22);
+  border-color: rgba(255,59,48,.5);
+}
+
+.go-report-title {
+  font-size: 20px;
+  font-weight: 900;
+  margin: 0 0 4px;
+  color: rgba(255,120,100,.95);
+}
+
+.go-report-subtitle {
+  font-size: 13px;
+  opacity: .6;
+  margin: 0 0 12px;
+}
+
+.go-report-textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 120px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,.15);
+  background: rgba(255,255,255,.08);
+  color: rgba(255,255,255,.95);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+  margin-top: 8px;
+}
+
+.go-report-textarea::placeholder {
+  color: rgba(255,255,255,.4);
+}
+
+.go-report-textarea:focus {
+  outline: none;
+  border-color: rgba(255,120,100,.5);
+  background: rgba(255,255,255,.10);
+}
+
+/* Responsive: Stack vertically on mobile */
+@media (max-width: 640px) {
+  #overlay.mode-gameover #panel {
+    width: 95%;
+    padding: 16px;
+  }
+  
+  .dual-leaderboard-container {
+    flex-direction: column;
+  }
+  
+  .leaderboard-table-wrapper {
+    max-height: 200px;
+  }
+  
+  .leaderboard-table {
+    font-size: 11px;
+  }
+  
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 5px 6px;
+  }
+
+  .go-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .go-score-value {
+    font-size: 38px;
+  }
+
+  .go-title {
+    font-size: 22px;
+    letter-spacing: 2px;
+  }
+
+  .go-skull {
+    font-size: 36px;
+  }
+
+  .go-detail-row {
+    font-size: 12px;
+    gap: 10px;
+  }
+}

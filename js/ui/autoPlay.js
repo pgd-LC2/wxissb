@@ -1,3 +1,4 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 /**
  * AutoPlay System - AI托管系统
  * 
@@ -7,7 +8,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : null;
   const storageKeys = Storage && Storage.keys ? Storage.keys : {};
   const PREF_AUTOPLAY = storageKeys.autoPlayEnabled || "bigear_pref_autoplay";

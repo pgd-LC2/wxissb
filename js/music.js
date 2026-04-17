@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
 
   const PREF_ENABLED = "bigear_music_enabled"; // "1" = enabled
   const PREF_VOLUME = "bigear_music_volume"; // "0.0~1.0"

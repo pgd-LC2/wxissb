@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { overlay, overlayTitle, overlaySubtitle, choicesEl, gameoverStatsEl, restartRow } = GameApp.DOM;
   const { SkillSystem } = GameApp.Deps;
   const { tierName, tierClass, iconFallback, generateAllSkills, generateExtraBladeSkills } = SkillSystem;

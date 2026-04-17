@@ -1,3 +1,4 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 /**
  * 技能爆率配置文件
  * 定义各等级技能的掉落权重
@@ -6,7 +7,7 @@
 (function() {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Progression = GameApp.Progression = GameApp.Progression || {};
 
   /**

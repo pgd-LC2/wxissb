@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Infra = GameApp.Infra = GameApp.Infra || {};
   const Api = Infra.Api = Infra.Api || {};
 

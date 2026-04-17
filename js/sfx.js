@@ -1,3 +1,4 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 /**
  * 音效系统模块
  * 使用 WebAudio API 合成音效，无需外部资源
@@ -136,7 +137,6 @@ const SFX = (() => {
   return { unlock, setMuted, isMuted, shoot, hit, blade, kill, pickup, levelup };
 })();
 
-window.GameApp = window.GameApp || {};
-window.GameApp.Infra = window.GameApp.Infra || {};
-window.GameApp.Infra.Audio = window.GameApp.Infra.Audio || {};
-window.GameApp.Infra.Audio.sfx = SFX;
+__GameApp.Infra = __GameApp.Infra || {};
+__GameApp.Infra.Audio = __GameApp.Infra.Audio || {};
+__GameApp.Infra.Audio.sfx = SFX;

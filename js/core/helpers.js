@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Storage = GameApp.Infra && GameApp.Infra.Storage ? GameApp.Infra.Storage : {};
 
   function escapeHtml(text) {

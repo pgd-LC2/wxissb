@@ -1,0 +1,82 @@
+<template id="tpl-leaderboard-shell">
+<div class="bg"></div>
+  <div class="grid"></div>
+
+  <div class="page">
+    <div class="header">
+      <div>
+        <div class="title">LEADERBOARD</div>
+        <div class="subtitle">BIGEAR · 全球排行榜</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="backBtn">返回主界面</button>
+        <button class="btn" id="refreshBtn">刷新</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="filters">
+        <div class="filter-group">
+          <span class="filter-label">排序方式</span>
+          <div class="sort-tabs" id="sortButtons">
+            <button class="sort-tab active" data-sort="score">战力</button>
+            <button class="sort-tab" data-sort="level">等级</button>
+            <button class="sort-tab" data-sort="survival_time">存活时间</button>
+            <button class="sort-tab" data-sort="kills">击杀数</button>
+          </div>
+        </div>
+        <label class="filter-toggle">
+          <input type="checkbox" id="showOldToggle">
+          <span class="toggle-switch"></span>
+          <span class="filter-label">显示旧版本数据</span>
+        </label>
+      </div>
+
+      <div class="podium">
+        <div class="podium-card" id="podium2">
+          <div class="podium-rank">#2</div>
+          <div class="podium-name">—</div>
+          <div class="podium-score">0</div>
+          <div class="podium-meta">段位 — · Lv.1 · 击杀 0</div>
+        </div>
+        <div class="podium-card" id="podium1">
+          <div class="podium-rank">#1</div>
+          <div class="podium-name">—</div>
+          <div class="podium-score">0</div>
+          <div class="podium-meta">段位 — · Lv.1 · 击杀 0</div>
+        </div>
+        <div class="podium-card" id="podium3">
+          <div class="podium-rank">#3</div>
+          <div class="podium-name">—</div>
+          <div class="podium-score">0</div>
+          <div class="podium-meta">段位 — · Lv.1 · 击杀 0</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>玩家</th>
+              <th>分数</th>
+              <th>段位</th>
+              <th>存活</th>
+              <th>等级</th>
+              <th>击杀</th>
+            </tr>
+          </thead>
+          <tbody id="lbBody">
+            <tr><td colspan="7">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="load-more">
+        <button class="btn" id="loadMoreBtn">加载更多</button>
+      </div>
+
+      <div class="status" id="statusText">正在读取排行榜...</div>
+    </div>
+  </div>
+</template>

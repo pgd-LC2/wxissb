@@ -1,3 +1,4 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 /**
  * Elite AI Brain System - 顶级AI决策系统
  * 
@@ -9,7 +10,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
 
   // ============================================================================
   // 常量配置

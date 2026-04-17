@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const { utils, SFX, GameConfig, nextId } = GameApp.Deps;
   const { TAU, clamp, lerp, rand, nowSec, hypot, colorWithAlpha } = utils;
   const { canvas } = GameApp.DOM;

@@ -1,0 +1,130 @@
+<template id="tpl-home-shell">
+<div class="container">
+        <!-- 进入游戏遮罩 -->
+        <div class="entry-gate" id="entryGate">
+            <div class="entry-panel">
+                <div class="entry-ring"></div>
+                <div class="entry-title">点击屏幕 进入游戏</div>
+                <div class="entry-sub">click to enter</div>
+                <div class="entry-prompt">
+                    <span class="entry-dot"></span>
+                    ENTER / SPACE
+                </div>
+            </div>
+        </div>
+        <div class="video-wall" aria-hidden="true">
+            <video id="bgVideo" class="bg-video" muted autoplay playsinline preload="auto"></video>
+        </div>
+        <!-- 背景效果 -->
+        <div class="grid-bg"></div>
+        <div class="glow glow1"></div>
+        <div class="glow glow2"></div>
+        <div class="glow glow3"></div>
+        
+        <!-- 粒子容器 -->
+        <div id="particles"></div>
+
+        <!-- 版本信息 -->
+            <div class="version">v1.7.10</div>
+
+        <!-- 排行榜重置横幅 -->
+        <div id="resetBanner" style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(255,70,85,0.95), rgba(180,30,40,0.95));
+            color: #fff;
+            text-align: center;
+            padding: 12px 20px;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            box-shadow: 0 4px 20px rgba(255,70,85,0.5);
+            animation: bannerPulse 2s ease-in-out infinite;
+        ">
+            ⚠️ 排行榜已重置！！！ 彻底重构了战力系统 ⚠️
+        </div>
+        <style>
+            @keyframes bannerPulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.85; }
+            }
+        </style>
+
+        <!-- 主内容 -->
+        <div class="content">
+            <div class="logo-container">
+                <div class="title-frame tl"></div>
+                <div class="title-frame tr"></div>
+                <div class="title-frame bl"></div>
+                <div class="title-frame br"></div>
+                <h1 class="title">BIGEAR</h1>
+                <p class="subtitle">大地图肉鸽冒险</p>
+            </div>
+
+            <div class="menu">
+                <button class="btn btn-primary" id="startGameBtn">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    🎮 开始游戏
+                </button>
+                <button class="btn" id="leaderboardBtn">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    🏆 排行榜
+                </button>
+                <button class="btn" id="settingsBtn">
+                    <span class="btn-scan"></span>
+                    <span class="btn-decorator tl"></span>
+                    <span class="btn-decorator tr"></span>
+                    <span class="btn-decorator bl"></span>
+                    <span class="btn-decorator br"></span>
+                    ⚙️ 设置
+                </button>
+            </div>
+
+            <div class="hint">
+                按 ENTER 开始 · WASD 移动 · M 静音
+            </div>
+        </div>
+
+        <!-- 通用弹窗 -->
+        <div class="modal" id="modal">
+            <div class="modal-panel">
+                <div class="modal-header">
+                    <div class="modal-title" id="modalTitle">标题</div>
+                    <button class="modal-close" id="modalCloseBtn">×</button>
+                </div>
+                <div class="modal-body" id="modalBody"></div>
+            </div>
+        </div>
+
+        <!-- 扫描线 -->
+        <div class="scanline"></div>
+        
+        <!-- 侧边装饰 -->
+        <div class="side-accent left"></div>
+        <div class="side-accent right"></div>
+        
+        <!-- 对角线装饰 -->
+        <div class="diagonal-accent d1"></div>
+        <div class="diagonal-accent d2"></div>
+
+        <!-- 加载界面 -->
+        <div class="loading-overlay" id="loading">
+            <div class="loading-content">
+                <div class="spinner"></div>
+                <div class="loading-text">正在进入游戏...</div>
+            </div>
+        </div>
+    </div>
+</template>

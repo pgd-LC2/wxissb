@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Infra = GameApp.Infra = GameApp.Infra || {};
   const Storage = Infra.Storage = Infra.Storage || {};
   const keys = Storage.keys || { playerName: "bigear_player_name" };

@@ -1,0 +1,111 @@
+/* HUD */
+#hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  pointer-events: none;
+  z-index: 10;
+}
+#levelBadge {
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 22px;
+  border: 1px solid var(--ui-border);
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+#bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 2px;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.bar {
+  width: 220px;
+  height: 12px;
+  background: rgba(255,255,255,.18);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  box-sizing: border-box;
+}
+.bar.small { height: 9px; }
+.bar .fill{
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+}
+.bar .fill.hp { background: var(--hp); }
+.bar .fill.exp { background: var(--exp); }
+
+#rightHud {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+#skillCount {
+  margin-left: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  font-weight: 700;
+  color: #ffd60a;
+  pointer-events: none;
+  display: none;
+  white-space: nowrap;
+}
+
+/* 职业武器徽章 */
+.cw-badge {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  font-weight: 700;
+  font-size: 12px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.cw-badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.cw-badge-sep {
+  opacity: .4;
+}
+
+#powerBadge{
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  font-weight: 800;
+  color: rgba(255,255,255,.92);
+  pointer-events: none;
+  display: block;
+  white-space: nowrap;
+}
+#powerBadge .tier{
+  font-weight: 900;
+  margin-left: 6px;
+}

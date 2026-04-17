@@ -1,9 +1,3 @@
-(() => {
-  "use strict";
-
-  window.addEventListener("load", () => {
-    if (window.GameApp && window.GameApp.HomePage && window.GameApp.HomePage.init) {
-      window.GameApp.HomePage.init();
-    }
-  }, { once: true });
-})();
+// 该文件已退役。
+// 新首页入口迁移到 js/app/homePage.js。
+export {};

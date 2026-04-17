@@ -1,7 +1,8 @@
+import { GameApp as __GameApp } from './legacy/context.js';
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Shared = GameApp.UIShared = GameApp.UIShared || {};
   const SkillSystem = GameApp.Deps && GameApp.Deps.SkillSystem ? GameApp.Deps.SkillSystem : GameApp.SkillSystem;
 
@@ -55,7 +56,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Shared = GameApp.UIShared = GameApp.UIShared || {};
 
   function getNowSec() {
@@ -110,7 +111,7 @@
 (() => {
   "use strict";
 
-  const GameApp = window.GameApp = window.GameApp || {};
+  const GameApp = __GameApp;
   const Shared = GameApp.UIShared = GameApp.UIShared || {};
   const Api = GameApp.Infra && GameApp.Infra.Api ? GameApp.Infra.Api : {};
 
