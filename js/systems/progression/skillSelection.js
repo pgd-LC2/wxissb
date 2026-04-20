@@ -131,6 +131,7 @@ import { GameApp as __GameApp } from '../../legacy/context.js';
 
     game.selectSkill = (skill) => {
       skill.effect(game);
+      if (typeof game.rebalanceStats === "function") game.rebalanceStats();
       if (!skill._repeatable) {
         game.acquiredSkills.push(skill.name);
         if (game.acquiredSkillMeta) game.acquiredSkillMeta.push({ name: skill.name, tier: skill.tier || 1 });

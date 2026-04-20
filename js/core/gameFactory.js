@@ -463,6 +463,140 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       }
     };
 
+    g.rebalanceStats = () => {
+      g.playerHealth = clamp(safeNonNeg(g.playerHealth, 0), 0, Math.max(1, safeNonNeg(g.playerMaxHealth, 100)));
+      g.playerMaxHealth = clamp(safeNonNeg(g.playerMaxHealth, 100), 55, 320);
+      g.playerHealth = clamp(safeNonNeg(g.playerHealth, 0), 0, g.playerMaxHealth);
+
+      g.bulletDamage = clamp(safeNonNeg(g.bulletDamage, 15), 8, 180);
+      g.shootInterval = clamp(safeNonNeg(g.shootInterval, 0.6), 0.16, 2.4);
+      g.bulletCount = clamp(Math.round(safeNonNeg(g.bulletCount, 1)), 1, 8);
+      g.bulletSpeedMulti = clamp(safeNonNeg(g.bulletSpeedMulti, 1.0), 0.7, 2.2);
+      g.bulletScale = clamp(safeNonNeg(g.bulletScale, 1.0), 0.6, 2.2);
+      g.bulletLifetime = clamp(safeNonNeg(g.bulletLifetime, 1.5), 0.6, 4.5);
+      g.playerSpeedMulti = clamp(safeNonNeg(g.playerSpeedMulti, 1.0), 0.75, 1.85);
+      g.spreadAngle = clamp(safeNonNeg(g.spreadAngle, 0.15), 0.05, 1.0);
+
+      g.critRate = clamp(safeNonNeg(g.critRate, 0), 0, 0.55);
+      g.critDamageMulti = clamp(safeNonNeg(g.critDamageMulti, 2.0), 1.5, 3.5);
+      g.damageReduction = clamp(safeNonNeg(g.damageReduction, 0), 0, 0.65);
+      g.regenRate = clamp(safeNonNeg(g.regenRate, 0), 0, 8);
+      g.dodgeChance = clamp(safeNonNeg(g.dodgeChance, 0), 0, 0.30);
+      g.blockChance = clamp(safeNonNeg(g.blockChance, 0), 0, 0.28);
+      g.iFrameDuration = clamp(safeNonNeg(g.iFrameDuration, 0.5), 0.35, 0.9);
+      g.thornsDamagePercent = clamp(safeNonNeg(g.thornsDamagePercent, 0), 0, 0.6);
+      g.lifestealChance = clamp(safeNonNeg(g.lifestealChance, 0), 0, 0.35);
+      g.lifestealPercent = clamp(safeNonNeg(g.lifestealPercent, 0.2), 0, 0.18);
+      g.damageCap = clamp(safeNonNeg(g.damageCap, 1.0), 0.40, 1.0);
+      g.lowHpThreshold = clamp(safeNonNeg(g.lowHpThreshold, 0.2), 0.12, 0.35);
+      g.lowHpDamageMulti = clamp(safeNonNeg(g.lowHpDamageMulti, 1.5), 1.0, 1.7);
+      g.phoenixChance = clamp(safeNonNeg(g.phoenixChance, 0), 0, 0.35);
+
+      g.freezeChance = clamp(safeNonNeg(g.freezeChance, 0), 0, 0.35);
+      g.freezeDuration = clamp(safeNonNeg(g.freezeDuration, 0), 0, 1.5);
+      g.burnChance = clamp(safeNonNeg(g.burnChance, 0), 0, 0.55);
+      g.burnDamage = clamp(safeNonNeg(g.burnDamage, 0), 0, 10);
+      g.burnDuration = clamp(safeNonNeg(g.burnDuration, 0), 0, 4.0);
+      g.poisonChance = clamp(safeNonNeg(g.poisonChance, 0), 0, 0.55);
+      g.poisonDamage = clamp(safeNonNeg(g.poisonDamage, 0), 0, 8);
+      g.poisonDuration = clamp(safeNonNeg(g.poisonDuration, 0), 0, 5.0);
+      g.chainCount = clamp(Math.round(safeNonNeg(g.chainCount, 0)), 0, 3);
+      g.chainDamageDecay = clamp(safeNonNeg(g.chainDamageDecay, 0.7), 0.55, 0.9);
+      g.areaDamageRadius = clamp(safeNonNeg(g.areaDamageRadius, 0), 0, 70);
+      g.homingStrength = clamp(safeNonNeg(g.homingStrength, 0), 0, 0.75);
+      g.splitCount = clamp(Math.round(safeNonNeg(g.splitCount, 0)), 0, 3);
+      g.pierceCount = clamp(Math.round(safeNonNeg(g.pierceCount, 0)), 0, 5);
+      g.instantKillThreshold = clamp(safeNonNeg(g.instantKillThreshold, 0), 0, 0.12);
+      g.executeThreshold = clamp(safeNonNeg(g.executeThreshold, 0), 0, 0.25);
+      g.overloadChance = clamp(safeNonNeg(g.overloadChance, 0), 0, 0.22);
+      g.luckyCritChance = clamp(safeNonNeg(g.luckyCritChance, 0), 0, 0.06);
+      g.luckyCritMulti = clamp(safeNonNeg(g.luckyCritMulti, 1.0), 1.0, 6.0);
+      g.killStreakMaxBonus = clamp(safeNonNeg(g.killStreakMaxBonus, 1.0), 0.25, 1.25);
+      g.killStreakDecay = clamp(safeNonNeg(g.killStreakDecay, 1.0), 0.7, 1.4);
+      g.vulnerabilityBonus = clamp(safeNonNeg(g.vulnerabilityBonus, 0), 0, 0.25);
+      g.movingFireRateBonus = clamp(safeNonNeg(g.movingFireRateBonus, 0), 0, 0.2);
+      g.stationaryDamageBonus = clamp(safeNonNeg(g.stationaryDamageBonus, 0), 0, 0.25);
+
+      g.orbitalShieldCount = clamp(Math.round(safeNonNeg(g.orbitalShieldCount, 0)), 0, 3);
+      g.orbitalShieldSpeed = clamp(safeNonNeg(g.orbitalShieldSpeed, 1.0), 0.8, 1.8);
+      g.droneCount = clamp(Math.round(safeNonNeg(g.droneCount, 0)), 0, 4);
+      g.droneDamage = clamp(safeNonNeg(g.droneDamage, 10), 8, 28);
+      g.mineDropInterval = clamp(safeNonNeg(g.mineDropInterval, 2.0), 1.2, 3.0);
+      g.mineDamage = clamp(safeNonNeg(g.mineDamage, 50), 25, 120);
+      g.mineRadius = clamp(safeNonNeg(g.mineRadius, 60), 40, 95);
+      g.meteorInterval = clamp(safeNonNeg(g.meteorInterval, 10.0), 6.0, 14.0);
+      g.meteorCount = clamp(Math.round(safeNonNeg(g.meteorCount, 1)), 1, 3);
+      g.lightningAuraRadius = clamp(safeNonNeg(g.lightningAuraRadius, 0), 0, 160);
+      g.lightningAuraDamage = clamp(safeNonNeg(g.lightningAuraDamage, 5), 0, 10);
+      g.blackHolePower = clamp(safeNonNeg(g.blackHolePower, 1.0), 1.0, 1.6);
+      g.gravityFieldStrength = clamp(safeNonNeg(g.gravityFieldStrength, 0), 0, 80);
+
+      g.plasmaStormDamage = clamp(safeNonNeg(g.plasmaStormDamage, 0), 0, 55);
+      g.plasmaStormRadius = clamp(safeNonNeg(g.plasmaStormRadius, 0), 0, 120);
+      g.plasmaStormCooldown = clamp(safeNonNeg(g.plasmaStormCooldown, 3), 2.5, 6.0);
+      g.quantumEntangleChance = clamp(safeNonNeg(g.quantumEntangleChance, 0), 0, 0.22);
+      g.quantumEntangleDamageShare = clamp(safeNonNeg(g.quantumEntangleDamageShare, 0), 0, 0.25);
+      g.quantumTunnelChance = clamp(safeNonNeg(g.quantumTunnelChance, 0), 0, 0.25);
+      g.quantumTunnelCount = clamp(Math.round(safeNonNeg(g.quantumTunnelCount, 0)), 0, 2);
+      g.pulseWaveKnockback = clamp(safeNonNeg(g.pulseWaveKnockback, 0), 0, 140);
+      g.pulseWaveStunChance = clamp(safeNonNeg(g.pulseWaveStunChance, 0), 0, 0.25);
+      g.pulseWaveStunDuration = clamp(safeNonNeg(g.pulseWaveStunDuration, 0), 0, 0.6);
+      g.predatorAtkSpeedBonus = clamp(safeNonNeg(g.predatorAtkSpeedBonus, 0), 0, 0.05);
+      g.predatorCritBonus = clamp(safeNonNeg(g.predatorCritBonus, 0), 0, 0.03);
+      g.predatorDuration = clamp(safeNonNeg(g.predatorDuration, 3.0), 2.0, 4.0);
+
+      g.bladeOrbitCount = clamp(Math.round(safeNonNeg(g.bladeOrbitCount, 0)), 0, 12);
+      g.bladeOrbitRadius = clamp(safeNonNeg(g.bladeOrbitRadius, 120), 70, 190);
+      g.bladeOrbitDamage = clamp(safeNonNeg(g.bladeOrbitDamage, 12), 8, 32);
+      g.bladeOrbitSpeed = clamp(safeNonNeg(g.bladeOrbitSpeed, 1.0), 0.75, 2.2);
+      g.bladeOrbitScale = clamp(safeNonNeg(g.bladeOrbitScale, 1.0), 0.5, 1.8);
+      g.bladeOrbitFreezeChance = clamp(safeNonNeg(g.bladeOrbitFreezeChance, 0), 0, 0.45);
+      g.bladeOrbitFreezeDuration = clamp(safeNonNeg(g.bladeOrbitFreezeDuration, 0), 0, 1.2);
+      g.bladeOrbitBurnChance = clamp(safeNonNeg(g.bladeOrbitBurnChance, 0), 0, 0.5);
+      g.bladeOrbitBurnDamage = clamp(safeNonNeg(g.bladeOrbitBurnDamage, 0), 0, 10);
+      g.bladeOrbitBurnDuration = clamp(safeNonNeg(g.bladeOrbitBurnDuration, 0), 0, 3.5);
+      g.bladeOrbitPoisonChance = clamp(safeNonNeg(g.bladeOrbitPoisonChance, 0), 0, 0.5);
+      g.bladeOrbitPoisonDamage = clamp(safeNonNeg(g.bladeOrbitPoisonDamage, 0), 0, 8);
+      g.bladeOrbitPoisonDuration = clamp(safeNonNeg(g.bladeOrbitPoisonDuration, 0), 0, 4.0);
+      g.bladeOrbitLifestealChance = clamp(safeNonNeg(g.bladeOrbitLifestealChance, 0), 0, 0.25);
+      g.bladeOrbitLifestealPercent = clamp(safeNonNeg(g.bladeOrbitLifestealPercent, 0.2), 0, 0.15);
+      g.bladeOrbitArmorPen = clamp(safeNonNeg(g.bladeOrbitArmorPen, 0), 0, 0.55);
+      g.bladeOrbitCritChance = clamp(safeNonNeg(g.bladeOrbitCritChance, 0), 0, 0.45);
+      g.bladeOrbitCritDamage = clamp(safeNonNeg(g.bladeOrbitCritDamage, 1.5), 1.2, 2.7);
+      g.bladeOrbitChargeBonus = clamp(safeNonNeg(g.bladeOrbitChargeBonus, 0), 0, 0.08);
+      g.bladeOrbitExecuteThreshold = clamp(safeNonNeg(g.bladeOrbitExecuteThreshold, 0), 0, 0.15);
+      g.bladeOrbitExecuteMult = clamp(safeNonNeg(g.bladeOrbitExecuteMult, 1), 1, 1.8);
+      g.bladeOrbitBurnBonusDamage = clamp(safeNonNeg(g.bladeOrbitBurnBonusDamage, 1), 1, 1.35);
+      g.bladeOrbitArmorShredAmount = clamp(safeNonNeg(g.bladeOrbitArmorShredAmount, 0), 0, 0.25);
+      g.bladeOrbitSlowChance = clamp(safeNonNeg(g.bladeOrbitSlowChance, 0), 0, 0.5);
+      g.bladeOrbitSlowAmount = clamp(safeNonNeg(g.bladeOrbitSlowAmount, 0), 0, 0.35);
+      g.bladeOrbitSlowDuration = clamp(safeNonNeg(g.bladeOrbitSlowDuration, 0), 0, 2.5);
+      g.bladeOrbitPermaFrostSlow = clamp(safeNonNeg(g.bladeOrbitPermaFrostSlow, 0), 0, 0.08);
+      g.bladeOrbitPoisonWeaken = clamp(safeNonNeg(g.bladeOrbitPoisonWeaken, 0), 0, 0.2);
+      g.bladeOrbitPoisonSlow = clamp(safeNonNeg(g.bladeOrbitPoisonSlow, 0), 0, 0.3);
+      g.bladeOrbitPoisonInstakillStacks = clamp(Math.round(safeNonNeg(g.bladeOrbitPoisonInstakillStacks, 5)), 6, 12);
+      g.bladeOrbitShockChance = clamp(safeNonNeg(g.bladeOrbitShockChance, 0), 0, 0.35);
+      g.bladeOrbitChainCount = clamp(Math.round(safeNonNeg(g.bladeOrbitChainCount, 0)), 0, 3);
+      g.bladeOrbitStunChance = clamp(safeNonNeg(g.bladeOrbitStunChance, 0), 0, 0.25);
+      g.bladeOrbitStunDuration = clamp(safeNonNeg(g.bladeOrbitStunDuration, 0), 0, 0.5);
+      g.bladeOrbitMagneticRange = clamp(safeNonNeg(g.bladeOrbitMagneticRange, 0), 0, 110);
+      g.bladeOrbitHomingRange = clamp(safeNonNeg(g.bladeOrbitHomingRange, 0), 0, 180);
+      g.bladeOrbitHomingAccuracy = clamp(safeNonNeg(g.bladeOrbitHomingAccuracy, 0.5), 0.2, 0.75);
+      g.bladeOrbitExplosionRadius = clamp(safeNonNeg(g.bladeOrbitExplosionRadius, 30), 20, 65);
+      g.bladeOrbitSplit = clamp(Math.round(safeNonNeg(g.bladeOrbitSplit, 0)), 0, 3);
+      g.bladeOrbitReflectDamage = clamp(safeNonNeg(g.bladeOrbitReflectDamage, 1), 0.75, 1.5);
+      g.bladeOrbitShadowDamageMult = clamp(safeNonNeg(g.bladeOrbitShadowDamageMult, 0.5), 0.25, 0.6);
+      g.bladeOrbitTimeStopDuration = clamp(safeNonNeg(g.bladeOrbitTimeStopDuration, 0.3), 0, 0.18);
+      g.bladeOrbitPierce = clamp(Math.round(safeNonNeg(g.bladeOrbitPierce, 0)), 0, 4);
+      g.bladeOrbitBounce = clamp(Math.round(safeNonNeg(g.bladeOrbitBounce, 0)), 0, 3);
+      g.bladeOrbitDamageReduction = clamp(safeNonNeg(g.bladeOrbitDamageReduction, 0), 0, 0.03);
+      g.bladeOrbitCounterBonus = clamp(safeNonNeg(g.bladeOrbitCounterBonus, 0), 0, 0.2);
+      g.bladeOrbitRegenPerBlade = clamp(safeNonNeg(g.bladeOrbitRegenPerBlade, 0), 0, 0.2);
+      g.bladeOrbitVortexRange = clamp(safeNonNeg(g.bladeOrbitVortexRange, 120), 80, 140);
+      g.bladeOrbitVortexStrength = clamp(safeNonNeg(g.bladeOrbitVortexStrength, 60), 20, 70);
+      g.bladeOrbitSkyfallInterval = clamp(safeNonNeg(g.bladeOrbitSkyfallInterval, 3.0), 3.5, 8.0);
+      g.bladeOrbitExpBonus = clamp(safeNonNeg(g.bladeOrbitExpBonus, 0), 0, 0.12);
+    };
 
     if (GameApp.Progression && GameApp.Progression.attachCombatRating) {
       GameApp.Progression.attachCombatRating(g, { clamp, lerp, safeNumber, safeNonNeg });
@@ -472,24 +606,13 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     }
 
     // ------------------------------
-    // Enemy Director (数量控制式怪物生成系统)
+    // Enemy Director（平滑曲线刷怪系统）
     // ------------------------------
-    // 
-    // 系统公式说明：
-    //   killsPer10s = 最近10秒内的击杀数（滚动窗口）
-    //   targetEnemyCount = max(MIN_ENEMIES, killsPer10s * KILL_COUNT_MULTIPLIER)
     //
-    // 参数：
-    //   MIN_ENEMIES = 5（保底场上敌人数，即使0击杀也有怪物）
-    //   KILL_COUNT_MULTIPLIER = 1.5（场上敌人数 = 每10秒击杀数 × 1.5）
-    //
-    // 示例：
-    //   击杀0个/10秒 → 场上目标敌人数 = 5（保底）
-    //   击杀10个/10秒 → 场上目标敌人数 = 15
-    //   击杀30个/10秒 → 场上目标敌人数 = 45
-    //   击杀100个/10秒 → 场上目标敌人数 = 150
-    //
-    // 特点：场上敌人数量直接与击杀能力挂钩，杀得越快怪越多
+    // 目标：恢复更接近默认体验的节奏。
+    // - 前期保持少量但持续的敌人，避免开局压脸
+    // - 中期逐步提速，保留爽感
+    // - 后期继续增压，但不再因击杀过快而瞬间失控
     // ------------------------------
     g.director = {
       lastT: 0,
@@ -631,31 +754,31 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       }
 
       // ========================================
-      // 数量控制式怪物生成系统
-      // 场上敌人数量 = 每10秒击杀数 × 1.5
+      // 平滑曲线刷怪系统
       // ========================================
-      const MIN_ENEMIES = 5;               // 保底场上敌人数
-      const KILL_COUNT_MULTIPLIER = 1.5;   // 场上敌人数 = killsPer10s × 1.5
-      const FILL_RATE = 8;                 // 每秒最多补充的敌人数（防止瞬间刷一大堆）
-
+      const timeScale = Math.pow(timeProg, 0.6);
+      const levelScale = Math.sqrt(Math.max(1, level));
+      const strengthScale = Math.pow(Math.max(0, strength), 1.15);
       const killsPer10s = g._computeKillsPer10s(t);
       d._killsPer10s = killsPer10s;
 
-      // 核心公式：目标场上敌人数 = max(MIN_ENEMIES, killsPer10s × KILL_COUNT_MULTIPLIER)
-      const targetCount = Math.max(MIN_ENEMIES, Math.ceil(killsPer10s * KILL_COUNT_MULTIPLIER));
-      d._targetEnemyCount = targetCount;
+      const targetCount = Math.round(6 + timeScale * 14 + levelScale * 2.2 + strengthScale * 16);
+      d._targetEnemyCount = clamp(targetCount, 6, 42);
 
-      // 当前场上敌人数
-      const currentCount = g.enemies.length;
+      const currentCount = (g.enemies || []).filter((e) => e && !e._dead).length;
+      const deficit = d._targetEnemyCount - currentCount;
+      const densityRatio = currentCount / Math.max(1, d._targetEnemyCount);
 
-      // 需要补充的敌人数
-      const deficit = targetCount - currentCount;
+      let rate = 0.9 + timeScale * 1.8 + levelScale * 0.22 + strengthScale * 1.9;
+      if (densityRatio < 0.75) {
+        rate *= 1.0 + (0.75 - densityRatio) * 0.7;
+      } else if (densityRatio > 1.10) {
+        rate *= Math.max(0.2, 1.0 - (densityRatio - 1.10) * 0.7);
+      }
+      d.spawnRate = clamp(rate, 0.9, 5.2);
 
-      // 用 spawnRate 控制补充速度（不会一帧刷完）
-      d.spawnRate = deficit > 0 ? FILL_RATE : 0;
-
-      // 精英概率：随战力和进度增长
-      d.eliteChance = clamp(0.04 + 0.08 * strength + 0.08 * d.progress, 0.04, 0.30);
+      // 精英概率改回温和曲线，保留刺激但避免精英泛滥
+      d.eliteChance = clamp(0.025 + 0.045 * strength + 0.05 * d.progress, 0.025, 0.16);
 
       // ========================================
       // Boss 生成系统（保留）
@@ -663,8 +786,9 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       // ========================================
       if (!d._lastBossLevel) d._lastBossLevel = 0;
       if (!d._bossCount) d._bossCount = 0;
-      const bossLevelInterval = 8;
-      if (g.level >= bossLevelInterval && g.level - d._lastBossLevel >= bossLevelInterval) {
+      const bossLevelInterval = 10;
+      const hasLivingBoss = (g.enemies || []).some((enemy) => enemy && !enemy._dead && enemy.isBoss);
+      if (!hasLivingBoss && g.level >= bossLevelInterval && g.level - d._lastBossLevel >= bossLevelInterval) {
         d._lastBossLevel = g.level;
         d._bossCount++;
         const bossIds = ["boss_titan", "boss_storm", "boss_hive", "boss_phantom", "boss_fortress"];
@@ -681,11 +805,11 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       if (deficit > 0) {
         d.spawnBudget = safeNonNeg(d.spawnBudget + d.spawnRate * dt, 0);
       } else {
-        d.spawnBudget = 0; // 场上敌人已够，不再生成
+        d.spawnBudget = 0;
       }
 
       let spawned = 0;
-      const maxLoop = Math.min(10, deficit); // 每帧最多补充deficit个，上限10
+      const maxLoop = Math.min(6, Math.max(0, deficit));
       while (d.spawnBudget >= 1 && spawned < maxLoop) {
         g.spawnEnemy(t);
         d.spawnBudget -= 1;
@@ -698,36 +822,35 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     // 简约建模 + 不同参数/行为
     // ------------------------------
     g.enemyDefs = [
-      { id:"grunt",    name:"小兵",   model:"square",      color:"#ff3b30", w:30, h:30, hp:30,  speed:1.00, damage:1.00, exp:1.00, ai:"chase",   weight:45, unlock:0.00 },
-      { id:"runner",   name:"跑者",   model:"diamond",     color:"#34c759", w:24, h:24, hp:22,  speed:1.55, damage:0.95, exp:0.85, ai:"chase",   weight:25, unlock:0.00 },
+      { id:"grunt",    name:"小兵",   model:"square",      color:"#ff3b30", w:30, h:30, hp:28,  speed:1.00, damage:0.95, exp:1.00, ai:"chase",   weight:48, unlock:0.00 },
+      { id:"runner",   name:"跑者",   model:"diamond",     color:"#34c759", w:24, h:24, hp:20,  speed:1.45, damage:0.85, exp:0.85, ai:"chase",   weight:24, unlock:0.00 },
 
-      // 新增威胁性怪物
-      { id:"brute",    name:"蛮牛",   model:"rectWide",    color:"#ff9f0a", w:44, h:30, hp:60,  speed:0.85, damage:1.30, exp:1.60, ai:"chase",   weight:12, unlock:0.15 },
-      { id:"tank",     name:"坦克",   model:"squareHeavy", color:"#b91c1c", w:52, h:52, hp:110, speed:0.70, damage:1.45, exp:2.40, ai:"chase",   weight:8,  unlock:0.30 },
-      { id:"shielder", name:"盾兵",   model:"squareShield",color:"#9ca3af", w:34, h:34, hp:48,  speed:1.00, damage:1.10, exp:1.50, ai:"chase",   weight:10, unlock:0.20, armor:0.35 },
-      { id:"zigzag",   name:"游走者", model:"triangle",    color:"#4aa3ff", w:30, h:30, hp:40,  speed:1.15, damage:1.05, exp:1.35, ai:"zigzag",  weight:10, unlock:0.25 },
-      { id:"orbiter",  name:"环绕者", model:"circle",      color:"#22d3ee", w:30, h:30, hp:42,  speed:1.10, damage:1.05, exp:1.40, ai:"orbit",   weight:9,  unlock:0.30, orbitR:170 },
-      { id:"dasher",   name:"冲锋者", model:"diamondSharp",color:"#ffd60a", w:28, h:28, hp:36,  speed:1.05, damage:1.25, exp:1.45, ai:"dash",    weight:10, unlock:0.20 },
-      { id:"ranger",   name:"游侠",   model:"capsule",     color:"#60a5fa", w:34, h:22, hp:46,  speed:1.10, damage:1.10, exp:1.50, ai:"kite",    weight:7,  unlock:0.35, keepDist:200 },
-      { id:"spawner",  name:"召唤者", model:"pentagon",    color:"#e5e7eb", w:38, h:38, hp:70,  speed:0.80, damage:1.20, exp:2.20, ai:"spawner", weight:5,  unlock:0.45, spawnMinions:true },
-      { id:"splitter", name:"分裂体", model:"circleDot",   color:"#a855f7", w:40, h:40, hp:78,  speed:0.90, damage:1.25, exp:2.60, ai:"chase",   weight:4,  unlock:0.50, splitOnDeath:true, splitCount:3, splitType:"swarm" },
-      { id:"swarm",    name:"蜂群",   model:"tiny",        color:"#fbbf24", w:18, h:18, hp:14,  speed:1.80, damage:0.80, exp:0.55, ai:"chase",   weight:6,  unlock:0.00, minion:true },
+      // 中后期威胁怪：保留特色，但回调极端数值
+      { id:"brute",    name:"蛮牛",   model:"rectWide",    color:"#ff9f0a", w:44, h:30, hp:52,  speed:0.88, damage:1.15, exp:1.45, ai:"chase",   weight:10, unlock:0.18 },
+      { id:"tank",     name:"坦克",   model:"squareHeavy", color:"#b91c1c", w:52, h:52, hp:88,  speed:0.72, damage:1.25, exp:2.00, ai:"chase",   weight:6,  unlock:0.36 },
+      { id:"shielder", name:"盾兵",   model:"squareShield",color:"#9ca3af", w:34, h:34, hp:44,  speed:0.95, damage:1.00, exp:1.40, ai:"chase",   weight:8,  unlock:0.24, armor:0.25 },
+      { id:"zigzag",   name:"游走者", model:"triangle",    color:"#4aa3ff", w:30, h:30, hp:34,  speed:1.10, damage:1.00, exp:1.25, ai:"zigzag",  weight:8,  unlock:0.28 },
+      { id:"orbiter",  name:"环绕者", model:"circle",      color:"#22d3ee", w:30, h:30, hp:38,  speed:1.05, damage:0.95, exp:1.30, ai:"orbit",   weight:7,  unlock:0.34, orbitR:165 },
+      { id:"dasher",   name:"冲锋者", model:"diamondSharp",color:"#ffd60a", w:28, h:28, hp:32,  speed:1.00, damage:1.10, exp:1.30, ai:"dash",    weight:7,  unlock:0.26 },
+      { id:"ranger",   name:"游侠",   model:"capsule",     color:"#60a5fa", w:34, h:22, hp:40,  speed:1.00, damage:0.95, exp:1.40, ai:"kite",    weight:5,  unlock:0.40, keepDist:190 },
+      { id:"spawner",  name:"召唤者", model:"pentagon",    color:"#e5e7eb", w:38, h:38, hp:58,  speed:0.78, damage:1.05, exp:1.90, ai:"spawner", weight:3,  unlock:0.52, spawnMinions:true },
+      { id:"splitter", name:"分裂体", model:"circleDot",   color:"#a855f7", w:40, h:40, hp:64,  speed:0.88, damage:1.10, exp:2.10, ai:"chase",   weight:3,  unlock:0.58, splitOnDeath:true, splitCount:2, splitType:"swarm" },
+      { id:"swarm",    name:"蜂群",   model:"tiny",        color:"#fbbf24", w:18, h:18, hp:12,  speed:1.65, damage:0.70, exp:0.50, ai:"chase",   weight:5,  unlock:0.00, minion:true },
 
-      // 新增高威胁怪物类型
-      { id:"predictor",name:"预言者", model:"eye",         color:"#ff6b6b", w:32, h:32, hp:45,  speed:1.20, damage:1.15, exp:1.70, ai:"predict", weight:8,  unlock:0.25 },
-      { id:"flanker",  name:"侧翼者", model:"arrow",       color:"#10b981", w:26, h:26, hp:35,  speed:1.35, damage:1.10, exp:1.40, ai:"flank",   weight:9,  unlock:0.20 },
-      { id:"shooter",  name:"射手",   model:"star",        color:"#f472b6", w:28, h:28, hp:32,  speed:0.75, damage:1.00, exp:1.80, ai:"ranged",  weight:6,  unlock:0.35, shootInterval:1.8, bulletSpeed:280 },
+      // 高威胁怪物：减伤害、降权重、略推迟解锁
+      { id:"predictor",name:"预言者", model:"eye",         color:"#ff6b6b", w:32, h:32, hp:38,  speed:1.12, damage:1.00, exp:1.50, ai:"predict", weight:5,  unlock:0.32 },
+      { id:"flanker",  name:"侧翼者", model:"arrow",       color:"#10b981", w:26, h:26, hp:30,  speed:1.25, damage:0.95, exp:1.25, ai:"flank",   weight:6,  unlock:0.26 },
+      { id:"shooter",  name:"射手",   model:"star",        color:"#f472b6", w:28, h:28, hp:30,  speed:0.72, damage:0.90, exp:1.55, ai:"ranged",  weight:4,  unlock:0.42, shootInterval:2.1, bulletSpeed:250 },
 
-      // 原有精英（依然保留，但生成由 director.eliteChance 控制）- 增强
-      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:58, h:58, hp:180, speed:1.00, damage:1.90, exp:4.20, ai:"chase",   weight:2,  unlock:0.55, elite:true },
+      // 精英仍有压迫感，但不再一碰就崩盘
+      { id:"elite",    name:"精英",   model:"hex",         color:"#a855f7", w:56, h:56, hp:140, speed:0.96, damage:1.55, exp:3.40, ai:"chase",   weight:2,  unlock:0.60, elite:true },
 
       // ========== Boss 敌人 ==========
-      // Boss在特定进度阶段由director生成，拥有极高血量和特殊行为
-      { id:"boss_titan",    name:"泰坦",     model:"squareHeavy", color:"#dc2626", w:80, h:80, hp:2000,  speed:0.55, damage:3.00, exp:20.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.25 },
-      { id:"boss_storm",    name:"风暴领主", model:"hex",         color:"#7c3aed", w:72, h:72, hp:1500,  speed:1.20, damage:2.50, exp:18.0, ai:"orbit",   weight:0, unlock:1.0, boss:true, orbitR:200, shootInterval:1.2, bulletSpeed:350 },
-      { id:"boss_hive",     name:"虫巢母体", model:"pentagon",    color:"#065f46", w:90, h:90, hp:2500,  speed:0.40, damage:2.00, exp:25.0, ai:"spawner", weight:0, unlock:1.0, boss:true, spawnMinions:true },
-      { id:"boss_phantom",  name:"幻影刺客", model:"diamondSharp",color:"#e11d48", w:50, h:50, hp:1200,  speed:1.60, damage:3.50, exp:22.0, ai:"dash",    weight:0, unlock:1.0, boss:true },
-      { id:"boss_fortress", name:"钢铁堡垒", model:"squareShield",color:"#475569", w:100,h:100,hp:4000,  speed:0.30, damage:2.00, exp:30.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.50, shootInterval:2.0, bulletSpeed:220 }
+      { id:"boss_titan",    name:"泰坦",     model:"squareHeavy", color:"#dc2626", w:80, h:80, hp:1400, speed:0.58, damage:2.20, exp:16.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.18 },
+      { id:"boss_storm",    name:"风暴领主", model:"hex",         color:"#7c3aed", w:72, h:72, hp:1200, speed:1.05, damage:1.95, exp:15.0, ai:"orbit",   weight:0, unlock:1.0, boss:true, orbitR:190, shootInterval:1.5, bulletSpeed:300 },
+      { id:"boss_hive",     name:"虫巢母体", model:"pentagon",    color:"#065f46", w:90, h:90, hp:1800, speed:0.42, damage:1.70, exp:20.0, ai:"spawner", weight:0, unlock:1.0, boss:true, spawnMinions:true },
+      { id:"boss_phantom",  name:"幻影刺客", model:"diamondSharp",color:"#e11d48", w:50, h:50, hp:1000, speed:1.35, damage:2.40, exp:18.0, ai:"dash",    weight:0, unlock:1.0, boss:true },
+      { id:"boss_fortress", name:"钢铁堡垒", model:"squareShield",color:"#475569", w:100,h:100,hp:2600, speed:0.34, damage:1.70, exp:24.0, ai:"chase",   weight:0, unlock:1.0, boss:true, armor:0.35, shootInterval:2.4, bulletSpeed:200 }
     ];
 
     g.getEnemyDef = (id) => {
@@ -1168,13 +1291,14 @@ import { GameApp as __GameApp } from '../legacy/context.js';
 
       // 连杀加成
       if (g.killStreakEnabled) {
-        const bonus = Math.min(g.killStreak * 0.1, g.killStreakMaxBonus);
+        const bonus = Math.min(g.killStreak * 0.07, g.killStreakMaxBonus);
         damage *= (1 + bonus);
       }
 
       // 掠食者模式：击杀后短暂提升暴击
       if (g.predatorMode && t < g._predatorActiveUntil) {
-        const pCritBonus = Math.min(g._predatorKillCount * g.predatorCritBonus, 0.4);
+          const pCritBonus = Math.min(g._predatorKillCount * g.predatorCritBonus, 0.18);
+
         g._predatorCritBonusActive = pCritBonus;
       } else {
         g._predatorCritBonusActive = 0;
@@ -1198,13 +1322,13 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       // 共生
       if (g.symbiosisEnabled) {
         const enemyCount = g.enemies.length;
-        const bonus = Math.min(enemyCount * 0.05, 0.5);
+        const bonus = Math.min(enemyCount * 0.03, 0.3);
         damage *= (1 + bonus);
       }
 
       // 清场/人海
       const nearbyEnemies = (g._nearbyEnemyCount == null) ? 0 : g._nearbyEnemyCount;
-      if (g.clearingBonus && nearbyEnemies < 5) damage *= 1.5;
+      if (g.clearingBonus && nearbyEnemies < 5) damage *= 1.2;
       if (g.crowdControl && nearbyEnemies > 10) {
         // Swift 里留空，这里保持不实现
       }
@@ -2170,7 +2294,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
 
       // 刀盾减伤：每把飞刀提供额外减伤
       if (g.bladeOrbitDamageReduction > 0 && g.bladeOrbitCount > 0) {
-        const bladeReduction = Math.min(g.bladeOrbitDamageReduction * g.bladeOrbitCount, 0.50); // 最多50%
+        const bladeReduction = Math.min(g.bladeOrbitDamageReduction * g.bladeOrbitCount, 0.30); // 最多30%
         damage *= (1 - bladeReduction);
       }
 
@@ -3755,11 +3879,12 @@ import { GameApp as __GameApp } from '../legacy/context.js';
         effectiveShootInterval *= (1.0 - g.movingFireRateBonus);
       }
       if (g.berserkerMode && (g.playerHealth / g.playerMaxHealth) < g.berserkerThreshold) {
-        effectiveShootInterval *= 0.5;
+        effectiveShootInterval *= 0.65;
       }
       // 掠食者模式：击杀后短暂提升攻速
       if (g.predatorMode && t < g._predatorActiveUntil) {
-        const pBonus = Math.min(g._predatorKillCount * g.predatorAtkSpeedBonus, 0.6);
+          const pBonus = Math.min(g._predatorKillCount * g.predatorAtkSpeedBonus, 0.22);
+
         effectiveShootInterval *= (1.0 - pBonus);
       } else if (g.predatorMode) {
         g._predatorKillCount = 0;

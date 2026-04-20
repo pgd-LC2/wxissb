@@ -65,6 +65,7 @@ import { GameApp as __GameApp } from './legacy/context.js';
       game.burnDuration = Math.max(game.burnDuration, stats.burnDuration);
     }
 
+    if (typeof game.rebalanceStats === "function") game.rebalanceStats();
     game.selectedClass = classData;
     game.player.color = classData.color;
     return true;
@@ -109,6 +110,7 @@ import { GameApp as __GameApp } from './legacy/context.js';
       game.knockbackForce += stats.knockbackForce;
     }
 
+    if (typeof game.rebalanceStats === "function") game.rebalanceStats();
     game.selectedWeapon = weaponData;
     if (weaponData.visual) {
       game.weaponVisual = weaponData.visual;

@@ -25,7 +25,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     ];
 
     const levels = ["I", "II", "III", "IV", "V"];
-    const levelMult = [1.0, 1.5, 2.2, 3.0, 5.0];
+    const levelMult = [1.0, 1.35, 1.8, 2.3, 3.0];
 
     elements.forEach((elem) => {
       forms.forEach((form) => {
@@ -45,7 +45,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
               if (!g.cyber) g.cyber = {};
               const key = `elem_${elem.id}_${form.id}`;
               g.cyber[key] = (g.cyber[key] || 0) + power;
-              if (form.id === "bullet") g.bulletDamage *= (1 + 0.05 * idx);
+              if (form.id === "bullet") g.bulletDamage *= (1 + 0.03 * idx);
             }
           });
           idCounter += 1;
@@ -66,7 +66,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           const key = "gravity_well_trap";
           g.cyber[key] = (g.cyber[key] || 0) + power;
           g.gravityFieldEnabled = true;
-          g.gravityFieldStrength = (g.gravityFieldStrength || 0) + 20 * (idx + 1);
+          g.gravityFieldStrength = (g.gravityFieldStrength || 0) + 12 * (idx + 1);
         }
       });
       idCounter += 1;
@@ -84,9 +84,9 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           if (!g.cyber) g.cyber = {};
           g.cyber.plasmaStorm = (g.cyber.plasmaStorm || 0) + power;
           g.plasmaStormEnabled = true;
-          g.plasmaStormDamage = (g.plasmaStormDamage || 0) + 25 * power;
-          g.plasmaStormRadius = Math.max(g.plasmaStormRadius || 0, 80 + 20 * idx);
-          g.plasmaStormCooldown = Math.min(g.plasmaStormCooldown || Infinity, Math.max(1, 4 - idx));
+          g.plasmaStormDamage = (g.plasmaStormDamage || 0) + 16 * power;
+          g.plasmaStormRadius = Math.max(g.plasmaStormRadius || 0, 70 + 14 * idx);
+          g.plasmaStormCooldown = Math.min(g.plasmaStormCooldown || Infinity, Math.max(2.5, 5 - idx * 0.5));
         }
       });
       idCounter += 1;
@@ -154,12 +154,12 @@ import { GameApp as __GameApp } from '../legacy/context.js';
             icon: type.icon,
             effect: (g) => {
               g.bladeOrbitCount = Math.max(1, g.bladeOrbitCount + 1);
-              if (buff.id === "expand") g.bladeOrbitRadius += 15 * (idx + 1);
-              if (buff.id === "accel") g.bladeOrbitSpeed *= (1 + 0.1 * (idx + 1));
-              if (buff.id === "copy") g.bladeOrbitCount += (idx + 1);
+              if (buff.id === "expand") g.bladeOrbitRadius += 10 * (idx + 1);
+              if (buff.id === "accel") g.bladeOrbitSpeed *= (1 + 0.06 * (idx + 1));
+              if (buff.id === "copy") g.bladeOrbitCount += Math.max(1, Math.ceil((idx + 1) / 2));
               if (buff.id === "vamp") {
-                g.bladeOrbitLifestealChance += 0.1;
-                g.bladeOrbitLifestealPercent += 0.05 * (idx + 1);
+                g.bladeOrbitLifestealChance += 0.05;
+                g.bladeOrbitLifestealPercent += 0.02 * (idx + 1);
               }
 
               if (!g.cyber) g.cyber = {};
@@ -192,16 +192,16 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           tier: idx + 1,
           icon: "chip",
           effect: (g) => {
-            const m = 1 + 0.1 * (idx + 1);
-            if (part.attr === "暴击") g.critRate += 0.05 * (idx + 1);
-            if (part.attr === "击退") g.knockbackForce += 50 * (idx + 1);
+            const m = 1 + 0.06 * (idx + 1);
+            if (part.attr === "暴击") g.critRate += 0.03 * (idx + 1);
+            if (part.attr === "击退") g.knockbackForce += 25 * (idx + 1);
             if (part.attr === "生命") g.playerMaxHealth *= m;
             if (part.attr === "攻速") g.shootInterval /= m;
-            if (part.attr === "减伤") g.damageReduction += 0.05 * (idx + 1);
+            if (part.attr === "减伤") g.damageReduction += 0.03 * (idx + 1);
             if (part.attr === "移速") g.playerSpeedMulti *= m;
-            if (part.attr === "回复") g.regenRate += 1 * (idx + 1);
+            if (part.attr === "回复") g.regenRate += 0.6 * (idx + 1);
             if (part.attr === "经验") g.expMultiplier *= m;
-            if (part.attr === "耐力") g.iFrameDuration += 0.2 * (idx + 1);
+            if (part.attr === "耐力") g.iFrameDuration += 0.1 * (idx + 1);
             if (part.attr === "伤害") g.bulletDamage *= m;
           }
         });
@@ -213,33 +213,33 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           tier: idx + 1,
           icon: "cpu",
           effect: (g) => {
-            const m = 1 + 0.15 * (idx + 1);
-            if (part.attr === "暴击") g.critDamageMulti += 0.2 * (idx + 1);
-            if (part.attr === "击退") g.knockbackForce += 80 * (idx + 1);
+            const m = 1 + 0.08 * (idx + 1);
+            if (part.attr === "暴击") g.critDamageMulti += 0.12 * (idx + 1);
+            if (part.attr === "击退") g.knockbackForce += 40 * (idx + 1);
             if (part.attr === "生命") {
-              g.playerMaxHealth += 50 * (idx + 1);
-              g.playerHealth += 50 * (idx + 1);
+              g.playerMaxHealth += 30 * (idx + 1);
+              g.playerHealth += 30 * (idx + 1);
             }
-            if (part.attr === "攻速") g.shootInterval *= (1 - 0.05 * (idx + 1));
+            if (part.attr === "攻速") g.shootInterval *= (1 - 0.035 * (idx + 1));
             if (part.attr === "减伤") {
-              g.damageReduction += 0.03 * (idx + 1);
-              g.thornsDamagePercent += 0.1 * (idx + 1);
+              g.damageReduction += 0.02 * (idx + 1);
+              g.thornsDamagePercent += 0.06 * (idx + 1);
             }
             if (part.attr === "移速") {
-              g.playerSpeedMulti *= (1 + 0.08 * (idx + 1));
-              g.dodgeChance += 0.05 * (idx + 1);
+              g.playerSpeedMulti *= (1 + 0.05 * (idx + 1));
+              g.dodgeChance += 0.03 * (idx + 1);
             }
             if (part.attr === "回复") {
-              g.lifestealChance += 0.05;
-              g.lifestealPercent += 0.05 * (idx + 1);
+              g.lifestealChance += 0.03;
+              g.lifestealPercent += 0.03 * (idx + 1);
             }
             if (part.attr === "经验") {
               g.pickupRange *= m;
             }
-            if (part.attr === "耐力") g.damageCap = Math.max(0.1, 0.5 - 0.05 * (idx + 1));
+            if (part.attr === "耐力") g.damageCap = Math.max(0.4, 0.7 - 0.04 * (idx + 1));
             if (part.attr === "伤害") {
               g.bulletDamage *= m;
-              g.bulletScale *= 1.1;
+              g.bulletScale *= 1.05;
             }
           }
         });
@@ -270,20 +270,20 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           effect: (g) => {
             if (!g.cyber) g.cyber = {};
             g.cyber[`hack_${hack.name}`] = (idx + 1);
-            if (hack.name === "根权限") g.bulletDamage *= 1.1;
+            if (hack.name === "根权限") g.bulletDamage *= 1.05;
             if (hack.name === "量子纠缠") {
-              g.quantumEntangleChance = Math.max(g.quantumEntangleChance, 0.15 + 0.05 * (idx + 1));
-              g.quantumEntangleDamageShare = Math.max(g.quantumEntangleDamageShare, 0.2 + 0.1 * idx);
+              g.quantumEntangleChance = Math.max(g.quantumEntangleChance, 0.10 + 0.03 * (idx + 1));
+              g.quantumEntangleDamageShare = Math.max(g.quantumEntangleDamageShare, 0.12 + 0.05 * idx);
             }
             if (hack.name === "纳米蚀刻") {
               g.nanoEtchEnabled = true;
-              g.nanoEtchDamage = (g.nanoEtchDamage || 0) + 3 * (idx + 1);
-              g.nanoEtchDuration = Math.max(g.nanoEtchDuration || 0, 3 + idx);
+              g.nanoEtchDamage = (g.nanoEtchDamage || 0) + 2 * (idx + 1);
+              g.nanoEtchDuration = Math.max(g.nanoEtchDuration || 0, 2.5 + 0.5 * idx);
             }
             if (hack.name === "量子隧穿") {
               g.quantumTunnelEnabled = true;
-              g.quantumTunnelChance = Math.min(1.0, (g.quantumTunnelChance || 0) + 0.15 * (idx + 1));
-              g.quantumTunnelCount = Math.max(g.quantumTunnelCount || 0, 1 + idx);
+              g.quantumTunnelChance = Math.min(1.0, (g.quantumTunnelChance || 0) + 0.06 * (idx + 1));
+              g.quantumTunnelCount = Math.max(g.quantumTunnelCount || 0, 1 + Math.floor(idx / 2));
             }
           }
         });
@@ -314,11 +314,11 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           effect: (g) => {
             if (!g.cyber) g.cyber = {};
             g.cyber[`weapon_${weapon.name}`] = (idx + 1);
-            g.bulletDamage *= 1.2;
+            g.bulletDamage *= 1.1;
             if (weapon.name === "脉冲波") {
-              g.pulseWaveKnockback = Math.max(g.pulseWaveKnockback, 80 + 40 * (idx + 1));
-              g.pulseWaveStunChance = Math.max(g.pulseWaveStunChance, 0.2 + 0.05 * idx);
-              g.pulseWaveStunDuration = Math.max(g.pulseWaveStunDuration, 0.5 + 0.2 * idx);
+              g.pulseWaveKnockback = Math.max(g.pulseWaveKnockback, 60 + 20 * (idx + 1));
+              g.pulseWaveStunChance = Math.max(g.pulseWaveStunChance, 0.12 + 0.03 * idx);
+              g.pulseWaveStunDuration = Math.max(g.pulseWaveStunDuration, 0.35 + 0.1 * idx);
             }
           }
         });
@@ -348,28 +348,28 @@ import { GameApp as __GameApp } from '../legacy/context.js';
           icon: "shield_tech",
           effect: (g) => {
             if (suit.name === "泰坦") {
-              g.playerMaxHealth *= 1.2;
-              g.damageReduction += 0.05;
+              g.playerMaxHealth *= 1.15;
+              g.damageReduction += 0.03;
             }
             if (suit.name === "游侠") {
-              g.playerSpeedMulti *= 1.1;
-              g.dodgeChance += 0.05;
+              g.playerSpeedMulti *= 1.08;
+              g.dodgeChance += 0.03;
             }
             if (suit.name === "医疗") {
-              g.regenRate += 2;
+              g.regenRate += 1.2;
               g.combatRegenBoost = true;
             }
             if (suit.name === "狂徒") {
               g.lowHpDamageBoost = true;
-              g.lowHpDamageMulti += 0.5;
+              g.lowHpDamageMulti += 0.2;
             }
             if (suit.name === "掠食者") {
               g.predatorMode = true;
-              g.predatorAtkSpeedBonus = Math.max(g.predatorAtkSpeedBonus, 0.08 * (idx + 1));
-              g.predatorCritBonus = Math.max(g.predatorCritBonus, 0.04 * (idx + 1));
-              g.predatorDuration = Math.max(g.predatorDuration, 3.0 + 0.5 * idx);
+              g.predatorAtkSpeedBonus = Math.max(g.predatorAtkSpeedBonus, 0.04 * (idx + 1));
+              g.predatorCritBonus = Math.max(g.predatorCritBonus, 0.02 * (idx + 1));
+              g.predatorDuration = Math.max(g.predatorDuration, 2.5 + 0.4 * idx);
             }
-            g.damageReduction += 0.01 * (idx + 1);
+            g.damageReduction += 0.008 * (idx + 1);
           }
         });
         idCounter += 1;

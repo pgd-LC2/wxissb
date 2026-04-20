@@ -33,31 +33,31 @@ import { GameApp as __GameApp } from './legacy/context.js';
     // Tier 2 (优秀) - 中等概率，随等级略微增加
     tier2: {
       baseWeight: 3,
-      levelFactor: 4,
-      maxWeight: 8,
+      levelFactor: 5,
+      maxWeight: 7,
       minWeight: 3,
       direction: 'increase'
     },
     // Tier 3 (稀有) - 较低概率，随等级增加
     tier3: {
       baseWeight: 1,
-      levelFactor: 5,
-      maxWeight: 5,
+      levelFactor: 6,
+      maxWeight: 4,
       minWeight: 1,
       direction: 'increase'
     },
     // Tier 4 (史诗) - 低概率，需要一定等级才能出现
     tier4: {
       baseWeight: 0,
-      levelFactor: 7,
-      maxWeight: 3,
+      levelFactor: 9,
+      maxWeight: 2,
       minWeight: 0,
       direction: 'increase'
     },
     // Tier 5 (传说) - 极低概率，需要高等级才能出现
     tier5: {
       baseWeight: 0,
-      levelFactor: 10,
+      levelFactor: 12,
       maxWeight: 1,
       minWeight: 0,
       direction: 'increase'
