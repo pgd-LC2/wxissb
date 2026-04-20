@@ -756,20 +756,20 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       // ========================================
       // 平滑曲线刷怪系统
       // ========================================
-      const timeScale = Math.pow(timeProg, 0.6);
+      const spawnTimeScale = Math.pow(timeProg, 0.6);
       const levelScale = Math.sqrt(Math.max(1, level));
       const strengthScale = Math.pow(Math.max(0, strength), 1.15);
       const killsPer10s = g._computeKillsPer10s(t);
       d._killsPer10s = killsPer10s;
 
-      const targetCount = Math.round(6 + timeScale * 14 + levelScale * 2.2 + strengthScale * 16);
+      const targetCount = Math.round(6 + spawnTimeScale * 14 + levelScale * 2.2 + strengthScale * 16);
       d._targetEnemyCount = clamp(targetCount, 6, 42);
 
       const currentCount = (g.enemies || []).filter((e) => e && !e._dead).length;
       const deficit = d._targetEnemyCount - currentCount;
       const densityRatio = currentCount / Math.max(1, d._targetEnemyCount);
 
-      let rate = 0.9 + timeScale * 1.8 + levelScale * 0.22 + strengthScale * 1.9;
+      let rate = 0.9 + spawnTimeScale * 1.8 + levelScale * 0.22 + strengthScale * 1.9;
       if (densityRatio < 0.75) {
         rate *= 1.0 + (0.75 - densityRatio) * 0.7;
       } else if (densityRatio > 1.10) {
