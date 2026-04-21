@@ -7,6 +7,13 @@ import { GameApp as __GameApp } from '../../legacy/context.js';
 
   function attachSkillSelection(game, helpers) {
     const { safeNonNeg } = helpers;
+    const healingKeywords = ["回血", "回复", "恢复", "再生", "吸血", "治疗", "回春", "修复", "噬魂", "渴血"];
+    const healingWeightMultiplier = 2.4;
+
+    function isHealingSkill(skill) {
+      const text = `${skill && skill.name ? skill.name : ""} ${skill && skill.description ? skill.description : ""}`;
+      return healingKeywords.some((keyword) => text.includes(keyword));
+    }
 
     game.generateSkills = () => {
       const acquired = new Set(game.acquiredSkills || []);
@@ -62,6 +69,10 @@ import { GameApp as __GameApp } from '../../legacy/context.js';
           else if (tier === 3) weight = Math.min(5, 1 + Math.floor(game.level / 5));
           else if (tier === 4) weight = Math.min(3, Math.floor(game.level / 7));
           else if (tier === 5) weight = Math.min(1, Math.floor(game.level / 10));
+        }
+
+        if (isHealingSkill(skill)) {
+          weight *= healingWeightMultiplier;
         }
 
         weight = safeNonNeg(weight, 0);
