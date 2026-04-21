@@ -545,7 +545,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
       g.predatorCritBonus = clamp(safeNonNeg(g.predatorCritBonus, 0), 0, 0.03);
       g.predatorDuration = clamp(safeNonNeg(g.predatorDuration, 3.0), 2.0, 4.0);
 
-      g.bladeOrbitCount = clamp(Math.round(safeNonNeg(g.bladeOrbitCount, 0)), 0, 12);
+      g.bladeOrbitCount = clamp(Math.round(safeNonNeg(g.bladeOrbitCount, 0)), 0, NUM_CAP);
       g.bladeOrbitRadius = clamp(safeNonNeg(g.bladeOrbitRadius, 120), 70, 190);
       g.bladeOrbitDamage = clamp(safeNonNeg(g.bladeOrbitDamage, 12), 8, 32);
       g.bladeOrbitSpeed = clamp(safeNonNeg(g.bladeOrbitSpeed, 1.0), 0.75, 2.2);
@@ -2573,7 +2573,7 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     // === 飞刀天降效果 ===
     g.triggerBladeSkyfall = (t) => {
       // 在屏幕范围内随机位置生成多把飞刀从天而降
-      const count = Math.min(g.bladeOrbitCount, 20); // 最多20把天降
+      const count = g.bladeOrbitCount;
       for (let i = 0; i < count; i++) {
         const x = g.player.x + rand(-250, 250);
         const y = g.player.y + rand(-250, 250);
