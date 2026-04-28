@@ -1481,6 +1481,7 @@ function drawCharacter(ctx, cx, cy, facing, walkPhase, color, clothColor, scale,
 
 // ============================== 粒子 ==============================
 function spawnParticle(x, y, type, angleHint, colorOverride) {
+  if (!isFinite(x) || !isFinite(y)) return;
   const a = angleHint !== undefined && angleHint !== 0 ? angleHint + rand(-0.6, 0.6) : rand(0, TAU);
   const sp = rand(60, 220);
   let color, life, size, gravity = 0;
@@ -1529,6 +1530,8 @@ function drawParticles() {
 
 // ============================== 火花/顿挫 ==============================
 function spawnHitSpark(x, y, angle, color) {
+  // 坐标安全检查
+  if (!isFinite(x) || !isFinite(y) || !isFinite(angle)) return;
   // 星形爆闪
   state.sparks.push({
     x, y, angle, color: color || '#fff6a0',
@@ -1563,11 +1566,14 @@ function updateSparks(dt) {
 
 function drawSparks() {
   state.sparks.forEach(s => {
+    // 跳过 isLine 类型（闪电线）和坐标/尺寸非有限的 spark，防止 createLinearGradient 崩溃
+    if (s.isLine) return;
     const a = s.life / s.maxLife;
     const sz = s.size * (0.6 + a * 1.4);
+    if (!isFinite(s.x) || !isFinite(s.y) || !isFinite(sz) || sz <= 0) return;
     ctx.save();
     ctx.translate(s.x, s.y);
-    ctx.rotate(s.angle);
+    ctx.rotate(isFinite(s.angle) ? s.angle : 0);
     ctx.globalAlpha = a;
     ctx.globalCompositeOperation = 'lighter';
     // 十字亮光
