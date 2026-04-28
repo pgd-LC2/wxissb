@@ -404,6 +404,10 @@ function createPlayer() {
     isPlayer: true,
     color: '#d4c896',
     clothColor: '#3a4a5a',
+    // 回血相关
+    regenRate: 1.5,        // 每秒基础回血量（HP/s）
+    regenDelay: 0,         // 受伤后延迟回血的冷却计时器
+    healFlash: 0,          // 回血绿色闪光计时器
   };
 }
 
@@ -1644,12 +1648,51 @@ function damagePlayer(dmg) {
   pl.hp -= dmg;
   pl.hitFlash = 0.3;
   pl.damageImmune = 0.35;
+  pl.regenDelay = 4.0;  // 受伤后 4 秒内不回血
   addShake(5, 0.12);
   // 受伤粒子
   for (let i = 0; i < 6; i++) spawnParticle(pl.x, pl.y, 'death', 0, '#ff3344');
   if (pl.hp <= 0) {
     pl.hp = 0;
     gameOver();
+  }
+}
+
+// ============================== 回血辅助函数 ==============================
+// 吸血飞刀类型：这些 trail 的飞刀命中敌人时回血
+const LIFESTEAL_TRAILS = {
+  blood: { chance: 1.0,  pct: 0.18, color: '#ff4466' }, // 血色飞刀：100%概率吸血 18%
+  holy:  { chance: 1.0,  pct: 0.22, color: '#ffe080' }, // 神圣飞刀：100%概率吸血 22%
+  void:  { chance: 0.35, pct: 0.12, color: '#cc66ff' }, // 虚空飞刀：35%概率吸血 12%
+  fire:  { chance: 0.20, pct: 0.08, color: '#ff8844' }, // 烈焰飞刀：20%概率吸血  8%
+};
+
+function healPlayer(amount, source) {
+  const pl = state.player;
+  if (pl.hp <= 0) return;
+  const actual = Math.min(amount, pl.maxHp - pl.hp);
+  if (actual <= 0) return;
+  pl.hp += actual;
+  pl.healFlash = 0.25;
+  pl.regenDelay = Math.max(0, pl.regenDelay - 0.5); // 吸血缩短回血延迟
+  // 回血飘字
+  const isLifesteal = source === 'lifesteal';
+  state.floatTexts.push({
+    x: pl.x + rand(-15, 15),
+    y: pl.y - 30 + rand(-8, 8),
+    vy: -22,
+    life: 1.1, maxLife: 1.1,
+    text: `+${Math.ceil(actual)}`,
+    color: isLifesteal ? '#ff6688' : '#66ff88',
+    size: isLifesteal ? 15 : 13,
+    bold: isLifesteal,
+    glow: isLifesteal ? 'rgba(255,80,120,0.7)' : 'rgba(80,255,120,0.6)',
+  });
+  // 吸血粒子
+  if (isLifesteal) {
+    for (let i = 0; i < 4; i++) {
+      spawnParticle(pl.x, pl.y, 'spark', 0, '#ff4466');
+    }
   }
 }
 
@@ -1685,6 +1728,13 @@ function knifeHitEnemy(kn, e) {
   }
   addShake(2.5, 0.06);
   hitStop(0.015);
+
+  // ====== 吸血处理 ======
+  const ls = LIFESTEAL_TRAILS[t.trail];
+  if (ls && Math.random() < ls.chance) {
+    const healAmt = dmg * ls.pct;
+    healPlayer(healAmt, 'lifesteal');
+  }
 
   // special effects
   if (t.special === 'explode') {
@@ -1981,6 +2031,32 @@ function update(dt) {
 
   if (pl.hitFlash > 0) pl.hitFlash -= dt;
   if (pl.damageImmune > 0) pl.damageImmune -= dt;
+  if (pl.healFlash > 0) pl.healFlash -= dt;
+
+  // 基础被动回血
+  if (pl.regenDelay > 0) {
+    pl.regenDelay -= dt;
+  } else if (pl.hp < pl.maxHp) {
+    const regenAmt = pl.regenRate * dt;
+    pl.hp = Math.min(pl.hp + regenAmt, pl.maxHp);
+    // 每回满 10 HP 显示一次飘字，避免每帧刷刷
+    if (!pl._regenAccum) pl._regenAccum = 0;
+    pl._regenAccum += regenAmt;
+    if (pl._regenAccum >= 8) {
+      pl._regenAccum = 0;
+      state.floatTexts.push({
+        x: pl.x + rand(-12, 12),
+        y: pl.y - 25 + rand(-5, 5),
+        vy: -18,
+        life: 0.9, maxLife: 0.9,
+        text: `+${Math.ceil(regenAmt * (8 / pl.regenRate))}`,
+        color: '#44ee88',
+        size: 12,
+        bold: false,
+        glow: 'rgba(60,220,120,0.5)',
+      });
+    }
+  }
 
   // 相机 = 玩家位置
   state.camX = pl.x;
@@ -2099,6 +2175,23 @@ function render() {
     e.knives.forEach(kn => drawKnife(ctx, kn));
   });
 
+  // 玩家回血光晕
+  const plHealF = state.player.healFlash;
+  if (plHealF > 0) {
+    ctx.save();
+    ctx.globalAlpha = plHealF * 1.5;
+    ctx.globalCompositeOperation = 'lighter';
+    const hg = ctx.createRadialGradient(state.player.x, state.player.y, 0, state.player.x, state.player.y, 28);
+    hg.addColorStop(0, 'rgba(80,255,140,0.9)');
+    hg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.arc(state.player.x, state.player.y, 28, 0, TAU);
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.restore();
+  }
+
   // 玩家
   drawCharacter(ctx, state.player.x, state.player.y, state.player.facing, state.player.walkPhase, state.player.color, state.player.clothColor, 1.0, state.player.hitFlash);
 
@@ -2166,7 +2259,12 @@ function updateUI() {
   const pl = state.player;
   const pct = clamp(pl.hp / pl.maxHp, 0, 1);
   hpBar.style.width = (pct * 100) + '%';
-  hpText.textContent = `HP ${Math.ceil(pl.hp)} / ${pl.maxHp}`;
+  // 回血中：HP条变绿色
+  const isRegen = pl.regenDelay <= 0 && pl.hp < pl.maxHp;
+  hpBar.style.background = isRegen
+    ? 'linear-gradient(180deg, #44ee88, #22aa55 70%, #116633)'
+    : 'linear-gradient(180deg, #ff4a4a, #a81818 70%, #5a0000)';
+  hpText.textContent = `HP ${Math.ceil(pl.hp)} / ${pl.maxHp}${isRegen ? ' ⟳' : ''}`;
   knifeCount.textContent = `⚔ 飞刀数: ${pl.knives.length}`;
   statKills.textContent = state.kills;
   const t = Math.floor(state.gameTime);
@@ -2181,7 +2279,9 @@ function updateUI() {
   entries.sort((a,b) => rarityOrder.indexOf(a.type.rarity) - rarityOrder.indexOf(b.type.rarity));
   invList.innerHTML = entries.map(e => {
     const col = RARITY[e.type.rarity].color;
-    return `<div class="inv-item" style="color:${col}"><span class="inv-count">×${e.count}</span>${e.type.name}</div>`;
+    const ls = LIFESTEAL_TRAILS[e.type.trail];
+    const lsTag = ls ? `<span style="color:${ls.color};font-size:10px;"> ♥${Math.round(ls.pct*100)}%</span>` : '';
+    return `<div class="inv-item" style="color:${col}"><span class="inv-count">×${e.count}</span>${e.type.name}${lsTag}</div>`;
   }).join('');
 }
 
