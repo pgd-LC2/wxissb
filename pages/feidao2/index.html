@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<title>飞刀狂潮 · Knife Storm</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#05050a;color:#fff;font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;user-select:none}
+#game{display:block;background:#0a0a10}
+.ui{position:fixed;pointer-events:none;z-index:10}
+#hpbar{top:14px;left:14px;width:280px}
+#hpbar .label{font-size:11px;color:#ff8a8a;margin-bottom:4px;text-shadow:0 0 4px #000;letter-spacing:3px}
+#hpbar .bar{width:100%;height:20px;background:rgba(0,0,0,.7);border:2px solid #4a2a2a;border-radius:3px;position:relative;overflow:hidden;box-shadow:0 0 10px rgba(255,40,40,.3)}
+#hpbar .fill{height:100%;background:linear-gradient(180deg,#ff6060,#a80000);transition:width .15s;box-shadow:inset 0 -6px 10px rgba(0,0,0,.4)}
+#hpbar .text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;text-shadow:0 0 3px #000,0 0 3px #000}
+#stats{top:14px;right:14px;text-align:right;font-size:13px;line-height:1.7;text-shadow:0 0 4px #000;letter-spacing:1px}
+#stats .kills{color:#ffcf6e;font-size:16px;font-weight:700}
+#stats .time{color:#9ee4ff}
+#stats .power{color:#ff9cff}
+#inventory{top:120px;right:14px;width:230px;max-height:70vh;overflow-y:auto;padding:8px;background:rgba(10,10,22,.7);border:1px solid #333;border-radius:6px;font-size:12px;pointer-events:auto;backdrop-filter:blur(2px)}
+#inventory::-webkit-scrollbar{width:4px}
+#inventory::-webkit-scrollbar-thumb{background:#555;border-radius:2px}
+#inventory::-webkit-scrollbar-track{background:transparent}
+#inventory .title{font-size:10px;color:#888;margin-bottom:6px;text-align:center;letter-spacing:4px}
+.inv-row{display:flex;align-items:center;margin:1px 0;padding:3px 4px;border-radius:3px;background:rgba(255,255,255,.02);border-left:2px solid transparent}
+.inv-row .icon{width:30px;height:20px;flex-shrink:0;margin-right:6px}
+.inv-row .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;font-weight:600}
+.inv-row .count{font-weight:700;font-size:12px;margin-left:4px}
+#controls{bottom:12px;left:14px;font-size:11px;color:#666;text-shadow:0 0 4px #000;letter-spacing:1px}
+#gameover{position:fixed;inset:0;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;z-index:100;backdrop-filter:blur(5px)}
+#gameover.show{display:flex}
+.go-box{background:linear-gradient(180deg,#1a0a1a,#080816);border:2px solid #a84;border-radius:10px;padding:36px 52px;text-align:center;box-shadow:0 0 60px rgba(255,180,0,.3),inset 0 0 30px rgba(255,100,0,.1)}
+.go-box h1{font-size:42px;color:#ff3030;margin-bottom:18px;letter-spacing:10px;text-shadow:0 0 20px #ff0000,0 0 4px #000}
+.go-box .score{font-size:15px;line-height:2;color:#bbb;margin:10px 0 24px}
+.go-box .score b{color:#ffd35a;font-size:18px;margin:0 4px}
+.go-box button{background:linear-gradient(180deg,#d94,#a63);border:1px solid #fc8;color:#fff;padding:12px 42px;font-size:16px;font-weight:700;border-radius:4px;cursor:pointer;letter-spacing:6px;transition:all .15s}
+.go-box button:hover{background:linear-gradient(180deg,#eb5,#c84);box-shadow:0 0 20px rgba(255,180,80,.6)}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div class="ui" id="hpbar">
+  <div class="label">生命值 HP</div>
+  <div class="bar"><div class="fill" id="hpfill"></div><div class="text" id="hptext"></div></div>
+</div>
+
+<div class="ui" id="stats">
+  <div class="kills">击杀: <span id="killCount">0</span></div>
+  <div class="time">存活: <span id="timeText">0s</span></div>
+  <div class="power">飞刀: <span id="knifeCount">0</span></div>
+</div>
+
+<div class="ui" id="inventory">
+  <div class="title">─ 持有飞刀 ─</div>
+  <div id="invList"></div>
+</div>
+
+<div class="ui" id="controls">WASD / ↑↓←→ 移动</div>
+
+<div id="gameover">
+  <div class="go-box">
+    <h1>GAME OVER</h1>
+    <div class="score">
+      击杀敌人<b id="finalKills">0</b><br>
+      存活时间<b id="finalTime">0s</b><br>
+      飞刀总数<b id="finalKnives">0</b>
+    </div>
+    <button onclick="restart()">重新开始</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize(){ W=canvas.width=innerWidth; H=canvas.height=innerHeight; }
+addEventListener('resize', resize); resize();
+
+// ======== 稀有度 ========
+const RARITIES = [
+  {name:'普通', color:'#b8b8b8', glowColor:null},
+  {name:'优秀', color:'#4ade80', glowColor:'rgba(80,220,120,.45)'},
+  {name:'稀有', color:'#4da3ff', glowColor:'rgba(80,150,255,.7)'},
+  {name:'史诗', color:'#c084fc', glowColor:'rgba(200,130,255,.8)'},
+  {name:'传说', color:'#fbbf24', glowColor:'rgba(255,190,60,.95)'},
+];
+
+// ======== 飞刀 100 种 ========
+const KNIFE_DESIGNS = [];
+(function buildDesigns(){
+  const bladeShapes = ['straight','triangular','double','curved','serrated','wavy','leaf','kris'];
+  const handleStyles = ['wrapped','metal','bone','wood','jeweled','chain','skull','rune'];
+  const nameGroups = [
+    ['生锈铁刀','铜柄小匕','破旧短刀','木柄飞刀','简陋投刃','锈蚀军匕','粗铁薄刃','农家厨刀','猎人短剑','渔人鱼刀',
+     '学徒匕首','民兵短刀','皮匠刻刀','铁匠锻刃','铜刃匕首','青铜小剑','斑驳直刃','老兵旧匕','流浪者刀','枯叶投刃',
+     '生铁飞镖','磨旧投刃','砾石短刀','荒原匕首','枯木刻刀','生铜弯刀','破军小刃','猎狐匕首','暮光短刀','晨雾飞刃',
+     '沙砾匕首','旅人短剑','卵石小刀','流萤飞刀','白雪投刃','夜莺小剑','暗巷匕首','轻骑弯刀','斜阳薄刃','落樱投刃'],
+    ['精铁飞刀','铜纹匕首','骑士短剑','游侠飞镖','镶银刺刀','利齿锯刃','寒铁薄刃','精磨直刃','月辉飞镖','剑师小刃',
+     '翠羽飞刀','赤铜匕首','狼牙短剑','鹰喙弯刀','苍蓝飞刃','雪狼匕首','古法投刃','银白小剑','碧色薄刃','秋水短匕',
+     '霜华投刃','紫金匕首','碎星飞镖','影月直刃','朱砂薄刃'],
+    ['霜寒匕首','烈焰飞刀','毒牙短刃','雷鸣刺刀','碧波弯刀','血饮小剑','骨刃飞镖','星辰薄刃','玄冰利刃','赤炎焚魂',
+     '紫电狂雷','绿煞腐蚀','暗影之息','圣洁薄刃','幽冥短匕','狂风锐锋','寒月追魂','血月镰刃','碧潮之牙','雷霆裁者'],
+    ['炎魔之牙','极寒冰锥','雷神劈刺','暗影之噬','剧毒之蚀','圣光裁决','腐蚀之爪','鬼泣残月','诛仙·幽','血祭之刃'],
+    ['龙骨屠戮','虚空裂隙','永恒烈焰','命运终结','神之碎片']
+  ];
+  const tierBladeColors = [
+    ['#c8ccd0','#b8bcc0','#a8a8b0','#d0d0c0','#c0b8a0','#9a9a9a','#d4d4dc','#b0a898'],
+    ['#e4e8ec','#d0dfe8','#c8d8e8','#e0e8a8','#d8e0d8','#e8d8d0','#f0e0b0','#b8d8f0'],
+    ['#a8d8ff','#ff8a50','#90ff80','#c080ff','#ff5070','#e0ffe8','#ffd860','#80e8ff'],
+    ['#ffb040','#a0e8ff','#c040ff','#50ff50','#ff3050','#ffffb0','#a0ffff'],
+    ['#ffdd60','#ff80ff','#60fff0','#ff5050','#fff8c0'],
+  ];
+  const tierHandleColors = [
+    ['#3a2818','#2a2a2a','#5a3a1a','#4a2f15','#333333','#52391f','#4a3a2a','#3a2a3a'],
+    ['#5a3a20','#1a1a2a','#3a2a18','#4a4a4a','#3a3a2a','#222','#2a1a3a','#3a2030'],
+    ['#1a1a2a','#3a1010','#102a10','#2a1030','#3a3a30','#101a2a'],
+    ['#1a0a20','#2a0a0a','#0a1a2a','#2a2a10','#1a1a1a'],
+    ['#30180a','#2a0a3a','#0a2a2a','#3a0a0a','#3a3a2a']
+  ];
+  const tierEffects = [
+    [null],
+    [null,null,null,'glint'],
+    ['fire','ice','electric','poison','shadow','blood','wind','holy'],
+    ['fire','ice','electric','poison','shadow','holy','void'],
+    ['fire','void','holy','blood','ice']
+  ];
+  const tierSpecials = [
+    [null],[null],
+    [null,null,'slow','splash','crit'],
+    ['explode','chain','pierce','lifesteal','slow','crit'],
+    ['explode','chain','pierce','lifesteal']
+  ];
+  const gemColors = ['#ff3030','#30a0ff','#ffb030','#a030ff','#30ff80','#ff60a0','#60e0ff'];
+
+  for (let tier=0; tier<5; tier++){
+    const names = nameGroups[tier];
+    const bc = tierBladeColors[tier];
+    const hc = tierHandleColors[tier];
+    const fx = tierEffects[tier];
+    const sp = tierSpecials[tier];
+    for (let i=0; i<names.length; i++){
+      const shapeIdx = (i + tier*2) % bladeShapes.length;
+      const handleIdx = (i*3 + tier) % handleStyles.length;
+      const bladeLen = [10,12,14,16,18][tier] + (i%4);
+      const bladeWidth = 1.6 + (i%4)*0.3 + tier*0.25;
+      KNIFE_DESIGNS.push({
+        id: KNIFE_DESIGNS.length,
+        tier,
+        name: names[i],
+        bladeShape: bladeShapes[shapeIdx],
+        bladeLen, bladeWidth,
+        handleStyle: handleStyles[handleIdx],
+        handleLen: 4 + (i%3),
+        handleWidth: 1.4 + (i%3)*0.2 + tier*0.15,
+        bladeColor: bc[i % bc.length],
+        handleColor: hc[i % hc.length],
+        gemColor: gemColors[i % gemColors.length],
+        effect: fx[i % fx.length],
+        special: sp[i % sp.length],
+        dmg: [8, 15, 24, 42, 80][tier] + (i % 5),
+        spinSpeed: 0.9 + tier*0.2 + (i%3)*0.05,
+        critChance: tier>=2 ? 0.04 + tier*0.04 : 0,
+      });
+    }
+  }
+})();
+
+function randomKnifeOfTier(t){
+  const list = KNIFE_DESIGNS.filter(d => d.tier===t);
+  return list[(Math.random()*list.length)|0].id;
+}
+
+// ======== 绘制飞刀 ========
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+  ctx.quadraticCurveTo(x+w,y,x+w,y+r); ctx.lineTo(x+w,y+h-r);
+  ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h); ctx.lineTo(x+r,y+h);
+  ctx.quadraticCurveTo(x,y+h,x,y+h-r); ctx.lineTo(x,y+r);
+  ctx.quadraticCurveTo(x,y,x+r,y);
+}
+
+function drawBlade(ctx, d){
+  const bl=d.bladeLen, bw=d.bladeWidth;
+  ctx.fillStyle = d.bladeColor;
+  const s = d.bladeShape;
+  if (s==='straight'){
+    ctx.beginPath();
+    ctx.moveTo(0,-bw); ctx.lineTo(bl*0.82,-bw); ctx.lineTo(bl,0);
+    ctx.lineTo(bl*0.82,bw); ctx.lineTo(0,bw); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.28)';
+    ctx.beginPath();
+    ctx.moveTo(0,-bw); ctx.lineTo(bl*0.82,-bw); ctx.lineTo(bl*0.8,-bw*0.3); ctx.lineTo(0,-bw*0.2); ctx.closePath(); ctx.fill();
+  } else if (s==='triangular'){
+    ctx.beginPath(); ctx.moveTo(0,-bw); ctx.lineTo(bl,0); ctx.lineTo(0,bw); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=0.5;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(bl,0); ctx.stroke();
+  } else if (s==='double'){
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.quadraticCurveTo(bl*0.5,-bw*1.3,bl,0);
+    ctx.quadraticCurveTo(bl*0.5,bw*1.3,0,0);
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=0.4;
+    ctx.beginPath(); ctx.moveTo(bl*0.1,0); ctx.lineTo(bl*0.95,0); ctx.stroke();
+  } else if (s==='curved'){
+    ctx.beginPath();
+    ctx.moveTo(0,-bw);
+    ctx.quadraticCurveTo(bl*0.55,-bw*1.7, bl, -bw*0.15);
+    ctx.lineTo(bl, bw*0.15);
+    ctx.quadraticCurveTo(bl*0.6, bw*0.5, 0, bw);
+    ctx.closePath(); ctx.fill();
+  } else if (s==='serrated'){
+    ctx.beginPath();
+    ctx.moveTo(0,-bw); ctx.lineTo(bl*0.92,-bw*0.4); ctx.lineTo(bl,0);
+    const segs = Math.max(4, (bl/2.3)|0);
+    for (let i=segs; i>=0; i--){
+      const t=i/segs; const jag=(i%2)?bw*1.6:bw*0.85;
+      ctx.lineTo(t*bl*0.92, jag);
+    }
+    ctx.closePath(); ctx.fill();
+  } else if (s==='wavy'){
+    ctx.beginPath();
+    const w = Math.max(3, (bl/3.5)|0);
+    ctx.moveTo(0,-bw);
+    for (let i=1; i<=w*2; i++){
+      const t=i/(w*2);
+      ctx.lineTo(t*bl, -bw + Math.sin(t*Math.PI*w)*bw*0.6);
+    }
+    ctx.lineTo(bl,0);
+    for (let i=w*2; i>=0; i--){
+      const t=i/(w*2);
+      ctx.lineTo(t*bl, bw + Math.sin(t*Math.PI*w+Math.PI)*bw*0.6);
+    }
+    ctx.closePath(); ctx.fill();
+  } else if (s==='leaf'){
+    ctx.beginPath();
+    ctx.moveTo(0,-bw*0.35);
+    ctx.quadraticCurveTo(bl*0.4,-bw*1.35, bl, 0);
+    ctx.quadraticCurveTo(bl*0.4, bw*1.35, 0, bw*0.35);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.4)'; ctx.lineWidth=0.5;
+    ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(bl,0); ctx.stroke();
+  } else if (s==='kris'){
+    ctx.beginPath();
+    const pts=8;
+    ctx.moveTo(0,-bw);
+    for (let i=1; i<=pts; i++){
+      const t=i/pts;
+      const off = Math.sin(t*Math.PI*3)*bw*0.55;
+      ctx.lineTo(t*bl, -bw*(1-t*0.85) + off);
+    }
+    for (let i=pts; i>=1; i--){
+      const t=i/pts;
+      const off = Math.sin(t*Math.PI*3+Math.PI)*bw*0.55;
+      ctx.lineTo(t*bl, bw*(1-t*0.85) + off);
+    }
+    ctx.closePath(); ctx.fill();
+  }
+}
+
+function drawEffect(ctx, d, animT){
+  const bl = d.bladeLen;
+  ctx.save();
+  ctx.globalCompositeOperation='lighter';
+  const e = d.effect;
+  if (e==='fire'){
+    for (let i=0; i<5; i++){
+      const x = bl*0.4 - i*2.2 + Math.random()*1.5;
+      const y = (Math.random()-0.5)*2.5;
+      const r = 2.6 + Math.random()*1.4;
+      ctx.fillStyle = `rgba(255,${180-i*20},40,${.6 - i*0.1})`;
+      ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill();
+    }
+  } else if (e==='ice'){
+    for (let i=0; i<4; i++){
+      const x = bl*0.3 - i*2.4;
+      const y = (Math.random()-0.5)*2.2;
+      ctx.fillStyle=`rgba(140,220,255,${.7-i*0.15})`;
+      ctx.beginPath();
+      ctx.moveTo(x,y-1.6); ctx.lineTo(x+1.2,y); ctx.lineTo(x,y+1.6); ctx.lineTo(x-1.2,y);
+      ctx.closePath(); ctx.fill();
+    }
+  } else if (e==='electric'){
+    ctx.strokeStyle='rgba(200,230,255,.9)'; ctx.lineWidth=0.6;
+    ctx.beginPath(); ctx.moveTo(0,0);
+    for (let i=1; i<=6; i++) ctx.lineTo(i*bl/6, (Math.random()-0.5)*3.2);
+    ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,120,.75)';
+    ctx.beginPath(); ctx.moveTo(0,0);
+    for (let i=1; i<=6; i++) ctx.lineTo(i*bl/6, (Math.random()-0.5)*2);
+    ctx.stroke();
+  } else if (e==='poison'){
+    for (let i=0; i<4; i++){
+      const x = bl*0.3 - i*2 + Math.random();
+      const y = (Math.random()-0.5)*3;
+      ctx.fillStyle='rgba(100,255,120,.55)';
+      ctx.beginPath(); ctx.arc(x,y,1.5+Math.random(),0,Math.PI*2); ctx.fill();
+    }
+  } else if (e==='shadow'){
+    for (let i=0; i<4; i++){
+      ctx.fillStyle=`rgba(120,50,170,${.55-i*0.1})`;
+      ctx.beginPath(); ctx.arc(-i*2.2,0,2.2+i*0.3,0,Math.PI*2); ctx.fill();
+    }
+  } else if (e==='blood'){
+    for (let i=0; i<4; i++){
+      const x = bl*0.2 - i*2.2;
+      const y = (Math.random()-0.5)*2;
+      ctx.fillStyle='rgba(220,30,30,.75)';
+      ctx.beginPath(); ctx.arc(x,y,1.3,0,Math.PI*2); ctx.fill();
+    }
+  } else if (e==='holy'){
+    ctx.fillStyle='rgba(255,240,150,.25)';
+    ctx.beginPath(); ctx.arc(bl/2,0,bl*0.7,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,220,80,.5)';
+    ctx.beginPath(); ctx.arc(bl/2,0,bl*0.35,0,Math.PI*2); ctx.fill();
+  } else if (e==='void'){
+    for (let i=0; i<6; i++){
+      const a = Math.random()*Math.PI*2;
+      const r = Math.random()*bl*0.55;
+      ctx.fillStyle=`rgba(180,80,255,${0.4+Math.random()*0.4})`;
+      ctx.beginPath(); ctx.arc(bl*0.3 + Math.cos(a)*r, Math.sin(a)*r, 1.2, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle='rgba(20,0,30,.5)';
+    ctx.beginPath(); ctx.arc(bl*0.3,0,bl*0.3,0,Math.PI*2); ctx.fill();
+  } else if (e==='wind'){
+    ctx.strokeStyle='rgba(180,255,210,.5)'; ctx.lineWidth=0.6;
+    for (let i=0; i<3; i++){
+      ctx.beginPath();
+      ctx.arc(-i*2.2-1, 0, 3+i, -0.45, 0.45);
+      ctx.stroke();
+    }
+  } else if (e==='glint'){
+    ctx.fillStyle='rgba(255,255,255,.8)';
+    const gx = bl*0.7 + Math.sin(animT*0.2)*bl*0.2;
+    ctx.beginPath(); ctx.arc(gx,0,0.8,0,Math.PI*2); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawKnife(ctx, d, animT){
+  const bl=d.bladeLen, bw=d.bladeWidth, hl=d.handleLen, hw=d.handleWidth;
+
+  // effect (behind)
+  if (d.effect) drawEffect(ctx, d, animT||0);
+
+  // handle
+  ctx.fillStyle = d.handleColor;
+  ctx.fillRect(-hl, -hw, hl, hw*2);
+
+  if (d.handleStyle==='wrapped'){
+    ctx.strokeStyle='rgba(0,0,0,.55)'; ctx.lineWidth=0.4;
+    for (let i=1; i<hl; i+=1.3){
+      ctx.beginPath(); ctx.moveTo(-i,-hw); ctx.lineTo(-i,hw); ctx.stroke();
+    }
+  } else if (d.handleStyle==='metal'){
+    ctx.fillStyle='rgba(255,255,255,.25)';
+    ctx.fillRect(-hl,-hw, hl, hw*0.5);
+  } else if (d.handleStyle==='bone'){
+    ctx.fillStyle='#e8e0c8';
+    ctx.beginPath(); ctx.arc(-hl*0.25,0, hw*0.9,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-hl*0.75,0, hw*0.9,0,Math.PI*2); ctx.fill();
+  } else if (d.handleStyle==='wood'){
+    ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=0.3;
+    ctx.beginPath(); ctx.moveTo(-hl,-hw*0.3); ctx.lineTo(0,-hw*0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-hl,hw*0.3); ctx.lineTo(0,hw*0.3); ctx.stroke();
+  } else if (d.handleStyle==='jeweled'){
+    ctx.fillStyle = d.gemColor;
+    ctx.beginPath(); ctx.arc(-hl-0.4, 0, hw*1.15, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(-hl-0.7, -hw*0.35, hw*0.35, 0, Math.PI*2); ctx.fill();
+  } else if (d.handleStyle==='chain'){
+    ctx.strokeStyle='#aaa'; ctx.lineWidth=0.5;
+    for (let i=0; i<3; i++){
+      ctx.beginPath(); ctx.arc(-hl - i*1.4 - 0.5, 0, 0.8, 0, Math.PI*2); ctx.stroke();
+    }
+  } else if (d.handleStyle==='skull'){
+    ctx.fillStyle='#f0ead8';
+    ctx.beginPath(); ctx.arc(-hl-0.4, 0, hw*1.3, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle='#000';
+    ctx.fillRect(-hl-1.2,-hw*0.45, 0.7, 0.7);
+    ctx.fillRect(-hl+0.1,-hw*0.45, 0.7, 0.7);
+  } else if (d.handleStyle==='rune'){
+    ctx.fillStyle = d.gemColor;
+    ctx.globalAlpha = 0.5 + Math.sin((animT||0)*0.15)*0.3;
+    ctx.fillRect(-hl*0.85,-hw*0.35, hl*0.7, hw*0.7);
+    ctx.globalAlpha = 1;
+  }
+
+  // guard
+  if (d.tier >= 2){
+    ctx.fillStyle = d.tier >= 3 ? '#e8e8f0' : '#9a9a9a';
+    ctx.fillRect(-0.5, -hw*1.7, 1.3, hw*3.4);
+  }
+
+  // blade
+  drawBlade(ctx, d);
+}
+
+// ======== 游戏状态 ========
+const keys = {};
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+let player, enemies, drops, particles, floaters, killMessages;
+let cam = {x:0, y:0, sx:0, sy:0};
+let gameTime = 0;
+let killCount = 0;
+let running = true;
+let spawnTimer = 0;
+let dropTimer = 0;
+let hitstop = 0;
+let shakeTime = 0, shakeMag = 0;
+
+const NAME_PARTS = {
+  prefixes:['北境','南域','东海','西陲','苍穹','幽冥','红尘','青山','无影','绝世','孤傲','疯癫','暗夜','寒霜','烈焰','血色','轮回','万古','破军','破晓','残月','断魂','凌霄','追风','冷血','嗜血','狂傲','沉默','飘渺','无情','剑影','刀光','血影','九天','星河','虚空','混沌','绝尘','踏雪','无敌'],
+  mids:['之王','少年','浪子','狂人','战神','剑仙','刀圣','屠夫','杀手','游侠','魔王','霸主','独尊','独行','无双','天下','残魂','孤影','冷月','断刃','残刀','破刃','绝尘','追命','绝命','噬魂','流云','狼魂','鬼面','苍狼','虎啸','龙吟','鲸吞','如风','饮血'],
+  suffixes:['','','','','·无痕','·冷刀','·追风','·独孤','·破风','·残阳','·落英','·千军','·啸月']
+};
+function pick(a){ return a[(Math.random()*a.length)|0]; }
+function genName(){ return pick(NAME_PARTS.prefixes)+pick(NAME_PARTS.mids)+pick(NAME_PARTS.suffixes); }
+
+function addShake(m){ shakeTime = Math.max(shakeTime, 8); shakeMag = Math.max(shakeMag, m); }
+
+function init(){
+  player = {
+    x:0, y:0, dir:0,
+    hp:100, maxHp:100,
+    speed:3.4, radius:14,
+    knives:[], invuln:0, hitFlash:0,
+    color:'#4da6ff',
+  };
+  for (let i=0; i<5; i++) addKnife(player, randomKnifeOfTier(0));
+  enemies=[]; drops=[]; particles=[]; floaters=[]; killMessages=[];
+  gameTime=0; killCount=0; running=true;
+  spawnTimer=0; dropTimer=0; hitstop=0;
+  document.getElementById('gameover').classList.remove('show');
+  for (let i=0; i<4; i++) spawnEnemy();
+  for (let i=0; i<10; i++) spawnDrop(0);
+}
+
+function addKnife(p, designId){
+  p.knives.push({
+    designId,
+    angle:0,
+    x:p.x, y:p.y,
+    hitCD: new Map(),
+  });
+}
+
+function sampleTier(difficulty, boost){
+  const w = [
+    Math.max(4, 55 - difficulty*48),
+    18 + difficulty*18,
+    4 + difficulty*26,
+    0.6 + difficulty*11 + (boost?7:0),
+    0.1 + difficulty*3 + (boost?4:0),
+  ];
+  const total = w.reduce((a,b)=>a+b,0);
+  let r = Math.random()*total;
+  for (let i=0; i<5; i++){ r-=w[i]; if (r<=0) return i; }
+  return 0;
+}
+
+function spawnEnemy(){
+  const difficulty = Math.min(1, gameTime/130 + player.knives.length/80);
+  const a = Math.random()*Math.PI*2;
+  const dist = 480 + Math.random()*240;
+  const isBoss = Math.random() < (difficulty*0.035) && gameTime > 40;
+  const isStrong = !isBoss && Math.random() < (0.12 + difficulty*0.28);
+  const knifeCount = isBoss ? 16 + (Math.random()*14)|0 : isStrong ? 4 + (Math.random()*6)|0 : 1 + (Math.random()*3)|0;
+  const e = {
+    id: Math.random().toString(36).slice(2),
+    x: player.x + Math.cos(a)*dist,
+    y: player.y + Math.sin(a)*dist,
+    vx:0, vy:0,
+    hp: isBoss ? 380+difficulty*400 : isStrong ? 75+difficulty*75 : 28+difficulty*28,
+    maxHp:0,
+    speed: isBoss ? 1.3 : isStrong ? 2.4 : 2.0 + Math.random()*0.5,
+    radius: isBoss ? 24 : 13,
+    name: genName(),
+    isBoss, isStrong,
+    knives:[], hitFlash:0, dead:false, deathAnim:0,
+    slowTimer:0,
+    color: isBoss ? '#8b0000' : isStrong ? '#ef4444' : '#f97316',
+    wobble: Math.random()*100,
+  };
+  e.maxHp = e.hp;
+  for (let i=0; i<knifeCount; i++){
+    const tier = sampleTier(difficulty, isBoss || isStrong);
+    e.knives.push({ designId: randomKnifeOfTier(tier), angle:0, x:e.x, y:e.y, hitCD:new Map() });
+  }
+  enemies.push(e);
+}
+
+function spawnDrop(forceTier){
+  const a = Math.random()*Math.PI*2;
+  const dist = 220 + Math.random()*420;
+  const difficulty = Math.min(1, gameTime/160);
+  const tier = forceTier!==undefined ? forceTier : sampleTier(difficulty, false);
+  drops.push({
+    x: player.x + Math.cos(a)*dist,
+    y: player.y + Math.sin(a)*dist,
+    designId: randomKnifeOfTier(tier),
+    pulse: Math.random()*Math.PI*2,
+  });
+}
+
+// ======== 更新 ========
+function update(dt){
+  if (!running) return;
+  if (hitstop > 0){ hitstop -= dt; return; }
+  gameTime += dt/60;
+
+  // 玩家移动
+  let mx=0, my=0;
+  if (keys['w']||keys['arrowup']) my-=1;
+  if (keys['s']||keys['arrowdown']) my+=1;
+  if (keys['a']||keys['arrowleft']) mx-=1;
+  if (keys['d']||keys['arrowright']) mx+=1;
+  const L = Math.hypot(mx,my);
+  if (L>0){ mx/=L; my/=L; player.x += mx*player.speed*dt; player.y += my*player.speed*dt; player.dir = Math.atan2(my,mx); }
+
+  cam.x = player.x; cam.y = player.y;
+  if (shakeTime > 0){
+    cam.sx = (Math.random()-0.5)*shakeMag;
+    cam.sy = (Math.random()-0.5)*shakeMag;
+    shakeTime -= dt;
+    if (shakeTime <= 0) { shakeMag = 0; cam.sx=0; cam.sy=0; }
+  }
+
+  updateOrbit(player, true, dt);
+
+  // 敌人 AI
+  for (const e of enemies){
+    if (e.dead){
+      e.deathAnim -= dt;
+      continue;
+    }
+    const dx = player.x-e.x, dy = player.y-e.y;
+    const d = Math.hypot(dx,dy) || 1;
+    const rings = Math.ceil(e.knives.length/16);
+    const reach = e.radius + 18 + (rings-1)*14 + 14;
+    const preferred = Math.max(40, reach - 8);
+    let move = 0;
+    if (d > preferred + 25) move = 1;
+    else if (d < preferred - 30) move = -0.6;
+    const slow = e.slowTimer > 0 ? 0.4 : 1;
+    e.vx = (dx/d)*e.speed*move*slow;
+    e.vy = (dy/d)*e.speed*move*slow;
+    // circle-strafe
+    const strafe = Math.sin(gameTime*1.8 + e.wobble)*0.6*slow;
+    e.vx += -dy/d * strafe;
+    e.vy +=  dx/d * strafe;
+    e.x += e.vx*dt; e.y += e.vy*dt;
+    if (e.slowTimer > 0) e.slowTimer -= dt;
+    if (e.hitFlash > 0) e.hitFlash -= dt;
+    updateOrbit(e, false, dt);
+  }
+  enemies = enemies.filter(e => !e.dead || e.deathAnim > 0);
+
+  // 刷怪
+  spawnTimer -= dt;
+  const alive = enemies.filter(e=>!e.dead).length;
+  const target = 4 + Math.min(18, Math.floor(gameTime/8) + Math.floor(player.knives.length/7));
+  if (alive < target && spawnTimer <= 0){ spawnEnemy(); spawnTimer = Math.max(15, 50 - gameTime/3); }
+
+  // 掉落
+  dropTimer -= dt;
+  if (dropTimer <= 0 && drops.length < 18){ spawnDrop(); dropTimer = Math.max(30, 100 - gameTime/2); }
+  drops = drops.filter(d => {
+    const dx=d.x-player.x, dy=d.y-player.y;
+    return dx*dx + dy*dy < 2400*2400;
+  });
+
+  // 拾取
+  for (const d of drops){
+    d.pulse += 0.06*dt;
+    const dx=d.x-player.x, dy=d.y-player.y;
+    if (dx*dx + dy*dy < (player.radius + 22)**2){
+      addKnife(player, d.designId);
+      const des = KNIFE_DESIGNS[d.designId];
+      const rar = RARITIES[des.tier];
+      addFloater(player.x + (Math.random()-0.5)*20, player.y - 30, des.name, rar.color, 50, 13);
+      spawnPickupFX(d.x, d.y, rar.color);
+      d.picked = true;
+    }
+  }
+  drops = drops.filter(d => !d.picked);
+
+  // 粒子
+  for (const p of particles){
+    p.x += p.vx*dt; p.y += p.vy*dt;
+    p.vx *= Math.pow(0.9, dt); p.vy *= Math.pow(0.9, dt);
+    if (p.gravity) p.vy += 0.12*dt;
+    p.life -= dt;
+  }
+  particles = particles.filter(p => p.life > 0);
+
+  // 飘字
+  for (const f of floaters){ f.y -= 0.55*dt; f.life -= dt; }
+  floaters = floaters.filter(f => f.life > 0);
+
+  for (const m of killMessages){ m.y -= 0.35*dt; m.life -= dt; }
+  killMessages = killMessages.filter(m => m.life > 0);
+
+  if (player.hitFlash > 0) player.hitFlash -= dt;
+  if (player.invuln > 0) player.invuln -= dt;
+
+  if (player.hp <= 0 && running){
+    running = false;
+    setTimeout(showGameOver, 300);
+  }
+
+  updateUI();
+}
+
+function updateOrbit(owner, isPlayer, dt){
+  const count = owner.knives.length;
+  if (!count) return;
+  const ringSize = 16;
+  for (let i=0; i<count; i++){
+    const k = owner.knives[i];
+    const des = KNIFE_DESIGNS[k.designId];
+    const ring = (i / ringSize) | 0;
+    const posInRing = i % ringSize;
+    const ringN = Math.min(ringSize, count - ring*ringSize);
+    const spinDir = ring%2===0 ? 1 : -1;
+    const baseA = (posInRing/ringN)*Math.PI*2;
+    k.angle = baseA + gameTime*des.spinSpeed*spinDir*2.2;
+    const dist = owner.radius + 20 + ring*15;
+    k.x = owner.x + Math.cos(k.angle)*dist;
+    k.y = owner.y + Math.sin(k.angle)*dist;
+
+    // 冷却递减
+    for (const [id, cd] of k.hitCD){
+      if (cd <= dt) k.hitCD.delete(id);
+      else k.hitCD.set(id, cd - dt);
+    }
+
+    if (isPlayer){
+      for (const e of enemies){
+        if (e.dead) continue;
+        const dx = e.x-k.x, dy = e.y-k.y;
+        const rr = e.radius + 9;
+        if (dx*dx + dy*dy < rr*rr){
+          if (!k.hitCD.has(e.id)){
+            hitEnemy(k, des, e);
+            k.hitCD.set(e.id, 22);
+          }
+        }
+      }
+    } else {
+      if (player.invuln <= 0){
+        const dx = player.x-k.x, dy = player.y-k.y;
+        const rr = player.radius + 8;
+        if (dx*dx + dy*dy < rr*rr){
+          if (!k.hitCD.has('p')){
+            hitPlayer(k, des);
+            k.hitCD.set('p', 40);
+          }
+        }
+      }
+    }
+  }
+}
+
+function hitEnemy(k, des, e){
+  let dmg = des.dmg;
+  let crit = des.critChance > 0 && Math.random() < des.critChance;
+  if (crit) dmg *= 2.5;
+  e.hp -= dmg; e.hitFlash = 6;
+  spawnHitFX(k.x, k.y, des, crit);
+  addFloater(e.x + (Math.random()-0.5)*16, e.y - e.radius - 4, Math.round(dmg)+(crit?'!':''), crit?'#ffd940':'#fff', 26, crit?15:11);
+  if (crit || des.tier >= 3) { hitstop = Math.max(hitstop, 1.5 + des.tier*0.5); addShake(crit?5:3); }
+
+  if (des.special==='explode'){
+    spawnExplosion(k.x, k.y, 55, des);
+    addShake(4);
+    for (const e2 of enemies){
+      if (e2.dead || e2===e) continue;
+      const dx=e2.x-k.x, dy=e2.y-k.y;
+      if (dx*dx+dy*dy < 55*55){
+        e2.hp -= dmg*0.5; e2.hitFlash = 5;
+        if (e2.hp <= 0) killEnemy(e2);
+      }
+    }
+  } else if (des.special==='chain'){
+    let best=null, bD=170*170;
+    for (const e2 of enemies){
+      if (e2.dead||e2===e) continue;
+      const dx=e2.x-k.x, dy=e2.y-k.y; const dd=dx*dx+dy*dy;
+      if (dd < bD) { bD=dd; best=e2; }
+    }
+    if (best){
+      best.hp -= dmg*0.55; best.hitFlash=5;
+      spawnLightning(k.x, k.y, best.x, best.y);
+      if (best.hp <= 0) killEnemy(best);
+    }
+  } else if (des.special==='slow'){
+    e.slowTimer = 100;
+  } else if (des.special==='lifesteal'){
+    player.hp = Math.min(player.maxHp, player.hp + dmg*0.08);
+  } else if (des.special==='splash'){
+    for (const e2 of enemies){
+      if (e2.dead||e2===e) continue;
+      const dx=e2.x-k.x, dy=e2.y-k.y;
+      if (dx*dx+dy*dy < 35*35){
+        e2.hp -= dmg*0.3; e2.hitFlash=4;
+        if (e2.hp <= 0) killEnemy(e2);
+      }
+    }
+  }
+
+  if (e.hp <= 0) killEnemy(e);
+}
+
+function hitPlayer(k, des){
+  const dmg = des.dmg * 0.55;
+  player.hp -= dmg;
+  player.hitFlash = 6;
+  player.invuln = 14;
+  spawnHitFX(k.x, k.y, des, false);
+  addFloater(player.x + (Math.random()-0.5)*20, player.y - player.radius - 4, '-'+Math.round(dmg), '#ff6060', 26, 12);
+  addShake(3);
+}
+
+function killEnemy(e){
+  if (e.dead) return;
+  e.dead = true; e.deathAnim = 18;
+  killCount++;
+  // 掉落其身上部分飞刀
+  const dropN = Math.min(e.knives.length, e.isBoss ? 10 : e.isStrong ? 4 : 2);
+  const sorted = [...e.knives].sort((a,b)=>KNIFE_DESIGNS[b.designId].tier - KNIFE_DESIGNS[a.designId].tier);
+  for (let i=0; i<dropN; i++){
+    drops.push({
+      x: e.x + (Math.random()-0.5)*28,
+      y: e.y + (Math.random()-0.5)*28,
+      designId: sorted[i].designId,
+      pulse: Math.random()*Math.PI*2,
+    });
+  }
+  // 死亡粒子
+  for (let i=0; i<24; i++){
+    const a = Math.random()*Math.PI*2;
+    const s = 2 + Math.random()*(e.isBoss?5:3);
+    particles.push({
+      x:e.x, y:e.y,
+      vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+      life:20+Math.random()*15, maxLife:35,
+      size:2+Math.random()*2.5,
+      color: e.isBoss ? (Math.random()<0.5?'#ff4040':'#ffaa40') : '#ffaa40',
+      gravity:false,
+    });
+  }
+  particles.push({x:e.x,y:e.y,vx:0,vy:0,life:14,maxLife:14,ring:true,ringMax:e.isBoss?80:45,color:e.isBoss?'#ff6040':'#ffcc40',gravity:false});
+  killMessages.push({
+    x:e.x, y:e.y - e.radius - 18,
+    text:'击败 '+e.name, life:50, maxLife:50,
+    color: e.isBoss?'#ffc040':e.isStrong?'#ff8080':'#e0e0e0',
+    size: e.isBoss ? 15 : 12,
+  });
+  if (e.isBoss) addShake(10);
+}
+
+function addFloater(x,y,text,color,life=30,size=12){
+  floaters.push({x,y,text,color,life,maxLife:life,size});
+}
+
+function effectColor(e){
+  return ({fire:'#ff8030',ice:'#80e0ff',electric:'#fff080',poison:'#80ff60',shadow:'#a070ff',blood:'#ff3030',holy:'#fff0a0',void:'#d040ff',wind:'#a0ffc0'})[e] || '#fff';
+}
+
+function spawnHitFX(x, y, des, crit){
+  const rar = RARITIES[des.tier];
+  const n = 10 + des.tier*3 + (crit?12:0);
+  for (let i=0; i<n; i++){
+    const a = Math.random()*Math.PI*2;
+    const s = 2 + Math.random()*(3 + des.tier);
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+      life: 10+Math.random()*14, maxLife: 24,
+      size: 1.5+Math.random()*2,
+      color: Math.random()<0.4 ? '#ffffff' : (des.effect ? effectColor(des.effect) : (crit?'#ffd040':'#ffdd80')),
+      gravity: false,
+    });
+  }
+  // 弹片短条
+  for (let i=0; i<4; i++){
+    const a = Math.random()*Math.PI*2;
+    const s = 4 + Math.random()*3;
+    particles.push({
+      x, y,
+      vx: Math.cos(a)*s, vy: Math.sin(a)*s,
+      life: 8+Math.random()*6, maxLife: 14,
+      size: 3, shard:true, angle:a,
+      color:'#fff7c0', gravity:false,
+    });
+  }
+  particles.push({x,y,vx:0,vy:0,life:8,maxLife:8,ring:true,ringMax:crit?32:22,color:crit?'#ffd040':rar.color,gravity:false});
+}
+
+function spawnExplosion(x,y,r,des){
+  const col = des.effect==='ice'?'#a0e0ff':des.effect==='poison'?'#80ff80':'#ff8040';
+  for (let i=0; i<22; i++){
+    const a=Math.random()*Math.PI*2;
+    const s=2+Math.random()*4;
+    particles.push({
+      x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,
+      life:15+Math.random()*12, maxLife:28,
+      size:2+Math.random()*3, color:col, gravity:false,
+    });
+  }
+  particles.push({x,y,vx:0,vy:0,life:14,maxLife:14,ring:true,ringMax:r,color:effectColor(des.effect||'fire'),gravity:false});
+}
+
+function spawnLightning(x1,y1,x2,y2){
+  particles.push({x:x1,y:y1,vx:0,vy:0,tx:x2,ty:y2,life:8,maxLife:8,lightning:true,color:'#aaccff',gravity:false});
+}
+
+function spawnPickupFX(x,y,color){
+  for (let i=0; i<14; i++){
+    const a=Math.random()*Math.PI*2;
+    const s=1+Math.random()*2.5;
+    particles.push({
+      x,y, vx:Math.cos(a)*s, vy:Math.sin(a)*s - 1.5,
+      life:22+Math.random()*10, maxLife:32,
+      size:1.4+Math.random(), color, gravity:true,
+    });
+  }
+  particles.push({x,y,vx:0,vy:0,life:12,maxLife:12,ring:true,ringMax:26,color,gravity:false});
+}
+
+// ======== 渲染 ========
+function render(){
+  ctx.fillStyle = '#0a0a12';
+  ctx.fillRect(0,0,W,H);
+
+  // 棋盘格背景
+  const cellSize = 96;
+  const ox = -(((cam.x+cam.sx) - W/2) % cellSize);
+  const oy = -(((cam.y+cam.sy) - H/2) % cellSize);
+  const cx0 = Math.floor((cam.x - W/2) / cellSize);
+  const cy0 = Math.floor((cam.y - H/2) / cellSize);
+  for (let x = ox, i=0; x < W+cellSize; x += cellSize, i++){
+    for (let y = oy, j=0; y < H+cellSize; y += cellSize, j++){
+      const cellX = cx0 + i, cellY = cy0 + j;
+      const dark = (cellX + cellY) & 1;
+      ctx.fillStyle = dark ? '#0a0a12' : '#0f0f18';
+      ctx.fillRect(x-cellSize, y-cellSize, cellSize, cellSize);
+    }
+  }
+  // 网格线
+  ctx.strokeStyle = 'rgba(255,255,255,.04)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x=ox; x<W; x+=cellSize){ ctx.moveTo(x,0); ctx.lineTo(x,H); }
+  for (let y=oy; y<H; y+=cellSize){ ctx.moveTo(0,y); ctx.lineTo(W,y); }
+  ctx.stroke();
+
+  ctx.save();
+  ctx.translate(W/2 - cam.x - cam.sx, H/2 - cam.y - cam.sy);
+
+  // 掉落物
+  for (const d of drops){
+    const des = KNIFE_DESIGNS[d.designId];
+    const rar = RARITIES[des.tier];
+    if (rar.glowColor){
+      const g = ctx.createRadialGradient(d.x, d.y, 0, d.x, d.y, 32);
+      g.addColorStop(0, rar.glowColor);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(d.x, d.y, 32, 0, Math.PI*2); ctx.fill();
+      // 外光圈
+      ctx.strokeStyle = rar.color;
+      ctx.globalAlpha = 0.4 + Math.sin(d.pulse*2)*0.25;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(d.x, d.y, 20 + Math.sin(d.pulse)*3, 0, Math.PI*2); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    const bob = Math.sin(d.pulse)*2;
+    ctx.save();
+    ctx.translate(d.x, d.y + bob);
+    ctx.scale(1.4, 1.4);
+    ctx.rotate(d.pulse);
+    drawKnife(ctx, des, d.pulse*100);
+    ctx.restore();
+  }
+
+  // 敌人
+  for (const e of enemies){
+    if (e.dead){
+      ctx.globalAlpha = Math.max(0, e.deathAnim/18);
+      drawCharacter(e, false);
+      ctx.globalAlpha = 1;
+    } else {
+      drawCharacter(e, false);
+    }
+  }
+
+  // 玩家
+  drawCharacter(player, true);
+
+  // 粒子
+  for (const p of particles) renderParticle(p);
+
+  // 伤害数字飘字
+  for (const f of floaters){
+    const a = Math.min(1, f.life/18);
+    ctx.globalAlpha = a;
+    ctx.font = `bold ${f.size}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(f.text, f.x, f.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, f.x, f.y);
+    ctx.globalAlpha = 1;
+  }
+
+  // 击杀飘字（在敌人原位置上方）
+  for (const m of killMessages){
+    const a = Math.min(1, m.life/22);
+    ctx.globalAlpha = a;
+    ctx.font = `bold ${m.size||12}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,.85)';
+    ctx.lineWidth = 3.5;
+    ctx.strokeText(m.text, m.x, m.y);
+    ctx.fillStyle = m.color;
+    ctx.fillText(m.text, m.x, m.y);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function renderParticle(p){
+  const a = Math.max(0, p.life / p.maxLife);
+  ctx.globalAlpha = a;
+  if (p.ring){
+    const r = p.ringMax * (1-a);
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 2 + a*2;
+    ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI*2); ctx.stroke();
+  } else if (p.lightning){
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(p.x, p.y);
+    const steps = 6;
+    for (let i=1; i<steps; i++){
+      const t = i/steps;
+      const x = p.x + (p.tx-p.x)*t + (Math.random()-0.5)*22;
+      const y = p.y + (p.ty-p.y)*t + (Math.random()-0.5)*22;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(p.tx, p.ty); ctx.stroke();
+  } else if (p.shard){
+    ctx.save();
+    ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+    ctx.fillStyle = p.color;
+    ctx.fillRect(-p.size*1.5, -0.6, p.size*3, 1.2);
+    ctx.restore();
+  } else {
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawCharacter(c, isPlayer){
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.beginPath();
+  ctx.ellipse(c.x, c.y + c.radius*0.85, c.radius*0.95, c.radius*0.4, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // 身体
+  const flash = (c.hitFlash||0)/6;
+  ctx.fillStyle = flash > 0.2 ? '#ffffff' : c.color;
+  roundRect(ctx, c.x-c.radius, c.y-c.radius, c.radius*2, c.radius*2, 4);
+  ctx.fill();
+  ctx.strokeStyle = isPlayer ? '#88ddff' : (c.isBoss ? '#200' : '#400');
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 高光/眼睛
+  if (isPlayer){
+    ctx.fillStyle = '#fff';
+    const ex = c.x + Math.cos(c.dir)*c.radius*0.45;
+    const ey = c.y + Math.sin(c.dir)*c.radius*0.45;
+    ctx.beginPath(); ctx.arc(ex, ey, 2.2, 0, Math.PI*2); ctx.fill();
+    // 闪烁无敌
+    if (c.invuln > 0 && (Math.floor(c.invuln/2)&1)){
+      ctx.strokeStyle = 'rgba(255,255,255,.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(c.x, c.y, c.radius+3, 0, Math.PI*2); ctx.stroke();
+    }
+  } else {
+    // 敌人小眼
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(c.x-4, c.y-3, 2, 2);
+    ctx.fillRect(c.x+2, c.y-3, 2, 2);
+  }
+
+  // Boss 王冠
+  if (c.isBoss && !c.dead){
+    ctx.fillStyle = '#ffd040';
+    ctx.beginPath();
+    ctx.moveTo(c.x-c.radius*0.7, c.y-c.radius-2);
+    ctx.lineTo(c.x-c.radius*0.4, c.y-c.radius-8);
+    ctx.lineTo(c.x-c.radius*0.15, c.y-c.radius-3);
+    ctx.lineTo(c.x, c.y-c.radius-9);
+    ctx.lineTo(c.x+c.radius*0.15, c.y-c.radius-3);
+    ctx.lineTo(c.x+c.radius*0.4, c.y-c.radius-8);
+    ctx.lineTo(c.x+c.radius*0.7, c.y-c.radius-2);
+    ctx.closePath(); ctx.fill();
+  }
+
+  // 环绕的飞刀
+  for (const k of c.knives){
+    const des = KNIFE_DESIGNS[k.designId];
+    ctx.save();
+    ctx.translate(k.x, k.y);
+    ctx.rotate(k.angle + Math.PI/2); // 指向外侧
+    drawKnife(ctx, des, gameTime*40 + k.angle*30);
+    ctx.restore();
+  }
+
+  // 敌人名字 + 血条
+  if (!isPlayer && !c.dead){
+    const name = c.name;
+    ctx.font = c.isBoss ? 'bold 15px sans-serif' : (c.isStrong ? 'bold 12px sans-serif' : '12px sans-serif');
+    ctx.textAlign = 'center';
+    const nameY = c.y - c.radius - 14;
+    ctx.strokeStyle = 'rgba(0,0,0,.85)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(name, c.x, nameY);
+    ctx.fillStyle = c.isBoss ? '#ffc040' : c.isStrong ? '#ff5050' : '#e8e8e8';
+    ctx.fillText(name, c.x, nameY);
+    // 血条
+    const hpW = Math.max(c.radius*2, 26);
+    const hpY = c.y - c.radius - 8;
+    ctx.fillStyle = 'rgba(0,0,0,.7)';
+    ctx.fillRect(c.x-hpW/2, hpY, hpW, 3);
+    ctx.fillStyle = c.isBoss ? '#ff4040' : '#ff8060';
+    ctx.fillRect(c.x-hpW/2, hpY, hpW*(c.hp/c.maxHp), 3);
+  }
+}
+
+// ======== UI ========
+let lastInvSig = '';
+function updateUI(){
+  document.getElementById('hpfill').style.width = Math.max(0, player.hp/player.maxHp*100) + '%';
+  document.getElementById('hptext').textContent = Math.max(0, Math.ceil(player.hp)) + ' / ' + player.maxHp;
+  document.getElementById('killCount').textContent = killCount;
+  document.getElementById('timeText').textContent = Math.floor(gameTime) + 's';
+  document.getElementById('knifeCount').textContent = player.knives.length;
+
+  // 库存
+  const counts = {};
+  for (const k of player.knives) counts[k.designId] = (counts[k.designId]||0)+1;
+  const entries = Object.entries(counts).map(([id,n])=>({id:+id,n})).sort((a,b)=>{
+    const ta = KNIFE_DESIGNS[a.id].tier, tb = KNIFE_DESIGNS[b.id].tier;
+    return tb-ta || b.n-a.n;
+  });
+  const sig = entries.map(e=>e.id+':'+e.n).join(',');
+  if (sig === lastInvSig) return;
+  lastInvSig = sig;
+  const list = document.getElementById('invList');
+  let html = '';
+  for (const {id,n} of entries){
+    const d = KNIFE_DESIGNS[id];
+    const rar = RARITIES[d.tier];
+    html += `<div class="inv-row" style="border-left-color:${rar.color}"><canvas class="icon" width="30" height="20" data-id="${id}"></canvas><div class="name" style="color:${rar.color}">${d.name}</div><div class="count" style="color:${rar.color}">×${n}</div></div>`;
+  }
+  list.innerHTML = html;
+  for (const c of list.querySelectorAll('canvas[data-id]')){
+    const id = +c.dataset.id;
+    const cx = c.getContext('2d');
+    cx.clearRect(0,0,30,20);
+    cx.save();
+    cx.translate(5, 10);
+    cx.scale(0.9, 0.9);
+    drawKnife(cx, KNIFE_DESIGNS[id], 0);
+    cx.restore();
+  }
+}
+
+function showGameOver(){
+  document.getElementById('finalKills').textContent = killCount;
+  document.getElementById('finalTime').textContent = Math.floor(gameTime) + 's';
+  document.getElementById('finalKnives').textContent = player.knives.length;
+  document.getElementById('gameover').classList.add('show');
+}
+function restart(){ init(); }
+window.restart = restart;
+
+// ======== 主循环 ========
+let lastT = 0;
+function loop(t){
+  const dt = Math.min(3, (t - lastT) / 16.67);
+  lastT = t;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+init();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
