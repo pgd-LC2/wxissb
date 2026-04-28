@@ -58,6 +58,10 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     navigateTo("pages/game.html?play=1");
   }
 
+  function openMinecraft() {
+    navigateTo("pages/minecraft/index.html");
+  }
+
   function showLeaderboard() {
     playSound();
     navigateTo("pages/leaderboard.html");
@@ -275,11 +279,13 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     const startBtn = getById("startGameBtn");
     const leaderboardBtn = getById("leaderboardBtn");
     const settingsBtn = getById("settingsBtn");
+    const minecraftBtn = getById("minecraftBtn");
     const modalCloseBtn = getById("modalCloseBtn");
 
     if (startBtn) startBtn.addEventListener("click", startGame);
     if (leaderboardBtn) leaderboardBtn.addEventListener("click", showLeaderboard);
     if (settingsBtn) settingsBtn.addEventListener("click", showSettings);
+    if (minecraftBtn) minecraftBtn.addEventListener("click", openMinecraft);
     if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeModal);
 
     if (entryGate) {
