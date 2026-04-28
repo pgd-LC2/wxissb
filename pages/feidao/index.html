@@ -802,6 +802,41 @@ function drawTrailPieces() {
   ctx.globalAlpha = 1;
 }
 
+// ============================== 敌人类型定义 ==============================
+// archetype: 'rusher'|'flanker'|'berserker'|'hunter'|'boss'
+// rusher  - 激进刀客：保持中距离，定时冲刺突入
+// flanker - 游击手：绕到玩家侧后方偷袭
+// berserker - 狂战士：无视距离全速冲锋，血量越低越快
+// hunter  - 猎手：预判玩家移动方向，精准切入
+// boss    - 领主：高血量，阶段性狂暴，会呼唤小兵
+const ENEMY_ARCHETYPES = {
+  rusher: {
+    nameTag: '刀客', color: '#7a4a30', cloth: '#3a2a4a', nameColor: '#ffcc88',
+    hpMul: 1.0, speedBase: 125, radiusMul: 1.0, scaleMul: 1.0,
+    knifeCountMul: 1.0,
+  },
+  flanker: {
+    nameTag: '游侠', color: '#3a6a5a', cloth: '#1a3a2a', nameColor: '#88ffcc',
+    hpMul: 0.8, speedBase: 150, radiusMul: 0.9, scaleMul: 0.95,
+    knifeCountMul: 0.8,
+  },
+  berserker: {
+    nameTag: '狂徒', color: '#8a2a2a', cloth: '#4a1010', nameColor: '#ff6666',
+    hpMul: 1.4, speedBase: 110, radiusMul: 1.1, scaleMul: 1.1,
+    knifeCountMul: 1.2,
+  },
+  hunter: {
+    nameTag: '猎手', color: '#5a5a2a', cloth: '#2a2a1a', nameColor: '#ffffaa',
+    hpMul: 0.9, speedBase: 135, radiusMul: 0.95, scaleMul: 1.0,
+    knifeCountMul: 1.0,
+  },
+  boss: {
+    nameTag: '领主', color: '#5a1a3a', cloth: '#2a0a1a', nameColor: '#ff3366',
+    hpMul: 1.0, speedBase: 90, radiusMul: 1.0, scaleMul: 1.8,
+    knifeCountMul: 1.0,
+  },
+};
+
 // ============================== 敌人 ==============================
 function spawnEnemy(isBoss = false) {
   const angle = Math.random() * TAU;
@@ -812,47 +847,71 @@ function spawnEnemy(isBoss = false) {
   const threat = state.threat;
   const isStrong = !isBoss && Math.random() < clamp(threat * 0.03, 0.05, 0.35);
 
+  // 选择 archetype
+  let archetype;
+  if (isBoss) {
+    archetype = 'boss';
+  } else {
+    // 随威胁等级解锁更多类型
+    const pool = ['rusher', 'berserker'];
+    if (threat >= 3)  pool.push('flanker');
+    if (threat >= 5)  pool.push('hunter');
+    if (threat >= 8)  pool.push('flanker', 'hunter'); // 提高高级类型概率
+    archetype = pick(pool);
+  }
+  const arch = ENEMY_ARCHETYPES[archetype];
+
   let hp, speed, knifeCount, minRarityRoll;
   if (isBoss) {
-    hp = 450 + threat * 60;
-    speed = 85;
-    knifeCount = Math.min(20 + Math.floor(threat * 1.5), 40);
+    hp = 500 + threat * 70;
+    speed = arch.speedBase;
+    knifeCount = Math.min(22 + Math.floor(threat * 1.5), 42);
     minRarityRoll = threat;
   } else if (isStrong) {
-    hp = 100 + threat * 15;
-    speed = rand(110, 140);
-    knifeCount = randI(4, 8 + Math.floor(threat / 2));
+    hp = Math.floor((110 + threat * 15) * arch.hpMul);
+    speed = rand(arch.speedBase * 0.9, arch.speedBase * 1.15);
+    knifeCount = randI(4, 9 + Math.floor(threat / 2));
     minRarityRoll = threat * 0.8;
   } else {
-    hp = 35 + threat * 6;
-    speed = rand(90, 130);
-    knifeCount = randI(1, Math.min(3 + Math.floor(threat / 3), 6));
+    hp = Math.floor((38 + threat * 7) * arch.hpMul);
+    speed = rand(arch.speedBase * 0.85, arch.speedBase * 1.1);
+    knifeCount = randI(2, Math.min(4 + Math.floor(threat / 3), 7));
     minRarityRoll = threat * 0.5;
   }
 
   const enemy = {
     x, y, vx: 0, vy: 0,
     hp, maxHp: hp, speed,
-    radius: isBoss ? 24 : 13,
-    bodyScale: isBoss ? 1.8 : 1.0,
-    name: genEnemyName(),
-    nameColor: isBoss ? '#ff3366' : (isStrong ? '#ff5544' : '#dcdce0'),
+    radius: Math.round(13 * arch.radiusMul * (isBoss ? 1.85 : 1)),
+    bodyScale: arch.scaleMul * (isStrong && !isBoss ? 1.15 : 1.0),
+    name: genEnemyName() + (isStrong ? `·${arch.nameTag}` : ''),
+    nameColor: isBoss ? arch.nameColor : (isStrong ? arch.nameColor : '#dcdce0'),
     isBoss, isStrong,
+    archetype,
     hitFlash: 0,
     knockX: 0, knockY: 0,
     knives: [],
     facing: 0,
     walkPhase: Math.random() * TAU,
     dead: false,
-    color: isBoss ? '#5a3838' : (isStrong ? '#705030' : pick(['#6a4a30','#805a3a','#5a6a50','#706050','#7a5a4a'])),
-    clothColor: isBoss ? '#2a0a0a' : pick(['#3a3a4a','#4a3a2a','#2a3a3a','#3a2a3a','#2a2a3a']),
+    color: arch.color,
+    clothColor: arch.cloth,
     slow: 0,
     burn: 0,
     poison: 0,
     hitTint: 0,
+    // AI 状态机字段
+    aiState: 'approach',   // 当前行为状态
+    aiTimer: rand(1, 3),   // 状态计时器
+    dashVx: 0, dashVy: 0,  // 冲刺速度向量
+    dashTime: 0,           // 剩余冲刺时间
+    flankAngle: Math.random() * TAU, // 游击手绕行角度偏移
+    enragePhase: false,    // 狂暴阶段
+    summonCooldown: isBoss ? 8 : 99999, // Boss 召唤冷却
   };
   // 敌人飞刀
-  for (let i = 0; i < knifeCount; i++) {
+  const kc = Math.round(knifeCount * arch.knifeCountMul);
+  for (let i = 0; i < kc; i++) {
     const type = rollKnifeForEnemy(minRarityRoll);
     enemy.knives.push(createOrbitKnife(type, enemy));
   }
@@ -868,6 +927,282 @@ function rollKnifeForEnemy(threat) {
   if (r < 0.05 * threat) return pick(KNIVES_BY_RARITY.rare);
   if (r < 0.2 + 0.04 * threat) return pick(KNIVES_BY_RARITY.uncommon);
   return pick(KNIVES_BY_RARITY.common);
+}
+
+// ============================== 敌人 AI 状态机 ==============================
+// 各类型行为说明：
+// rusher  : approach -> wind_up(0.6s蓄力) -> dash(0.4s冲刺) -> recover(0.5s恢复) -> approach
+// flanker : flank(90度侧向绕行) -> strike(切入) -> retreat(撤退) -> flank
+// berserker: 直冲，血量<50%时速度+40%，无状态切换
+// hunter  : predict(计算玩家预判位置) -> intercept(截击) -> reset
+// boss    : approach + 阶段狁暴 + 召唤小兵
+
+function aiUpdateRusher(e, dt, dx, dy, d) {
+  const pl = state.player;
+  e.aiTimer -= dt;
+  const ndx = dx / d, ndy = dy / d;
+  const speedMul = e.slow > 0 ? 0.45 : 1;
+
+  if (e.aiState === 'approach') {
+    // 保持中距离，等待蓄力时机
+    const desired = 140;
+    let moveDir = d > desired + 20 ? 1 : (d < desired - 20 ? -0.3 : 0);
+    // 微幅度绕圈，不像以前那么慢
+    const perpX = -ndy, perpY = ndx;
+    const circle = Math.sin(state.gameTime * 1.2 + e.walkPhase) * 0.45;
+    let mx = ndx * moveDir + perpX * circle;
+    let my = ndy * moveDir + perpY * circle;
+    const ml = Math.sqrt(mx*mx+my*my)||1;
+    e.vx = lerp(e.vx, mx/ml * e.speed * speedMul, 0.15);
+    e.vy = lerp(e.vy, my/ml * e.speed * speedMul, 0.15);
+    // 蓄力时机：在合适距离且计时到
+    if (e.aiTimer <= 0 && d < 280 && d > 80) {
+      e.aiState = 'wind_up';
+      e.aiTimer = 0.5;
+      // 蓄力时在原地减速
+    }
+  } else if (e.aiState === 'wind_up') {
+    // 蓄力：微微后退，制造张力
+    e.vx = lerp(e.vx, -ndx * 40 * speedMul, 0.2);
+    e.vy = lerp(e.vy, -ndy * 40 * speedMul, 0.2);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'dash';
+      e.aiTimer = 0.38;
+      // 预判玩家位置：冲向玩家当前位置稍前方
+      const predX = pl.x + pl.vx * 0.18;
+      const predY = pl.y + pl.vy * 0.18;
+      const pdx = predX - e.x, pdy = predY - e.y;
+      const pd = Math.sqrt(pdx*pdx+pdy*pdy)||1;
+      e.dashVx = pdx/pd * e.speed * 3.2;
+      e.dashVy = pdy/pd * e.speed * 3.2;
+    }
+  } else if (e.aiState === 'dash') {
+    // 冲刺：全速冲向玩家
+    e.vx = lerp(e.vx, e.dashVx, 0.35);
+    e.vy = lerp(e.vy, e.dashVy, 0.35);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'recover';
+      e.aiTimer = rand(0.4, 0.7);
+    }
+  } else if (e.aiState === 'recover') {
+    // 恢复：微微撤退
+    e.vx = lerp(e.vx, -ndx * 60 * speedMul, 0.1);
+    e.vy = lerp(e.vy, -ndy * 60 * speedMul, 0.1);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'approach';
+      e.aiTimer = rand(1.2, 2.5);
+    }
+  }
+}
+
+function aiUpdateFlanker(e, dt, dx, dy, d) {
+  const pl = state.player;
+  e.aiTimer -= dt;
+  const ndx = dx / d, ndy = dy / d;
+  const speedMul = e.slow > 0 ? 0.45 : 1;
+
+  if (e.aiState === 'flank') {
+    // 绕到玩家侧后方：目标角度 = 玩家正前方 + 90~150度偏移
+    const targetAngle = Math.atan2(-dy, -dx) + e.flankAngle;
+    const flankDist = 160;
+    const tx = pl.x + Math.cos(targetAngle) * flankDist;
+    const ty = pl.y + Math.sin(targetAngle) * flankDist;
+    const fdx = tx - e.x, fdy = ty - e.y;
+    const fd = Math.sqrt(fdx*fdx+fdy*fdy)||1;
+    e.vx = lerp(e.vx, fdx/fd * e.speed * 1.1 * speedMul, 0.18);
+    e.vy = lerp(e.vy, fdy/fd * e.speed * 1.1 * speedMul, 0.18);
+    // 到位后切入
+    if (e.aiTimer <= 0 || (fd < 30 && d < 200)) {
+      e.aiState = 'strike';
+      e.aiTimer = 0.45;
+      const predX = pl.x + pl.vx * 0.12;
+      const predY = pl.y + pl.vy * 0.12;
+      const pdx = predX - e.x, pdy = predY - e.y;
+      const pd = Math.sqrt(pdx*pdx+pdy*pdy)||1;
+      e.dashVx = pdx/pd * e.speed * 2.8;
+      e.dashVy = pdy/pd * e.speed * 2.8;
+    }
+  } else if (e.aiState === 'strike') {
+    e.vx = lerp(e.vx, e.dashVx * speedMul, 0.3);
+    e.vy = lerp(e.vy, e.dashVy * speedMul, 0.3);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'retreat';
+      e.aiTimer = rand(0.5, 0.9);
+    }
+  } else if (e.aiState === 'retreat') {
+    // 撤退并更换侧向
+    e.vx = lerp(e.vx, -ndx * 90 * speedMul, 0.12);
+    e.vy = lerp(e.vy, -ndy * 90 * speedMul, 0.12);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'flank';
+      e.aiTimer = rand(1.0, 2.0);
+      // 换一个方向
+      e.flankAngle = (Math.random() < 0.5 ? 1 : -1) * rand(1.2, 2.2);
+    }
+  }
+}
+
+function aiUpdateBerserker(e, dt, dx, dy, d) {
+  // 狂战士：无状态切换，直冲玩家，血量越低越快
+  const ndx = dx / d, ndy = dy / d;
+  const hpRatio = e.hp / e.maxHp;
+  // 血量越低，速度加成最多 50%
+  const rageMul = 1 + (1 - hpRatio) * 0.55;
+  const speedMul = (e.slow > 0 ? 0.45 : 1) * rageMul;
+  // 微幅度随机摇摆，让轨迹不那么单一
+  const jitter = Math.sin(state.gameTime * 3.5 + e.walkPhase * 2) * 0.3;
+  const perpX = -ndy, perpY = ndx;
+  let mx = ndx + perpX * jitter;
+  let my = ndy + perpY * jitter;
+  const ml = Math.sqrt(mx*mx+my*my)||1;
+  e.vx = lerp(e.vx, mx/ml * e.speed * speedMul, 0.18);
+  e.vy = lerp(e.vy, my/ml * e.speed * speedMul, 0.18);
+  // 狂暴状态视觉提示
+  if (hpRatio < 0.4 && !e.enragePhase) {
+    e.enragePhase = true;
+    state.floatTexts.push({
+      x: e.x, y: e.y - 30,
+      vy: -28, life: 1.2, maxLife: 1.2,
+      text: '狂暴!', color: '#ff3333', size: 18, bold: true,
+      glow: 'rgba(255,50,50,0.9)'
+    });
+    for (let i = 0; i < 12; i++) spawnParticle(e.x, e.y, 'fire', 0);
+  }
+}
+
+function aiUpdateHunter(e, dt, dx, dy, d) {
+  // 猎手：预判玩家移动方向，截击路线
+  const pl = state.player;
+  e.aiTimer -= dt;
+  const speedMul = e.slow > 0 ? 0.45 : 1;
+
+  if (e.aiState === 'predict') {
+    // 计算玩家未来位置（预判 0.5s）
+    const predTime = clamp(d / (e.speed * 2.5), 0.1, 0.7);
+    const predX = pl.x + pl.vx * predTime;
+    const predY = pl.y + pl.vy * predTime;
+    const pdx = predX - e.x, pdy = predY - e.y;
+    const pd = Math.sqrt(pdx*pdx+pdy*pdy)||1;
+    // 外圈包护距离等待
+    const desired = 180;
+    if (d > desired + 30) {
+      e.vx = lerp(e.vx, pdx/pd * e.speed * 1.05 * speedMul, 0.16);
+      e.vy = lerp(e.vy, pdy/pd * e.speed * 1.05 * speedMul, 0.16);
+    } else if (d < desired - 30) {
+      const ndx = dx/d, ndy = dy/d;
+      e.vx = lerp(e.vx, -ndx * 80 * speedMul, 0.12);
+      e.vy = lerp(e.vy, -ndy * 80 * speedMul, 0.12);
+    } else {
+      // 在合适距离内绕圈等待时机
+      const ndx = dx/d, ndy = dy/d;
+      const perpX = -ndy, perpY = ndx;
+      const dir = e.flankAngle > 0 ? 1 : -1;
+      e.vx = lerp(e.vx, perpX * dir * e.speed * 0.9 * speedMul, 0.14);
+      e.vy = lerp(e.vy, perpY * dir * e.speed * 0.9 * speedMul, 0.14);
+    }
+    if (e.aiTimer <= 0 && d < 260) {
+      e.aiState = 'intercept';
+      e.aiTimer = 0.5;
+      const predTime2 = clamp(d / (e.speed * 2.2), 0.08, 0.5);
+      const px = pl.x + pl.vx * predTime2;
+      const py = pl.y + pl.vy * predTime2;
+      const idx = px - e.x, idy = py - e.y;
+      const id = Math.sqrt(idx*idx+idy*idy)||1;
+      e.dashVx = idx/id * e.speed * 3.0;
+      e.dashVy = idy/id * e.speed * 3.0;
+    }
+  } else if (e.aiState === 'intercept') {
+    e.vx = lerp(e.vx, e.dashVx * speedMul, 0.28);
+    e.vy = lerp(e.vy, e.dashVy * speedMul, 0.28);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'predict';
+      e.aiTimer = rand(1.5, 2.8);
+      e.flankAngle = Math.random() < 0.5 ? 1 : -1;
+    }
+  }
+}
+
+function aiUpdateBoss(e, dt, dx, dy, d) {
+  const pl = state.player;
+  e.aiTimer -= dt;
+  const ndx = dx / d, ndy = dy / d;
+  const hpRatio = e.hp / e.maxHp;
+  const speedMul = e.slow > 0 ? 0.45 : 1;
+
+  // 阶段狁暴：血量<50%进入狁暴模式
+  if (hpRatio < 0.5 && !e.enragePhase) {
+    e.enragePhase = true;
+    e.speed *= 1.3;
+    state.floatTexts.push({
+      x: e.x, y: e.y - 60,
+      vy: -25, life: 2.5, maxLife: 2.5,
+      text: `☠ ${e.name} 狁暴! ☠`,
+      color: '#ff0044', size: 22, bold: true,
+      glow: 'rgba(255,0,60,0.95)'
+    });
+    for (let i = 0; i < 25; i++) spawnParticle(e.x, e.y, 'fire', 0);
+    addShake(12, 0.25);
+  }
+
+  // 召唤小兵
+  e.summonCooldown -= dt;
+  if (e.summonCooldown <= 0 && state.enemies.length < 18) {
+    e.summonCooldown = e.enragePhase ? 6 : 10;
+    const count = e.enragePhase ? 2 : 1;
+    for (let i = 0; i < count; i++) spawnEnemy(false);
+    state.floatTexts.push({
+      x: e.x, y: e.y - 45,
+      vy: -22, life: 1.5, maxLife: 1.5,
+      text: '召唤小兵!', color: '#ff8844', size: 16, bold: true,
+      glow: 'rgba(255,100,50,0.8)'
+    });
+  }
+
+  // 移动逻辑：狁暴前绕圈待机，狁暴后直冲
+  if (e.enragePhase) {
+    // 狁暴：直冲 + 周期冲刺
+    if (e.aiState === 'approach') {
+      const jitter = Math.sin(state.gameTime * 2.5 + e.walkPhase) * 0.25;
+      const perpX = -ndy, perpY = ndx;
+      let mx = ndx + perpX * jitter;
+      let my = ndy + perpY * jitter;
+      const ml = Math.sqrt(mx*mx+my*my)||1;
+      e.vx = lerp(e.vx, mx/ml * e.speed * speedMul, 0.14);
+      e.vy = lerp(e.vy, my/ml * e.speed * speedMul, 0.14);
+      if (e.aiTimer <= 0 && d < 350) {
+        e.aiState = 'dash';
+        e.aiTimer = 0.5;
+        const predX = pl.x + pl.vx * 0.2;
+        const predY = pl.y + pl.vy * 0.2;
+        const pdx = predX - e.x, pdy = predY - e.y;
+        const pd = Math.sqrt(pdx*pdx+pdy*pdy)||1;
+        e.dashVx = pdx/pd * e.speed * 2.5;
+        e.dashVy = pdy/pd * e.speed * 2.5;
+      }
+    } else if (e.aiState === 'dash') {
+      e.vx = lerp(e.vx, e.dashVx * speedMul, 0.25);
+      e.vy = lerp(e.vy, e.dashVy * speedMul, 0.25);
+      if (e.aiTimer <= 0) {
+        e.aiState = 'approach';
+        e.aiTimer = rand(0.8, 1.5);
+      }
+    }
+  } else {
+    // 常规：保持中距离绕圈
+    const desired = 160;
+    let moveDir = d > desired + 30 ? 1 : (d < desired - 30 ? -0.4 : 0);
+    const perpX = -ndy, perpY = ndx;
+    const circle = Math.sin(state.gameTime * 0.8 + e.walkPhase) * 0.5;
+    let mx = ndx * moveDir + perpX * circle;
+    let my = ndy * moveDir + perpY * circle;
+    const ml = Math.sqrt(mx*mx+my*my)||1;
+    e.vx = lerp(e.vx, mx/ml * e.speed * speedMul, 0.1);
+    e.vy = lerp(e.vy, my/ml * e.speed * speedMul, 0.1);
+    if (e.aiTimer <= 0) {
+      e.aiState = 'approach';
+      e.aiTimer = rand(2, 4);
+    }
+  }
 }
 
 function updateEnemy(e, dt) {
@@ -894,35 +1229,28 @@ function updateEnemy(e, dt) {
     return;
   }
 
-  // AI 移动
+  // 向玩家方向基础向量
   const dx = state.player.x - e.x;
   const dy = state.player.y - e.y;
   const d = Math.sqrt(dx*dx + dy*dy) + 0.001;
-  const ndx = dx / d, ndy = dy / d;
-  // 敌人想保持在玩家飞刀范围稍外、自己飞刀可击中的距离
-  const desired = 110 + e.knives.length * 4;
-  let moveDir = 1;
-  if (d < desired - 30) moveDir = -0.5;
-  else if (d < desired + 30) moveDir = 0; // 徘徊
-  // 加入一些绕圈
-  const perpX = -ndy, perpY = ndx;
-  const circle = Math.sin(state.gameTime * 0.6 + e.walkPhase) * 0.6;
-  const speedMul = e.slow > 0 ? 0.45 : 1;
-  let mx = ndx * moveDir + perpX * circle;
-  let my = ndy * moveDir + perpY * circle;
-  const mlen = Math.sqrt(mx*mx + my*my) || 1;
-  mx /= mlen; my /= mlen;
 
-  e.vx = lerp(e.vx, mx * e.speed * speedMul, 0.12);
-  e.vy = lerp(e.vy, my * e.speed * speedMul, 0.12);
+  // 根据 archetype 分派 AI
+  switch (e.archetype) {
+    case 'rusher':    aiUpdateRusher(e, dt, dx, dy, d);    break;
+    case 'flanker':   aiUpdateFlanker(e, dt, dx, dy, d);   break;
+    case 'berserker': aiUpdateBerserker(e, dt, dx, dy, d); break;
+    case 'hunter':    aiUpdateHunter(e, dt, dx, dy, d);    break;
+    case 'boss':      aiUpdateBoss(e, dt, dx, dy, d);      break;
+    default:          aiUpdateBerserker(e, dt, dx, dy, d); break;
+  }
 
   // knockback
   e.x += e.vx * dt + e.knockX * dt;
   e.y += e.vy * dt + e.knockY * dt;
-  e.knockX *= 0.85;
-  e.knockY *= 0.85;
+  e.knockX *= 0.82;
+  e.knockY *= 0.82;
 
-  e.facing = Math.atan2(ndy, ndx);
+  e.facing = Math.atan2(dy, dx);
   e.walkPhase += dt * 8;
 
   // update knives
@@ -934,9 +1262,8 @@ function updateEnemy(e, dt) {
     const rr = pl.radius + 5;
     if (kn.globalCooldown > 0) continue;
     if (dist2(kn.x, kn.y, pl.x, pl.y) < rr * rr) {
-      // 命中玩家
       if (pl.damageImmune <= 0) {
-        damagePlayer(kn.type.damage * 0.4); // 敌人伤害降低
+        damagePlayer(kn.type.damage * 0.4);
         kn.globalCooldown = 0.35;
       }
     }
@@ -1458,20 +1785,43 @@ function drawFloatTexts() {
   ctx.textAlign = 'left';
 }
 
+// 敌人类型图标映射
+const ARCHETYPE_ICON = {
+  rusher: '⚔',
+  flanker: '🗡',
+  berserker: '🔥',
+  hunter: '🎯',
+  boss: '☠',
+};
+
 // ============================== 敌人绘制 ==============================
 function drawEnemy(e) {
   if (e.dead) return;
 
+  // 狁暴状态迪光效果
+  if (e.enragePhase) {
+    const pulse = 0.3 + 0.2 * Math.sin(state.gameTime * 8);
+    ctx.save();
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#ff2200';
+    ctx.beginPath();
+    ctx.arc(e.x, e.y, e.radius * 1.6, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
   drawCharacter(ctx, e.x, e.y, e.facing, e.walkPhase, e.color, e.clothColor, e.bodyScale, e.hitFlash);
 
-  // 名字
+  // 名字 + 类型图标
   ctx.textAlign = 'center';
   ctx.font = `${e.isBoss ? 'bold 16px' : (e.isStrong ? 'bold 13px' : '12px')} 'Microsoft YaHei', sans-serif`;
   const ny = e.y - 24 * e.bodyScale;
+  const icon = ARCHETYPE_ICON[e.archetype] || '';
+  const displayName = e.isBoss ? `${icon} ${e.name} ${icon}` : (e.isStrong ? `${icon}${e.name}` : e.name);
   ctx.fillStyle = 'rgba(0,0,0,0.7)';
-  ctx.fillText(e.name, e.x + 1, ny + 1);
+  ctx.fillText(displayName, e.x + 1, ny + 1);
   ctx.fillStyle = e.nameColor;
-  ctx.fillText(e.name, e.x, ny);
+  ctx.fillText(displayName, e.x, ny);
 
   // HP 条
   const bw = e.isBoss ? 80 : 30;
@@ -1482,7 +1832,11 @@ function drawEnemy(e) {
   ctx.fillStyle = '#4a1010';
   ctx.fillRect(e.x - bw/2, by, bw, bh);
   const hpPct = clamp(e.hp / e.maxHp, 0, 1);
-  ctx.fillStyle = e.isBoss ? '#ff3366' : (e.isStrong ? '#ff5555' : '#ff8888');
+  // 狁暴时血条闪烁
+  const hpColor = e.enragePhase
+    ? `hsl(${Math.floor(state.gameTime * 20) % 60},100%,55%)`
+    : (e.isBoss ? '#ff3366' : (e.isStrong ? '#ff5555' : '#ff8888'));
+  ctx.fillStyle = hpColor;
   ctx.fillRect(e.x - bw/2, by, bw * hpPct, bh);
 
   ctx.textAlign = 'left';
