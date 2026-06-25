@@ -5,7 +5,7 @@ import { GameApp } from '../legacy/context.js';
 async function bootHome(mountEl) {
   createServices({ page: 'home' });
   mountEl.textContent = '';
-  await loadTemplates([new URL('../../assets/templates/homeShell.html', import.meta.url).href]);
+  await loadTemplates(['/assets/templates/homeShell.html']);
   mountEl.appendChild(cloneTemplate('tpl-home-shell'));
   await import('../legacy/installHome.js');
   GameApp.HomePage?.init?.();

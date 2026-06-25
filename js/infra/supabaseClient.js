@@ -1,3 +1,4 @@
+import { createClient } from '@supabase/supabase-js';
 import { GameApp as __GameApp } from '../legacy/context.js';
 (() => {
   "use strict";
@@ -20,8 +21,8 @@ import { GameApp as __GameApp } from '../legacy/context.js';
 
   function getSupabaseClient() {
     const config = getSupabaseConfig();
-    if (!supabaseClient && window.supabase && config) {
-      supabaseClient = window.supabase.createClient(config.url, config.publicKey);
+    if (!supabaseClient && config) {
+      supabaseClient = createClient(config.url, config.publicKey);
     }
     return supabaseClient;
   }

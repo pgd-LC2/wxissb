@@ -3,7 +3,7 @@ import { createServices } from '../platform/services.js';
 import { GameSession } from './GameSession.js';
 import { GameApp } from '../legacy/context.js';
 
-const TEMPLATES = [new URL('../../assets/templates/gameShell.html', import.meta.url).href];
+const TEMPLATES = ['/assets/templates/gameShell.html'];
 
 function readEnv() {
   const url = new URL(window.location.href);
