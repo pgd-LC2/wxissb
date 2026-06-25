@@ -5,7 +5,7 @@ import { GameApp } from '../legacy/context.js';
 async function bootLeaderboard(mountEl) {
   createServices({ page: 'leaderboard' });
   mountEl.textContent = '';
-  await loadTemplates(['/assets/templates/leaderboardShell.html']);
+  await loadTemplates(['/templates/leaderboardShell.html']);
   mountEl.appendChild(cloneTemplate('tpl-leaderboard-shell'));
   await import('../legacy/installLeaderboard.js');
   GameApp.LeaderboardPage?.init?.();
