@@ -7,8 +7,8 @@ import { GameApp as __GameApp } from '../legacy/context.js';
 
   const BG_PLAYBACK_RATE = 0.7;
   const BG_VIDEOS = [
-    "/public/background/HomeScreen_CN_OB.mp4",
-    "/public/background/Contract%20Glitches.webm"
+    "/background/HomeScreen_CN_OB.mp4",
+    "/background/Contract%20Glitches.webm"
   ];
 
   let bgVideoIndex = 0;

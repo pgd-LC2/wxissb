@@ -11,7 +11,7 @@ import { GameApp as __GameApp } from './legacy/context.js';
   const PREF_TIME = "bigear_music_time"; // seconds
   const PREF_UNLOCKED = "bigear_music_unlocked"; // "1" = user interacted
 
-  const basePath = "/public/assest/";
+  const basePath = "/assest/";
   const manifestUrl = `${basePath}playlist.json`;
 
   const audio = new Audio();
