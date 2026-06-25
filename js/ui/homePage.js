@@ -62,35 +62,6 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     navigateTo("pages/minecraft/index.html");
   }
 
-  function openFeidao() {
-    playSound && playSound();
-    openModal(
-      '🗡️ 飞刀传奇 · 选择风格',
-      `<div style="display:flex;gap:16px;justify-content:center;padding:8px 0;">
-        <button onclick="window.location.href='pages/feidao/index.html'" style="
-          flex:1;padding:20px 12px;background:linear-gradient(160deg,#1a0a0a,#2a0a0a);
-          border:2px solid #8a2020;border-radius:8px;color:#fff;cursor:pointer;
-          font-family:inherit;transition:all .2s;
-          box-shadow:0 0 18px rgba(180,20,20,0.4);
-        " onmouseover="this.style.borderColor='#ff4444';this.style.boxShadow='0 0 28px rgba(255,40,40,0.7)'" onmouseout="this.style.borderColor='#8a2020';this.style.boxShadow='0 0 18px rgba(180,20,20,0.4)'">
-          <div style="font-size:32px;margin-bottom:10px;">🌑</div>
-          <div style="font-size:17px;font-weight:700;color:#ff6666;letter-spacing:2px;margin-bottom:6px;">A · 暗黑风</div>
-          <div style="font-size:12px;color:#aaa;line-height:1.6;">深渊血月<br>五种差异化敌人<br>吸血·回血·状态机AI</div>
-        </button>
-        <button onclick="window.location.href='pages/feidao2/index.html'" style="
-          flex:1;padding:20px 12px;background:linear-gradient(160deg,#050a1a,#0a1a2a);
-          border:2px solid #2060c0;border-radius:8px;color:#fff;cursor:pointer;
-          font-family:inherit;transition:all .2s;
-          box-shadow:0 0 18px rgba(20,80,200,0.4);
-        " onmouseover="this.style.borderColor='#44aaff';this.style.boxShadow='0 0 28px rgba(40,140,255,0.7)'" onmouseout="this.style.borderColor='#2060c0';this.style.boxShadow='0 0 18px rgba(20,80,200,0.4)'">
-          <div style="font-size:32px;margin-bottom:10px;">⚡</div>
-          <div style="font-size:17px;font-weight:700;color:#66ccff;letter-spacing:2px;margin-bottom:6px;">B · 爽风</div>
-          <div style="font-size:12px;color:#aaa;line-height:1.6;">飞刀狂潮<br>炫酷特效连击<br>全新视觉体验</div>
-        </button>
-      </div>`
-    );
-  }
-
   function showLeaderboard() {
     playSound();
     navigateTo("pages/leaderboard.html");
@@ -309,14 +280,12 @@ import { GameApp as __GameApp } from '../legacy/context.js';
     const leaderboardBtn = getById("leaderboardBtn");
     const settingsBtn = getById("settingsBtn");
     const minecraftBtn = getById("minecraftBtn");
-    const feidaoBtn = getById("feidaoBtn");
     const modalCloseBtn = getById("modalCloseBtn");
 
     if (startBtn) startBtn.addEventListener("click", startGame);
     if (leaderboardBtn) leaderboardBtn.addEventListener("click", showLeaderboard);
     if (settingsBtn) settingsBtn.addEventListener("click", showSettings);
     if (minecraftBtn) minecraftBtn.addEventListener("click", openMinecraft);
-    if (feidaoBtn) feidaoBtn.addEventListener("click", openFeidao);
     if (modalCloseBtn) modalCloseBtn.addEventListener("click", closeModal);
 
     if (entryGate) {
