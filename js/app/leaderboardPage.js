@@ -1,9 +1,7 @@
 import { loadTemplates, cloneTemplate } from '../ui/runtime/mount.js';
-import { createServices } from '../platform/services.js';
 import { GameApp } from '../legacy/context.js';
 
 async function bootLeaderboard(mountEl) {
-  createServices({ page: 'leaderboard' });
   mountEl.textContent = '';
   await loadTemplates(['/templates/leaderboardShell.html']);
   mountEl.appendChild(cloneTemplate('tpl-leaderboard-shell'));
@@ -12,5 +10,5 @@ async function bootLeaderboard(mountEl) {
 }
 
 bootLeaderboard(document.getElementById('app')).catch((error) => {
-  console.error('排行榜页面启动失败', error);
+  console.error('排行榜页面加载失败', error);
 });
