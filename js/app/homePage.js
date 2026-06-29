@@ -1,9 +1,7 @@
 import { loadTemplates, cloneTemplate } from '../ui/runtime/mount.js';
-import { createServices } from '../platform/services.js';
 import { GameApp } from '../legacy/context.js';
 
 async function bootHome(mountEl) {
-  createServices({ page: 'home' });
   mountEl.textContent = '';
   await loadTemplates(['/templates/homeShell.html']);
   mountEl.appendChild(cloneTemplate('tpl-home-shell'));
@@ -12,5 +10,5 @@ async function bootHome(mountEl) {
 }
 
 bootHome(document.getElementById('app')).catch((error) => {
-  console.error('主页启动失败', error);
+  console.error('主页加载失败', error);
 });
